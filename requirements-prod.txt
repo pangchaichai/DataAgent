@@ -1,0 +1,10 @@
+# DataAgent Windows 生产环境依赖
+# 安装命令（在 Windows 上执行）：pip install -r requirements-prod.txt
+
+# 包含 requirements-dev.txt 的全部内容，额外增加 Windows 专属库
+-r requirements-dev.txt
+
+# ── Windows 专属库 ────────────────────────────────────────
+pywebview==4.3.3       # 原生窗口
+winotify==1.1.0        # Windows toast 通知
+pyinstaller==6.6.0     # 打包为 .exe

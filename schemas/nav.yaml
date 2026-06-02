@@ -1,0 +1,37 @@
+# 净值结果管理表 Schema
+table_type: nav
+encoding: auto  # 样本文件为 GB18030
+join_keys:
+  to_holding: 产品名称
+
+core_fields:
+  - name: 产品名称
+    type: str
+    desc: 理财产品名称
+  - name: 估值日期
+    type: date
+    desc: 净值计算日期
+  - name: 单位净值
+    type: float
+    desc: 当日单位净值
+  - name: 当前周期年化收益率(%)
+    type: float
+    desc: 本报告期年化收益率
+    quote: true
+  - name: 近1月年化收益率(%)
+    type: float
+    quote: true
+  - name: 近3月年化收益率(%)
+    type: float
+    quote: true
+  - name: 本季度最大回撤(%)
+    type: float
+    quote: true
+  - name: 久期(年)
+    type: float
+    quote: true
+  - name: 杠杆率
+    type: float
+  - name: 业绩比较基准(%)
+    type: float
+    quote: true

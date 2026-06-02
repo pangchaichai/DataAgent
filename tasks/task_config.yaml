@@ -1,0 +1,64 @@
+# DataAgent 定时任务配置文件
+# ============================================================
+# 说明：本文件由业务管理员配置，无需修改任何代码
+# 配置后重启 DataAgent 即生效
+# ============================================================
+
+tasks:
+
+  # 任务1：主体集中度日常监控
+  - name: 主体集中度超标监控
+    skill: concentration_monitor          # 调用的业务技能名称
+    schedule: daily_08:30                 # 每天08:30执行
+    params:
+      monitor_type: 主体集中度            # 监控类型
+      threshold_field: 主体集中度         # 超标字段名（与数据表字段一致）
+      threshold_value: 10.0              # 超标阈值（%），超过此值触发提示
+      data_source_type: holding          # 数据来源类型（与schema类型对应）
+    notify:
+      mode: popup                        # 通知方式：popup（弹窗）/ chat（聊天消息）
+      message_template: |
+        ⚠️ 主体集中度超标提醒
+        产品：{product_name}
+        超标主体：{entity_name}，集中度：{concentration_value}%（限额：{threshold}%）
+        数据日期：{data_date}
+        建议：请尽快核查并调整持仓
+
+  # 任务2：单券集中度日常监控
+  - name: 单券集中度超标监控
+    skill: concentration_monitor
+    schedule: daily_08:45
+    params:
+      monitor_type: 单券集中度
+      threshold_field: 单券集中度
+      threshold_value: 10.0
+      data_source_type: holding
+    notify:
+      mode: chat
+      message_template: |
+        ⚠️ 单券集中度超标提醒
+        产品：{product_name}，债券：{bond_name}
+        当前集中度：{concentration_value}%（限额：{threshold}%）
+        数据日期：{data_date}
+
+  # 任务3：部门周报（每周五下午生成）
+  - name: 投资部门周报
+    skill: dept_weekly_report
+    schedule: weekly_friday_16:00        # 每周五16:00
+    params:
+      data_source_type: holding
+      output_format: markdown
+    notify:
+      mode: chat
+      message_template: "📊 本周投资报告已生成，请查收：{output_path}"
+
+# ============================================================
+# schedule 格式说明：
+#   daily_HH:MM          每天指定时间执行
+#   weekly_weekday_HH:MM 每周指定星期和时间（monday/tuesday/.../friday/saturday/sunday）
+#   monthly_DD_HH:MM     每月指定日期（DD为日期，如01代表每月1日）
+#
+# notify.mode 说明：
+#   popup  → Windows 系统通知弹窗（即使 DataAgent 窗口最小化也能看到）
+#   chat   → 在 DataAgent 聊天界面推送消息
+# ============================================================

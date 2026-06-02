@@ -1,0 +1,85 @@
+table_type: nav
+description: 理财产品净值及收益率明细表
+encoding: auto
+join_keys:
+  to_holding:
+    semantic: 产品名称
+    physical_candidates:
+    - 产品简称
+    - 产品代码
+    - 产品名称
+    note: 关联持仓表的关键。C-07：需与持仓表产品名称字段值完全一致
+fields:
+- semantic: 产品代码
+  physical_candidates:
+  - 产品代码
+  dtype: str
+  required: true
+- semantic: 产品名称
+  physical_candidates:
+  - 产品简称
+  - 产品名称
+  dtype: str
+  required: true
+- semantic: 产品类型
+  physical_candidates:
+  - 产品类型
+  - 款型简称
+  dtype: str
+- semantic: 估值日期
+  physical_candidates:
+  - 估值日期
+  dtype: date
+  required: true
+- semantic: 单位净值
+  physical_candidates:
+  - 单位净值/万份收益(公布)
+  - 单位净值/万份收益(系统)
+  - 单位净值
+  dtype: float
+  compliance_use: true
+- semantic: 累计单位净值
+  physical_candidates:
+  - 累计单位净值(公布)
+  - 累计净值(系统)
+  dtype: float
+- semantic: 产品总资产
+  physical_candidates:
+  - 产品总资产(公布)
+  - 产品总资产(系统)
+  dtype: float
+  compliance_use: true
+- semantic: 产品净资产
+  physical_candidates:
+  - 产品净资产(公布)
+  - 产品净资产(系统)
+  dtype: float
+- semantic: 七日年化收益率
+  physical_candidates:
+  - 七日年化收益率(公布)%
+  - 七日年化收益率(系统)%
+  dtype: float
+- semantic: 近1月年化收益率
+  physical_candidates:
+  - 近1月年化收益率(%)
+  dtype: float
+- semantic: 近3月年化收益率
+  physical_candidates:
+  - 近3月年化收益率(%)
+  dtype: float
+- semantic: 近1年收益率
+  physical_candidates:
+  - 近1年收益率(%)
+  dtype: float
+- semantic: 今年以来收益率
+  physical_candidates:
+  - 今年以来收益率(%)
+  dtype: float
+- semantic: 成立以来收益率
+  physical_candidates:
+  - 成立以来收益率(%)
+  dtype: float
+teams:
+- 投资团队
+team_notes:
+  投资团队: 净值结果管理*.csv（41列）

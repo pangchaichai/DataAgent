@@ -1,0 +1,105 @@
+table_type: rating_entity
+description: 发债主体信用评级及限额信息表
+encoding: auto
+join_keys:
+  to_holding:
+    semantic: 主体名称
+    physical_candidates:
+    - 企业名称
+    - 主体名称
+    note: 关联持仓表的「限额占用主体_标准」（归一后），需经过实体归一处理
+fields:
+- semantic: 主体名称
+  physical_candidates:
+  - 企业名称
+  - 主体名称
+  - 发行人
+  dtype: str
+  required: true
+- semantic: 企业性质
+  physical_candidates:
+  - 企业性质
+  dtype: str
+- semantic: 行业
+  physical_candidates:
+  - 行业分组
+  - 研究部行业
+  - 风险部行业
+  dtype: str
+- semantic: 所在省份
+  physical_candidates:
+  - 所在省份
+  dtype: str
+- semantic: 内部评级
+  physical_candidates:
+  - 内部评级结果
+  dtype: str
+  required: true
+- semantic: 外部评级
+  physical_candidates:
+  - 外部评级
+  dtype: str
+- semantic: 外部展望
+  physical_candidates:
+  - 外部展望
+  dtype: str
+- semantic: 评级机构
+  physical_candidates:
+  - 评级机构
+  dtype: str
+- semantic: 评级生效日
+  physical_candidates:
+  - 评级生效日
+  dtype: date
+- semantic: 评级到期日
+  physical_candidates:
+  - 评级到期日
+  dtype: date
+- semantic: 预警等级
+  physical_candidates:
+  - 预警等级
+  dtype: str
+- semantic: 主体限额
+  physical_candidates:
+  - 主体限额
+  - 理财限额
+  dtype: float
+  compliance_use: true
+- semantic: 理财限额
+  physical_candidates:
+  - 理财限额
+  dtype: float
+  compliance_use: true
+- semantic: 已占用限额
+  physical_candidates:
+  - 已占用限额
+  dtype: float
+  compliance_use: true
+- semantic: 剩余可用限额
+  physical_candidates:
+  - 剩余可用限额
+  dtype: float
+  compliance_use: true
+- semantic: 全穿透持仓金额
+  physical_candidates:
+  - 全穿透持仓金额
+  dtype: float
+  compliance_use: true
+- semantic: 半穿透持仓金额
+  physical_candidates:
+  - 半穿透持仓金额
+  dtype: float
+- semantic: 未穿透持仓金额
+  physical_candidates:
+  - 未穿透持仓金额
+  dtype: float
+- semantic: 五级分类
+  physical_candidates:
+  - 五级分类
+  dtype: str
+teams:
+- 研究员
+- 投资团队
+team_notes:
+  研究员: 主体评级结果20260525.csv（66列，含穿透持仓/限额自动压降）
+  投资团队: 评级结果202605150839.csv（39列，限额列含（亿元）后缀）

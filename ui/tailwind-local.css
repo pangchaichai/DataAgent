@@ -1,0 +1,266 @@
+/* DataAgent 本地样式 — 替代 Tailwind CDN */
+/* 暗色主题，所有颜色确保可读性 */
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  Reset + 全局                                                   */
+/* ═══════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  颜色变量                                                       */
+/* ═══════════════════════════════════════════════════════════ */
+:root{
+  --surface: #1a1a2e;
+  --panel: #16213e;
+  --accent: #0f3460;
+  --highlight: #e94560;
+  --muted: #a0a0b0;
+  --text: #e8e8f0;
+  --text-dim: #ccc;
+  --border: #334;
+  --border-light: rgba(255,255,255,0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  背景色                                                        */
+/* ═══════════════════════════════════════════════════════════ */
+.bg-surface{background:var(--surface);color:var(--text)}
+.bg-panel{background:var(--panel);color:var(--text)}
+.bg-highlight{background:var(--highlight);color:#fff}
+.bg-accent{background:var(--accent);color:#fff}
+.bg-accent\/30{background:rgba(15,52,96,0.3)}
+.bg-white\/3{background:rgba(255,255,255,0.03)}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  Flex 布局                                                     */
+/* ═══════════════════════════════════════════════════════════ */
+.flex{display:flex}
+.flex-col{flex-direction:column}
+.flex-1{flex:1 1 0%}
+.flex-shrink-0{flex-shrink:0}
+.flex-wrap{flex-wrap:wrap}
+.items-center{align-items:center}
+.items-start{align-items:flex-start}
+.justify-center{justify-content:center}
+.justify-end{justify-content:flex-end}
+.min-w-0{min-width:0}
+.gap-1{gap:0.25rem}
+.gap-1\.5{gap:0.375rem}
+.gap-2{gap:0.5rem}
+.gap-4{gap:1rem}
+.space-y-3 > * + *{margin-top:0.75rem}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  宽高                                                          */
+/* ═══════════════════════════════════════════════════════════ */
+.h-7{height:1.75rem}
+.h-screen{height:100vh}
+.h-full{height:100%}
+.w-full{width:100%}
+.w-\[190px\]{width:190px}
+.max-w-3xl{max-width:48rem}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  间距 Padding / Margin                                        */
+/* ═══════════════════════════════════════════════════════════ */
+.p-3{padding:0.75rem}
+.p-4{padding:1rem}
+.px-1{padding-left:0.25rem;padding-right:0.25rem}
+.px-2{padding-left:0.5rem;padding-right:0.5rem}
+.px-3{padding-left:0.75rem;padding-right:0.75rem}
+.px-4{padding-left:1rem;padding-right:1rem}
+.px-5{padding-left:1.25rem;padding-right:1.25rem}
+.py-1{padding-top:0.25rem;padding-bottom:0.25rem}
+.py-1\.5{padding-top:0.375rem;padding-bottom:0.375rem}
+.py-2{padding-top:0.5rem;padding-bottom:0.5rem}
+.py-2\.5{padding-top:0.625rem;padding-bottom:0.625rem}
+.py-3{padding-top:0.75rem;padding-bottom:0.75rem}
+.pb-3{padding-bottom:0.75rem}
+.pt-2{padding-top:0.5rem}
+.pl-4{padding-left:1rem}
+.pr-4{padding-right:1rem}
+.m-0{margin:0}
+.mb-1{margin-bottom:0.25rem}
+.mb-2{margin-bottom:0.5rem}
+.mt-1{margin-top:0.25rem}
+.mt-1\.5{margin-top:0.375rem}
+.mt-2{margin-top:0.5rem}
+.mr-1{margin-right:0.25rem}
+.ml-1{margin-left:0.25rem}
+.ml-auto{margin-left:auto}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  文字                                                          */
+/* ═══════════════════════════════════════════════════════════ */
+.text-xs{font-size:0.75rem;line-height:1rem}
+.text-sm{font-size:0.875rem;line-height:1.25rem}
+.text-base{font-size:1rem;line-height:1.5rem}
+.text-lg{font-size:1.125rem}
+.font-medium{font-weight:500}
+.font-bold{font-weight:700}
+.text-white{color:#fff}
+.text-gray-200{color:var(--text)}
+.text-gray-400{color:#9ca3af}
+.text-gray-500{color:#6b7280}
+.text-gray-600{color:#4b5563}
+.text-red-400{color:#f87171}
+.text-green-400{color:#4ade80}
+.text-blue-400{color:#60a5fa}
+.text-muted{color:var(--muted)}
+.italic{font-style:italic}
+.leading-relaxed{line-height:1.625}
+.tracking-wide{letter-spacing:0.025em}
+.text-center{text-align:center}
+.text-left{text-align:left}
+.text-right{text-align:right}
+.whitespace-nowrap{white-space:nowrap}
+.break-words{word-wrap:break-word}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  边框 + 圆角                                                   */
+/* ═══════════════════════════════════════════════════════════ */
+.border{border-width:1px}
+.border-b{border-bottom-width:1px}
+.border-t{border-top-width:1px}
+.border-r{border-right-width:1px}
+.border-collapse{border-collapse:collapse}
+.border-gray-500{border-color:#6b7280}
+.border-gray-600{border-color:#4b5563}
+.border-gray-700{border-color:var(--border)}
+.border-gray-700\/50{border-color:rgba(55,65,81,0.5)}
+.border-gray-800\/50{border-color:rgba(31,41,55,0.5)}
+.border-accent{border-color:var(--accent)}
+.border-dashed{border-style:dashed}
+.rounded-sm{border-radius:0.125rem}
+.rounded{border-radius:0.25rem}
+.rounded-md{border-radius:0.375rem}
+.rounded-lg{border-radius:0.5rem}
+.rounded-xl{border-radius:0.75rem}
+.rounded-2xl{border-radius:1rem}
+.rounded-full{border-radius:9999px}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  溢出 + 滚动                                                    */
+/* ═══════════════════════════════════════════════════════════ */
+.overflow-hidden{overflow:hidden}
+.overflow-y-auto{overflow-y:auto}
+.overflow-x-auto{overflow-x:auto}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  交互                                                          */
+/* ═══════════════════════════════════════════════════════════ */
+.cursor-pointer{cursor:pointer}
+.select-none{user-select:none}
+.resize-none{resize:none}
+.hidden{display:none}
+.relative{position:relative}
+.absolute{position:absolute}
+.fixed{position:fixed}
+.inset-0{top:0;right:0;bottom:0;left:0}
+.z-10{z-index:10}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  阴影                                                          */
+/* ═══════════════════════════════════════════════════════════ */
+.shadow-sm{box-shadow:0 1px 2px rgba(0,0,0,0.3)}
+.shadow-md{box-shadow:0 4px 6px rgba(0,0,0,0.3)}
+.shadow-lg{box-shadow:0 10px 15px rgba(0,0,0,0.3)}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  过渡 + 动画                                                   */
+/* ═══════════════════════════════════════════════════════════ */
+.transition-colors{transition:color 0.15s,background-color 0.15s,border-color 0.15s}
+.transition-all{transition:all 0.15s}
+.duration-200{transition-duration:0.2s}
+.animate-pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  focus                                                          */
+/* ═══════════════════════════════════════════════════════════ */
+.focus\:outline-none:focus{outline:none}
+.focus\:border-accent:focus{border-color:var(--accent)}
+.focus\:ring-1:focus{box-shadow:0 0 0 1px rgba(233,69,96,0.3)}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  hover                                                          */
+/* ═══════════════════════════════════════════════════════════ */
+.hover\:border-accent:hover{border-color:var(--accent)}
+.hover\:text-white:hover{color:#fff}
+.hover\:bg-red-500:hover{background:#ef4444}
+
+/* ═══════════════════════════════════════════════════════════ */
+/*  自定义组件样式                                                */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* -- 聊天消息气泡 -- */
+.msg-bubble{max-width:85%;word-wrap:break-word}
+.message-user .msg-bubble{background:var(--accent);color:var(--text)}
+.message-system .msg-bubble{background:#1e1e3a;color:#d0d0e0}
+.message-error .msg-bubble{background:#3a1a1a;color:#fca5a5;border:1px solid #662222}
+
+/* -- 工具卡片 -- */
+.tool-exec-card{
+  background:#14142a;border-radius:8px;padding:12px 16px;
+  margin:8px 0;font-size:13px;border-left:3px solid var(--highlight);
+}
+.tool-exec-card .sql-block{
+  background:#0a0a1a;padding:8px 12px;border-radius:4px;
+  font-family:'Fira Code','Cascadia Code',monospace;
+  font-size:12px;color:#8ab4f8;overflow-x:auto;
+  white-space:pre-wrap;max-height:120px;overflow-y:auto;
+}
+
+/* -- 结果表格 -- */
+.result-table{width:100%;border-collapse:collapse;font-size:13px}
+.result-table th{text-align:left;padding:4px 8px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:500}
+.result-table td{padding:4px 8px;border-bottom:1px solid rgba(255,255,255,0.05);color:var(--text)}
+.result-table tr:nth-child(even){background:rgba(255,255,255,0.02)}
+
+/* -- 侧边栏 -- */
+.sidebar-section{margin-bottom:16px}
+.sidebar-section-title{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#666;margin-bottom:6px;padding-left:2px}
+.sidebar-item{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;font-size:13px;color:#bbb;cursor:pointer}
+.sidebar-item:hover{background:#1e1e3a;color:#fff}
+.sidebar-item .badge{font-size:10px;background:var(--accent);color:#8ab4f8;padding:1px 6px;border-radius:8px;margin-left:auto}
+
+/* -- 快捷按钮 -- */
+.quick-btn{
+  padding:6px 14px;font-size:13px;border-radius:16px;
+  border:1px solid var(--border);background:var(--panel);color:var(--text-dim);
+  cursor:pointer;white-space:nowrap;transition:all 0.15s;
+}
+.quick-btn:hover{background:var(--accent);color:#fff;border-color:var(--highlight)}
+
+/* -- @mention -- */
+.mention-popup{
+  position:absolute;bottom:100%;left:0;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:8px;max-height:180px;overflow-y:auto;
+  display:none;z-index:100;min-width:200px;
+  box-shadow:0 -4px 16px rgba(0,0,0,0.4);
+}
+.mention-popup.show{display:block}
+.mention-item{padding:6px 12px;cursor:pointer;font-size:13px;color:var(--text-dim);border-bottom:1px solid #1e1e3a}
+.mention-item:hover{background:var(--accent);color:#fff}
+.mention-item .table-rows{font-size:11px;color:#888;margin-left:8px}
+
+/* -- 状态栏点 -- */
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.status-dot.online{background:#4ade80}
+.status-dot.offline{background:#f87171}
+.status-dot.pending{background:#fbbf24}
+
+/* -- 滚动条 -- */
+.scrollbar-thin::-webkit-scrollbar{width:5px}
+.scrollbar-thin::-webkit-scrollbar-thumb{background:#3a3a5c;border-radius:3px}
+.scrollbar-thin::-webkit-scrollbar-track{background:transparent}
+
+/* -- 动画 -- */
+.fade-in{animation:fadeIn 0.25s ease-out}
+
+/* -- code 标签 -- */
+code{background:var(--accent);padding:0 4px;border-radius:3px;color:#fff;font-size:0.85em}

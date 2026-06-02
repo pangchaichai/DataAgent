@@ -1,0 +1,138 @@
+table_type: rating_bond
+description: 在存续债券评级明细表
+encoding: auto
+join_keys:
+  to_holding:
+    semantic: 资产代码
+    physical_candidates:
+    - 债券代码
+    - 资产代码
+    note: 关联持仓表的「资产代码」
+  to_rating_entity:
+    semantic: 主体名称
+    physical_candidates:
+    - 限额占用主体
+    - 评级主体
+    - 主体名称
+    note: 关联主体评级表的「主体名称」，需经过实体归一处理
+fields:
+- semantic: 债券代码
+  physical_candidates:
+  - 债券代码
+  - 资产代码
+  dtype: str
+  required: true
+- semantic: 债券简称
+  physical_candidates:
+  - 债券简称
+  dtype: str
+- semantic: 评级主体
+  physical_candidates:
+  - 评级主体
+  - 限额占用主体
+  dtype: str
+- semantic: 限额占用主体
+  physical_candidates:
+  - 限额占用主体
+  - 评级主体
+  dtype: str
+- semantic: 债券类型
+  physical_candidates:
+  - 债券类型
+  dtype: str
+- semantic: 内部评级
+  physical_candidates:
+  - 内部评级结果
+  dtype: str
+  required: true
+- semantic: 主体外部评级
+  physical_candidates:
+  - 主体外评结果
+  - 评级主体内评
+  dtype: str
+- semantic: 评级展望
+  physical_candidates:
+  - 评级展望
+  dtype: str
+- semantic: 评级有效期
+  physical_candidates:
+  - 评级有效期
+  dtype: date
+- semantic: 评级到期日
+  physical_candidates:
+  - 评级到期日
+  dtype: date
+- semantic: 起息日
+  physical_candidates:
+  - 起息日
+  dtype: date
+- semantic: 到期日
+  physical_candidates:
+  - 到期日
+  dtype: date
+- semantic: 剩余期限
+  physical_candidates:
+  - 剩余期限
+  - 剩余期限(计算)
+  dtype: float
+- semantic: 债券余额
+  physical_candidates:
+  - 债券余额（亿）
+  - 债券余额(亿)
+  - 债券余额
+  dtype: float
+- semantic: 发行规模
+  physical_candidates:
+  - 发行规模(亿)
+  - 发行规模（亿）
+  dtype: float
+- semantic: 持仓金额
+  physical_candidates:
+  - 持仓金额(万)
+  - 持仓金额（万）
+  dtype: float
+- semantic: 中债估值
+  physical_candidates:
+  - 中债估值-行权
+  - 中债估值-到期
+  dtype: float
+- semantic: 是否实质违约
+  physical_candidates:
+  - 是否实质违约
+  dtype: str
+- semantic: 担保人
+  physical_candidates:
+  - 担保人
+  dtype: str
+- semantic: 含权类型
+  physical_candidates:
+  - 含权类型
+  dtype: str
+- semantic: 所属部门库
+  physical_candidates:
+  - 所属部门库
+  dtype: str
+  team: 投资团队
+- semantic: 审批有效期
+  physical_candidates:
+  - 审批有效期(年)
+  - 审批有效期
+  dtype: float
+  team: 投资团队
+- semantic: 剩余额度
+  physical_candidates:
+  - 剩余额度（亿元）
+  - 剩余额度(亿元)
+  dtype: float
+  team: 投资团队
+- semantic: 流程审批状态
+  physical_candidates:
+  - 流程审批状态
+  dtype: str
+  team: 投资团队
+teams:
+- 研究员
+- 投资团队
+team_notes:
+  研究员: 债券评级结果20260525.csv（42列）
+  投资团队: 投资债券评级结果202605150840.csv（42列，含所属部门库/审批有效期等）

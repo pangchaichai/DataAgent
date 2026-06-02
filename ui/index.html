@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataAgent</title>
+
+<!-- Local CSS (offline, no CDN dependency) -->
+<link rel="stylesheet" href="/static/tailwind-local.css">
+<!-- Local ECharts -->
+<script src="/static/echarts.min.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+  .msg-bubble { max-width: 85%; word-wrap: break-word; }
+  .tool-card { border-left: 3px solid #e94560; }
+  .scrollbar-thin::-webkit-scrollbar { width: 5px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #3a3a5c; border-radius: 3px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+
+  /* @mention 弹出列表 */
+  .mention-popup {
+    position: absolute; bottom: 100%; left: 0;
+    background: #16213e; border: 1px solid #334;
+    border-radius: 8px; max-height: 180px; overflow-y: auto;
+    display: none; z-index: 100; min-width: 200px;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.4);
+  }
+  .mention-popup.show { display: block; }
+  .mention-item {
+    padding: 6px 12px; cursor: pointer; font-size: 13px;
+    color: #ccc; border-bottom: 1px solid #1e1e3a;
+  }
+  .mention-item:hover { background: #0f3460; color: #fff; }
+  .mention-item .table-rows { font-size: 11px; color: #888; margin-left: 8px; }
+
+  /* 快捷按钮 */
+  .quick-btn {
+    padding: 6px 14px; font-size: 13px; border-radius: 16px;
+    border: 1px solid #334; background: #16213e; color: #ccc;
+    cursor: pointer; white-space: nowrap; transition: all 0.15s;
+  }
+  .quick-btn:hover { background: #0f3460; color: #fff; border-color: #e94560; }
+
+  /* 侧边栏区块 */
+  .sidebar-section { margin-bottom: 16px; }
+  .sidebar-section-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: #666; margin-bottom: 6px; padding-left: 2px;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; border-radius: 6px; font-size: 13px;
+    color: #bbb; cursor: pointer;
+  }
+  .sidebar-item:hover { background: #1e1e3a; color: #fff; }
+  .sidebar-item .badge {
+    font-size: 10px; background: #0f3460; color: #8ab4f8;
+    padding: 1px 6px; border-radius: 8px; margin-left: auto;
+  }
+
+  /* 状态栏 */
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .status-dot.online { background: #4ade80; }
+  .status-dot.offline { background: #f87171; }
+  .status-dot.pending { background: #fbbf24; }
+
+  /* 消息区 */
+  .message-user { justify-content: flex-end; }
+  .message-system { justify-content: flex-start; }
+  .message-user .msg-bubble { background: #0f3460; color: #e8e8f0; }
+  .message-system .msg-bubble { background: #1e1e3a; color: #d0d0e0; }
+  .message-error .msg-bubble { background: #3a1a1a; color: #fca5a5; border: 1px solid #662222; }
+
+  /* 工具卡片 */
+  .tool-exec-card {
+    background: #14142a; border-radius: 8px; padding: 12px 16px;
+    margin: 8px 0; font-size: 13px;
+  }
+  .tool-exec-card .sql-block {
+    background: #0a0a1a; padding: 8px 12px; border-radius: 4px;
+    font-family: 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px; color: #8ab4f8; overflow-x: auto;
+    white-space: pre-wrap; max-height: 120px; overflow-y: auto;
+  }
+
+  /* 动画 */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.25s ease-out; }
+</style>
+</head>
+
+<body class="bg-surface text-gray-200 h-screen flex flex-col">
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--  主内容区：侧边栏 + 聊天                                         -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- ── 左侧边栏 190px ──────────────────────────────────────── -->
+    <aside id="sidebar" class="w-[190px] bg-panel border-r border-gray-700/50 flex flex-col flex-shrink-0 select-none">
+      <div class="p-3 border-b border-gray-700/50">
+        <h1 class="text-base font-bold text-white tracking-wide">📊 DataAgent</h1>
+      </div>
+      <nav class="flex-1 overflow-y-auto scrollbar-thin p-3">
+
+        <!-- 已加载数据区 -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">📁 已加载数据</div>
+          <div id="sidebar-tables">
+            <div class="sidebar-item text-muted text-xs italic">暂无数据表</div>
+          </div>
+        </div>
+
+        <!-- 集团系区 -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">🏢 集团系</div>
+          <div id="sidebar-groups" class="sidebar-item text-muted text-xs italic">暂无定义</div>
+        </div>
+
+        <!-- Skills区 -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">⚡ Skills</div>
+          <div id="sidebar-skills">
+            <!-- 动态填充 -->
+          </div>
+        </div>
+      </nav>
+
+      <!-- 侧边栏底部：数据上传按钮 -->
+      <div class="p-3 border-t border-gray-700/50">
+        <label for="file-upload" class="flex items-center justify-center gap-1.5 w-full
+               py-2 px-3 rounded-lg text-xs text-muted border border-dashed border-gray-600
+               hover:border-accent hover:text-white cursor-pointer transition-colors">
+          <span>📤</span> 上传数据文件
+        </label>
+        <input id="file-upload" type="file" accept=".csv,.xlsx" multiple class="hidden"
+               onchange="handleFileUpload(event)">
+      </div>
+    </aside>
+
+    <!-- ── 右侧主聊天区 ───────────────────────────────────────── -->
+    <main class="flex-1 flex flex-col min-w-0">
+
+      <!-- 消息列表 + 工具卡片 -->
+      <div id="chat-messages" class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
+        <!-- 欢迎消息 -->
+        <div class="flex items-start gap-2 fade-in">
+          <div class="msg-bubble bg-panel text-sm px-4 py-3 rounded-xl">
+            <p class="font-medium mb-1">👋 你好，我是 DataAgent</p>
+            <p class="text-muted text-xs leading-relaxed">
+              你可以用中文对话方式查询持仓数据、生成报告、检查合规指标。<br>
+              试试输入 <code class="bg-accent/30 px-1 rounded text-white">@表名</code> 指定数据源，
+              或直接提问如「查一下XX产品的持仓情况」。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 工具执行卡片区 -->
+      <div id="tool-cards" class="px-4"></div>
+
+      <!-- 快捷按钮行 -->
+      <div id="quick-actions" class="flex gap-2 px-4 py-2 overflow-x-auto scrollbar-thin">
+        <button class="quick-btn" onclick="sendQuick('查一下当前各产品的持仓情况')">📋 查持仓</button>
+        <button class="quick-btn" onclick="sendQuick('生成产品运作报告')">📄 运作报告</button>
+        <button class="quick-btn" onclick="sendQuick('生成参谈要点报告')">🎯 参谈要点</button>
+        <button class="quick-btn" onclick="sendQuick('检查主体集中度是否超标')">⚠️ 集中度监控</button>
+        <button class="quick-btn" onclick="sendQuick('按资产类型统计持仓分布')">📊 分类统计</button>
+      </div>
+
+      <!-- 输入框区域 -->
+      <div class="relative px-4 pb-3 pt-2 border-t border-gray-700/50">
+        <!-- @mention 弹出列表 -->
+        <div id="mention-popup" class="mention-popup"></div>
+        <div class="flex gap-2">
+          <textarea id="chat-input"
+                    class="flex-1 bg-panel border border-gray-600 rounded-xl px-4 py-2.5
+                           text-sm text-gray-200 placeholder-gray-500 resize-none
+                           focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30
+                           scrollbar-thin"
+                    rows="2" placeholder="输入查询指令，用 @表名 指定数据源...&#10;Enter 发送，Shift+Enter 换行"
+                    onkeydown="handleInputKeydown(event)"
+                    oninput="handleMentionInput(event)"></textarea>
+          <button id="send-btn"
+                  class="px-5 py-2.5 bg-highlight hover:bg-red-500 rounded-xl text-white text-sm
+                         font-medium transition-colors flex-shrink-0"
+                  onclick="sendMessage()">
+            发送
+          </button>
+        </div>
+        <p class="text-xs text-gray-600 mt-1.5 ml-1">Enter 发送 · Shift+Enter 换行 · @ 指定数据表</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--  底部状态栏                                                       -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <footer class="h-7 bg-panel border-t border-gray-700/50 flex items-center px-4 gap-4
+                  text-xs text-muted flex-shrink-0 select-none">
+    <span id="status-llm">
+      <span class="status-dot offline mr-1"></span> LLM 未连接
+    </span>
+    <span class="text-gray-600">|</span>
+    <span id="status-tables">📁 0 表</span>
+    <span class="text-gray-600">|</span>
+    <span id="status-turns">💬 轮数 0/15</span>
+    <span class="text-gray-600">|</span>
+    <span id="status-memory">🧠 -- MB</span>
+    <span class="flex-1"></span>
+    <span id="status-clock" class="text-gray-500"></span>
+  </footer>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!--  JavaScript — 核心交互逻辑                                       -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <script>
+  // ── 全局状态 ──────────────────────────────────────────────────
+  const state = {
+    loadedTables: [],      // [{name, rows, cols, date}]
+    groups: [],            // [{name, members}]
+    skills: [],            // [{name, description}]
+    conversationTurn: 0,
+    llmConnected: false,
+  };
+
+  // ── ★ ECharts 后置渲染机制 ★ ─────────────────────────────────
+  const pendingCharts = [];
+
+  function renderStreamChunk(chunk) {
+    /*
+     * chunk = { type: 'text'|'table'|'chart'|'tool_start'|'tool_end'|'error', data: ... }
+     * 文本直接显示，chart 加入 pendingCharts 队列
+     * stream_end 事件触发时统一 echarts.init() 所有待渲染图表
+     */
+    switch (chunk.type) {
+      case 'chart':
+        if (chunk.data) pendingCharts.push(chunk.data);
+        break;
+      case 'text':
+        if (chunk.data) appendMessageText(chunk.data);
+        break;
+      case 'table':
+        if (chunk.data) renderTableCard(chunk.data);
+        break;
+      case 'tool_start':
+        showToolCard(chunk.data);
+        break;
+      case 'tool_end':
+        updateToolCard(chunk.data);
+        break;
+      case 'error':
+        const errMsg = typeof chunk.data === 'object' ? chunk.data.message : chunk.data;
+        const errDetail = typeof chunk.data === 'object' ? chunk.data.detail : '';
+        appendMessage('error', errDetail ? `${errMsg}（详情：${errDetail}）` : errMsg);
+        break;
+      default:
+        console.log('[StreamChunk] 未知类型', chunk.type);
+    }
+  }
+
+  function renderAllPendingCharts() {
+    /* stream_end 事件触发时统一 echarts.init() 所有待渲染图表 */
+    pendingCharts.forEach(c => {
+      const dom = document.getElementById(c.containerId);
+      if (dom) {
+        const chart = echarts.init(dom);
+        chart.setOption(c.option);
+        window.addEventListener('resize', () => chart.resize());
+      }
+    });
+    pendingCharts.length = 0; // 清空队列
+  }
+
+  // ── SSE 事件消费（Phase 1 Step 8 前后端联通时激活）───────────
+  function handleSSEEvent(event) {
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload.type === 'stream_end') {
+        renderAllPendingCharts();
+        state.conversationTurn++;
+        updateStatus('turns', state.conversationTurn);
+      } else {
+        renderStreamChunk(payload);
+      }
+    } catch (e) {
+      console.error('[SSE] 消息解析失败', e);
+    }
+  }
+
+  // ── 消息渲染 ──────────────────────────────────────────────────
+  function appendMessage(role, text) {
+    const container = document.getElementById('chat-messages');
+    const wrapper = document.createElement('div');
+    const cls = role === 'user' ? 'message-user' : role === 'error' ? 'message-error' : 'message-system';
+    wrapper.className = `flex items-start gap-2 fade-in ${cls}`;
+    wrapper.innerHTML = `<div class="msg-bubble text-sm px-4 py-2.5 rounded-xl">${escapeHtml(text)}</div>`;
+    container.appendChild(wrapper);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function appendMessageText(text) {
+    const container = document.getElementById('chat-messages');
+    const last = container.querySelector('.message-system:last-child .msg-bubble');
+    if (last) {
+      last.innerHTML += escapeHtml(text);
+    } else {
+      appendMessage('system', text);
+    }
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function renderTableCard(data) {
+    /* data = { columns: [...], rows: [[...], ...], title, sql } */
+    let html = `<div class="tool-exec-card fade-in">
+      <div class="font-medium text-sm mb-2">📊 ${escapeHtml(data.title || '查询结果')}</div>
+      <div class="overflow-x-auto"><table class="w-full text-xs border-collapse">
+        <thead><tr>${
+          (data.columns||[]).map(c => `<th class="text-left px-2 py-1.5 text-muted border-b border-gray-700">${escapeHtml(c)}</th>`).join('')
+        }</tr></thead>
+        <tbody>${
+          (data.rows||[]).map((row, i) =>
+            `<tr class="${i%2===0?'bg-white/3':''}">${row.map(c => `<td class="px-2 py-1 border-b border-gray-800/50">${escapeHtml(String(c??''))}</td>`).join('')}</tr>`
+          ).join('')
+        }</tbody>
+      </table></div>`;
+    if (data.sql) {
+      html += `<details class="mt-2"><summary class="text-xs text-muted cursor-pointer">🔍 查看 SQL</summary>
+               <div class="sql-block mt-1">${escapeHtml(data.sql)}</div></details>`;
+    }
+    html += '</div>';
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    document.getElementById('chat-messages').appendChild(div.firstElementChild);
+    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+  }
+
+  function showToolCard(data) {
+    const id = `tool-${data.id || Date.now()}`;
+    const div = document.createElement('div');
+    div.id = id;
+    div.className = 'tool-exec-card fade-in';
+    div.innerHTML = `<div class="flex items-center gap-2 text-xs text-muted">
+      <span class="animate-pulse">⏳</span> ${escapeHtml(data.label || data.tool || '工具执行中...')}
+    </div>`;
+    document.getElementById('chat-messages').appendChild(div);
+    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+    return id;
+  }
+
+  function updateToolCard(data) {
+    const el = data.id ? document.getElementById(`tool-${data.id}`) : null;
+    if (!el) return;
+    const icon = data.success ? '✅' : '❌';
+    let html = `<div class="flex items-center gap-2 text-xs mb-1">
+      <span>${icon}</span> <span class="${data.success?'text-green-400':'text-red-400'}">${escapeHtml(data.summary||'完成')}</span>
+    </div>`;
+    if (data.sql) {
+      html += `<details class="mt-1"><summary class="text-xs text-muted cursor-pointer">🔍 SQL</summary>
+               <div class="sql-block mt-1">${escapeHtml(data.sql)}</div></details>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // ── 发送消息 ──────────────────────────────────────────────────
+  function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    appendMessage('user', text);
+    input.value = '';
+    input.style.height = 'auto';
+    document.getElementById('mention-popup').classList.remove('show');
+
+    // @mention 检测
+    const mentions = parseMentions(text);
+    if (mentions.length > 0) console.log('[DataAgent] @mentions:', mentions);
+    checkMultiTableHint(mentions);
+
+    // Step 8：POST /api/chat → SSE 流式消费
+    updateStatus('llm', 'pending');
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    }).then(response => {
+      if (!response.ok) {
+        appendMessage('error', `请求失败 (HTTP ${response.status})`);
+        updateStatus('llm', 'offline');
+        return;
+      }
+      updateStatus('llm', 'connected');
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (done) { return; }
+          buffer += decoder.decode(value, { stream: true });
+          // 处理完整的 SSE 行
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const payload = JSON.parse(line.slice(6));
+                if (payload.type === 'stream_end') {
+                  renderAllPendingCharts();
+                  state.conversationTurn++;
+                  updateStatus('turns', state.conversationTurn);
+                } else {
+                  renderStreamChunk(payload);
+                }
+              } catch (e) {
+                console.error('[SSE] 解析失败', e);
+              }
+            }
+          }
+          read();
+        }).catch(err => {
+          console.error('[SSE] 读取错误', err);
+          updateStatus('llm', 'offline');
+        });
+      }
+      read();
+    }).catch(err => {
+      appendMessage('error', `发送失败：${err.message}`);
+      updateStatus('llm', 'offline');
+    });
+  }
+
+  function sendQuick(text) {
+    document.getElementById('chat-input').value = text;
+    sendMessage();
+  }
+
+  // ── @mention 解析 ────────────────────────────────────────────
+  function parseMentions(text) {
+    const re = /@(\S+)/g;
+    const matches = [];
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      let name = m[1];
+      name = name.replace(/[,，。.！!？?；;：:、】\]）\)]+$/, '');
+      matches.push(name);
+    }
+    return matches;
+  }
+
+  function checkMultiTableHint(mentions) {
+    // 规则2：同类型多表提示
+    const byType = {};
+    mentions.forEach(name => {
+      const base = name.replace(/_\d{6,8}$/, '');
+      if (!byType[base]) byType[base] = [];
+      byType[base].push(name);
+    });
+    Object.entries(byType).forEach(([base, names]) => {
+      if (names.length > 1) {
+        appendMessage('system', `⚠️ 您指定了 ${names.length} 张「${base}」类型的数据表：${names.join('、')}，是否进行跨期对比分析？`);
+      }
+    });
+  }
+
+  function handleMentionInput(event) {
+    const input = event.target;
+    const cursorPos = input.selectionStart;
+    const beforeCursor = input.value.substring(0, cursorPos);
+    const atIdx = beforeCursor.lastIndexOf('@');
+    if (atIdx === -1) { hideMentionPopup(); return; }
+
+    const query = beforeCursor.substring(atIdx + 1);
+    if (query.includes(' ') || query.includes('@')) { hideMentionPopup(); return; }
+    showMentionPopup(query);
+  }
+
+  function showMentionPopup(filter) {
+    const popup = document.getElementById('mention-popup');
+    const tables = state.loadedTables.filter(t =>
+      t.name.toLowerCase().includes(filter.toLowerCase())
+    );
+    if (tables.length === 0) { popup.classList.remove('show'); return; }
+    popup.innerHTML = tables.map(t =>
+      `<div class="mention-item" onclick="insertMention('${escapeAttr(t.name)}')">
+        📊 ${escapeHtml(t.name)}<span class="table-rows">${t.rows}行</span>
+      </div>`
+    ).join('');
+    popup.classList.add('show');
+  }
+
+  function hideMentionPopup() {
+    document.getElementById('mention-popup').classList.remove('show');
+  }
+
+  function insertMention(tableName) {
+    const input = document.getElementById('chat-input');
+    const cursorPos = input.selectionStart;
+    const beforeCursor = input.value.substring(0, cursorPos);
+    const atIdx = beforeCursor.lastIndexOf('@');
+    input.value = input.value.substring(0, atIdx) + '@' + tableName + ' ' + input.value.substring(cursorPos);
+    input.focus();
+    hideMentionPopup();
+  }
+
+  // ── 键盘处理 ──────────────────────────────────────────────────
+  function handleInputKeydown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+    if (event.key === 'Escape') hideMentionPopup();
+  }
+
+  // ── 文件上传 ──────────────────────────────────────────────────
+  function uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    // 从文件名推断类型
+    const name = file.name.toLowerCase();
+    let tableType = 'unknown';
+    if (name.includes('持仓')) tableType = 'holding';
+    else if (name.includes('净值')) tableType = 'nav';
+    else if (name.includes('主体') || name.includes('评级')) tableType = 'rating_entity';
+    else if (name.includes('债券')) tableType = 'rating_bond';
+    formData.append('table_type', tableType);
+
+    appendMessage('system', `📤 正在上传：${file.name}...`);
+    fetch('/api/upload', { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          appendMessage('system', `✅ ${file.name} 加载成功（表名：${data.table_name}）`);
+          refreshSidebar();
+        } else {
+          appendMessage('error', `❌ 上传失败：${data.error}`);
+        }
+      })
+      .catch(err => appendMessage('error', `❌ 上传异常：${err.message}`));
+  }
+
+  function handleFileUpload(event) {
+    const files = event.target.files;
+    if (!files.length) return;
+    Array.from(files).forEach(uploadFile);
+    event.target.value = '';
+  }
+
+  // 拖拽上传
+  (function setupDragDrop() {
+    const zone = document.getElementById('chat-messages');
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.outline = '2px dashed #e94560'; });
+    zone.addEventListener('dragleave', () => { zone.style.outline = ''; });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.style.outline = '';
+      Array.from(e.dataTransfer.files).forEach(uploadFile);
+    });
+  })();
+
+  // ── 侧边栏初始化 ──────────────────────────────────────────────
+  function updateSidebarTables() {
+    // 从后端获取已加载表列表
+    fetch('/api/tables')
+      .then(r => r.json())
+      .then(data => {
+        state.loadedTables = data.tables || [];
+        const tablesDiv = document.getElementById('sidebar-tables');
+        if (state.loadedTables.length === 0) {
+          tablesDiv.innerHTML = '<div class="sidebar-item text-muted text-xs italic">暂无数据表</div>';
+        } else {
+          tablesDiv.innerHTML = state.loadedTables.map(t =>
+            `<div class="sidebar-item">
+              <span>📊</span> <span>${escapeHtml(t.name)}</span>
+              <span class="badge">${t.rows}行</span>
+            </div>`
+          ).join('');
+        }
+        updateStatus('tables', state.loadedTables.length);
+      })
+      .catch(() => {});
+  }
+
+  function refreshSidebar() {
+    updateSidebarTables();
+  }
+
+  function updateSidebar() {
+    // Skills 列表
+    const skills = [
+      { name: 'position_query', desc: '持仓查询' },
+      { name: 'flexible_stats', desc: '灵活统计' },
+      { name: 'concentration_monitor', desc: '集中度监控' },
+      { name: 'fund_nav_report', desc: '运作报告' },
+      { name: 'meeting_report', desc: '参谈要点' },
+      { name: 'partnership_summary', desc: '合作简报' },
+      { name: 'dept_weekly_report', desc: '部门周报' },
+      { name: 'monthly_bond_summary', desc: '月度债券简报' },
+    ];
+    document.getElementById('sidebar-skills').innerHTML = skills.map(s =>
+      `<div class="sidebar-item" onclick="sendQuick('${escapeAttr(s.desc)}')" title="${escapeAttr(s.desc)}">
+        <span>⚡</span> <span>${escapeHtml(s.desc)}</span>
+      </div>`
+    ).join('');
+
+    // 加载数据表列表
+    updateSidebarTables();
+  }
+
+  // ── 状态栏更新 ────────────────────────────────────────────────
+  function updateStatus(key, value) {
+    const map = {
+      tables:  ['status-tables', `📁 ${value} 表`],
+      turns:   ['status-turns',  `💬 轮数 ${value}/15`],
+      memory:  ['status-memory', `🧠 ${value} MB`],
+    };
+    if (key === 'llm') {
+      const dot = document.querySelector('#status-llm .status-dot');
+      dot.className = `status-dot ${value === 'connected' ? 'online' : value === 'pending' ? 'pending' : 'offline'} mr-1`;
+      return;
+    }
+    if (map[key]) document.getElementById(map[key][0]).textContent = map[key][1];
+  }
+
+  // ── 工具函数 ──────────────────────────────────────────────────
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function escapeAttr(s) { return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+  function formatSize(b) { return b < 1024 ? b+' B' : b < 1024*1024 ? (b/1024).toFixed(1)+' KB' : (b/(1024*1024)).toFixed(1)+' MB'; }
+
+  // ── 时钟 ─────────────────────────────────────────────────────
+  function updateClock() { document.getElementById('status-clock').textContent = new Date().toLocaleTimeString('zh-CN'); }
+  setInterval(updateClock, 1000); updateClock();
+
+  // ── 初始化 ────────────────────────────────────────────────────
+  updateSidebar();
+  updateStatus('llm', 'offline');
+  updateStatus('turns', 0);
+  updateStatus('memory', '--');
+  console.log('[DataAgent] UI 初始化完成 — Phase 1 Step 8 (前后端联通)');
+  </script>
+
+</body>
+</html>

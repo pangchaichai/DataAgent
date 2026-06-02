@@ -1,0 +1,76 @@
+# DataAgent 配置文件 v1.3
+
+# ── LLM 配置 ──────────────────────────────────────────────
+# ★ 测试阶段：统一使用 DeepSeek（内网 LLM 不可用时临时配置）★
+llm:
+  sql_gen:                             # SQL生成 / 意图分类
+    primary: deepseek                  # ★测试：直连 DeepSeek
+    fallback: deepseek
+    external_allowed: true             # ★测试：允许外发
+    timeout: 30
+    max_tokens: 2000
+
+  report_text:                         # 报告文字生成
+    provider: deepseek                 # ★测试：临时用 DeepSeek（生产须改回 enterprise）
+    url: https://api.deepseek.com/v1
+    model: deepseek-chat
+    api_key: 你的DeepSeek_API_Key
+    timeout: 60
+    max_tokens: 3000
+    fallback: none                     # ★ 显式禁止 fallback，内网挂了降级模板
+
+  enterprise_internal:
+    url: http://[内网LLM地址]/v1
+    model: [企业模型名称]
+    api_key: ""
+
+  deepseek:
+    url: https://api.deepseek.com/v1
+    model: deepseek-chat
+    api_key: 你的DeepSeek_API_Key
+
+# ── 固化计算口径配置（C-01确认后修改此处）──────────────────
+# 注意：修改此处会影响所有合规计算结果，修改前须经合规确认
+calculation_config:
+  concentration:
+    market_value_field: "穿透后市值"   # C-01待确认：全穿透/半穿透
+    use_group_merge: true              # true=集团合并口径（监管常用）
+    exclude_asset_types: []            # 排除的资产大类（如需排除现金）
+    threshold_entity: 10.0             # 主体集中度阈值(%)
+    threshold_single_bond: 10.0        # 单券集中度阈值(%)
+    data_max_age_days: 1               # 数据最大允许滞后天数（超过则停止计算）
+  nav:
+    return_annualization_days: 365
+
+# ── 当前用户档案 ───────────────────────────────────────────
+user_profile:
+  name: ""                             # 当前用户姓名，如「张三」
+  department: ""                       # 所在部门，如「固收投资部」
+  role: ""                             # 投资经理 / 研究员 / 部门负责人 / 合规
+  managed_products:                    # 该用户管理的理财产品（名称与数据表一致）
+    - ""
+
+# ── 应用设置 ───────────────────────────────────────────────
+app:
+  window_title: DataAgent
+  window_width: 1280
+  window_height: 800
+  debug: false
+  max_agent_turns: 15
+  max_tool_retry: 3
+  context_budget_ratio: 0.75
+
+# ── Skills 目录 ────────────────────────────────────────────
+skills:
+  local_dir: skills/
+  shared_dir: ""
+
+# ── 数据引擎 ───────────────────────────────────────────────
+duckdb:
+  max_memory: "200MB"
+  threads: 2
+
+# ── 定时任务 ───────────────────────────────────────────────
+scheduler:
+  enabled: true
+  task_config: tasks/task_config.yaml

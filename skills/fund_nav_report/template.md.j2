@@ -1,0 +1,83 @@
+# {{ product_name }}运作报告（{{ report_period }}）
+
+---
+
+## 一、产品基本信息
+
+{{ product_name }}截至{{ report_date }}，产品单位净值为{{ nav }}，本报告期年化收益率为{{ annual_return }}%，业绩比较基准为{{ benchmark }}%。
+
+---
+
+## 二、产品运作回顾
+
+### 2.1 市场环境回顾
+
+{{ market_review }}
+
+### 2.2 产品运作情况
+
+本产品在报告期内持续稳健运作。截至报告期末，组合久期{{ duration }}年，杠杆率{{ leverage }}。
+
+### 2.3 收益表现
+
+报告期内产品近1月年化收益率{{ return_1m }}%，近3月年化收益率{{ return_3m }}%，本季度最大回撤{{ max_drawdown }}%。
+
+---
+
+## 三、资产配置分析
+
+### 3.1 资产结构分布
+
+| 资产类别 | 占比 |
+|:---------|:----:|
+{% for item in asset_structure %}
+| {{ item.category }} | {{ item.ratio }}% |
+{% endfor %}
+| **合计** | **100.00%** |
+
+### 3.2 前十大持仓
+
+截至报告期末，产品前十大持仓如下：
+
+| 序号 | 证券名称 | 市值(元) | 占净资产比 |
+|:----|:---------|:--------:|:----------:|
+{% for item in top10_holdings %}
+| {{ item.rank }} | {{ item.name }} | {{ item.market_value }} | {{ item.ratio }}% |
+{% endfor %}
+
+---
+
+## 四、风险指标分析
+
+### 4.1 利率风险
+
+产品组合久期为{{ duration }}年。
+
+### 4.2 信用风险
+
+{% for item in credit_distribution %}
+{{ item.grade }}级占比{{ item.ratio }}%，{% endfor %}整体信用风险可控。
+
+### 4.3 流动性风险
+
+产品持有现金及高流动性资产，流动性风险可控。
+
+---
+
+## 五、管理人意见
+
+{{ manager_opinion }}
+
+---
+
+## 六、投资限制合规判断
+
+经核查，本产品在报告期内各项投资限制均符合要求。
+
+---
+
+特此报告。
+
+总行投资银行部
+
+{{ report_date }}

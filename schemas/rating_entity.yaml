@@ -1,0 +1,30 @@
+# 主体评级表 Schema
+table_type: rating_entity
+encoding: auto  # Sam系列文件为 UTF-8
+join_keys:
+  to_holding: 限额占用方主体
+
+core_fields:
+  - name: 主体名称
+    type: str
+    desc: 企业/发行人名称
+  - name: 内部评级结果
+    type: str
+    desc: 内部信用评级
+  - name: 预警等级
+    type: str
+    desc: 风险预警级别
+  - name: 理财限额
+    type: float
+    desc: 理财业务总限额（元）
+  - name: 已占用限额
+    type: float
+  - name: 剩余可用限额
+    type: float
+    desc: 理财限额 - 已占用限额（CSV中已有，无需计算）
+  - name: 品种（信用政策）
+    type: str
+    desc: 准入品种说明
+    quote: true
+  - name: 评级有效期
+    type: date

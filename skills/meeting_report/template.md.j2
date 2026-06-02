@@ -1,0 +1,44 @@
+# {{ group_name }}参谈要点
+
+> 数据日期：{{ data_date }}　　生成时间：{{ generate_time }}
+
+---
+
+## 一、准入及持仓情况
+
+| 主体名称 | 内部评级 | 理财限额(万) | 已占用(万) | 剩余可用(万) | 全穿透持仓(万) | 1年内 | 1-2年 | 2年以上 | 准入品种 |
+|:--------|:--------:|:-----------:|:---------:|:-----------:|:------------:|:-----:|:-----:|:------:|:------:|
+{% for row in entity_rows %}
+| {{ row.name }} | {{ row.rating }} | {{ row.total_limit }} | {{ row.used }} | {{ row.available }}{% if row.available < 0 %} ⚠️{% endif %} | {{ row.holding_total }} | {{ row.within_1y }} | {{ row.y1_2 }} | {{ row.over_2y }} | {{ row.policy }} |
+{% endfor %}
+| **{{ group_name }}合计** | — | **{{ total.total_limit }}** | **{{ total.used }}** | **{{ total.available }}** | **{{ total.holding_total }}** | **{{ total.within_1y }}** | **{{ total.y1_2 }}** | **{{ total.over_2y }}** | — |
+
+---
+
+## 二、在存续债情况
+
+{% if bond_holdings %}
+| 债券名称 | 债券代码 | 持仓金额(万) | 内部评级 | 外部评级 | 到期日 |
+|:--------|:-------:|:-----------:|:-------:|:-------:|:------:|
+{% for bond in bond_holdings %}
+| {{ bond.name }} | {{ bond.code }} | {{ bond.amount }} | {{ bond.internal_rating }} | {{ bond.external_rating }} | {{ bond.maturity }} |
+{% endfor %}
+{% else %}
+> 暂未加载债券评级表，如需显示在存续债明细，请上传债券评级文件。
+{% endif %}
+
+---
+
+## 三、综合分析
+
+{{ comprehensive_analysis }}
+
+---
+
+## 四、参谈建议要点
+
+{{ meeting_suggestions }}
+
+---
+
+*本报告由 DataAgent 根据系统数据自动生成，数据以系统为准。*

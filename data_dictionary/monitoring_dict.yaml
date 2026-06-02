@@ -1,0 +1,93 @@
+# 监控值表数据字典
+table_type: monitoring
+description: "外部系统已计算的监控指标结果（预警线/禁止线/实际值/违规状态）"
+encoding: auto
+teams:
+  - 投资团队
+team_notes:
+  投资团队: "监控值查询-*.csv（18列），外部系统导出的已计算监控结果"
+
+# 用途说明：
+#   本表不是原始计算数据源，而是外部系统的监控结果快照。
+#   在 DataAgent 中用于：
+#     1. 与 calculators 的固化计算结果做交叉校验
+#     2. 展示外部系统的监控状态（当内部计算未就绪时作为参考）
+#     3. 合规审计时作为外部数据源的对照记录
+#   ⚠️ 合规监控的正式计算必须使用 calculators/，不得直接引用本表数值作为结论。
+
+join_keys:
+  to_holding:
+    semantic: "组合名称"
+    physical_candidates: ["组合/组合包名称", "组合名称", "产品名称"]
+    note: "关联持仓表的产品名称"
+
+fields:
+  # ── 标识字段 ────────────────────────────────────────────
+  - semantic: "监控日期"
+    physical_candidates: ["监控日期"]
+    dtype: date
+    required: true
+
+  - semantic: "组合名称"
+    physical_candidates: ["组合/组合包名称", "组合名称"]
+    dtype: str
+
+  - semantic: "组合代码"
+    physical_candidates: ["组合/组合包代码", "组合代码"]
+    dtype: str
+
+  # ── 监控维度 ────────────────────────────────────────────
+  - semantic: "监控类型"
+    physical_candidates: ["监控类型"]
+    dtype: str
+    required: true
+
+  - semantic: "指标类型"
+    physical_candidates: ["指标类型"]
+    dtype: str
+
+  - semantic: "指标名称"
+    physical_candidates: ["指标名称"]
+    dtype: str
+
+  # ── 责任人 ──────────────────────────────────────────────
+  - semantic: "投资经理"
+    physical_candidates: ["投资经理"]
+    dtype: str
+
+  - semantic: "投资部门"
+    physical_candidates: ["投资部门"]
+    dtype: str
+
+  # ── 产品属性 ────────────────────────────────────────────
+  - semantic: "募集方式"
+    physical_candidates: ["募集方式"]
+    dtype: str
+
+  - semantic: "组合类型"
+    physical_candidates: ["组合类型"]
+    dtype: str
+
+  # ── 监控阈值与结果（核心字段）──────────────────────────
+  - semantic: "预警线"
+    physical_candidates: ["预警线"]
+    dtype: float
+    compliance_use: true
+
+  - semantic: "禁止线"
+    physical_candidates: ["禁止线"]
+    dtype: float
+    compliance_use: true
+
+  - semantic: "实际值"
+    physical_candidates: ["实际值"]
+    dtype: float
+    compliance_use: true
+
+  - semantic: "连续违规天数"
+    physical_candidates: ["连续违规天数"]
+    dtype: int
+
+  - semantic: "监控状态"
+    physical_candidates: ["监控状态"]
+    dtype: str

@@ -1,0 +1,17 @@
+你正在为以下数据表生成 DuckDB SQL 查询语句。
+
+## 当前相关数据表 Schema
+{schema_context}
+
+## 用户需求
+{user_request}
+
+## 当前激活的业务技能规则
+{skill_content}
+
+## SQL 生成要求
+1. 只生成 SELECT 语句，禁止 INSERT/UPDATE/DELETE/DROP
+2. 必须包含 LIMIT 子句（默认 LIMIT 1000，最大 10000）
+3. 列名含特殊字符必须用双引号，如 "资产市值_穿透后"
+4. 表名使用已加载的完整表名（含日期后缀），如 holding_20260515
+5. 先简要说明查询意图，再输出 SQL
