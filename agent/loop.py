@@ -1,20 +1,21 @@
 """
-agent/loop.py — Agent 核心循环（Phase 1 最简版）
+agent/loop.py — Agent 核心循环（Phase R1：重构为真正 tool-calling Agent）
 
 职责：
-  1. 接收用户消息，编排完整的 Agent 对话流程
-  2. 构建上下文 → 意图识别 → SQL 生成 → 执行 → 结果返回
-  3. 错误分类自愈：syntax 自动重试，semantic/empty/anomaly 浮现给用户
-  4. 以 Generator 方式产出 SSE 事件（供 Flask 路由流式输出）
+  1. 组装 messages（系统提示+schema+skills+对话历史+用户）
+  2. 调用 LLM chat()（with tools），模型自行决定调用哪个工具
+  3. 流式输出文本 + tool_start/tool_end 事件
+  4. 执行工具调用、把结果追加回 messages
+  5. ask_user / request_confirmation 产出暂停信号，等待用户回应后续跑
+  6. 区分 A 类探索式（run_sql）和 B 类合规固化（run_calculator）
 
-Phase 1 限制：
-  - 只支持 run_sql 工具（探索式查询）
-  - 固化计算（calculators）识别但不执行（Phase 3 完整实现）
-  - 人工确认节点暂不实现（Phase 2 加）
-  - 意图识别用关键词匹配（Phase 4 改 LLM 分类）
+关键变化：
+  - v1.0：关键词→单条 SQL→表格 的直线流水线
+  - v1.5：标准 Agent 循环，messages 驱动，模型自主选择工具
 """
 
-from typing import Generator
+import json
+from typing import Generator, Optional
 
 from tools.data_loader import get_connection, get_loaded_tables
 from tools.query_runner import execute_query, QueryResult
@@ -28,8 +29,8 @@ from agent.context import build_schema_context
 #  常量
 # ═══════════════════════════════════════════════════════════════
 
-MAX_TURNS = 15
-MAX_TOOL_RETRY = 3
+MAX_TURNS = 15          # 单个请求最大 tool-calling 轮数
+MAX_TOOL_RETRY = 3      # run_sql 最大自愈重试次数
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -52,12 +53,34 @@ def _error(msg: str) -> dict:
     return _sse_event("error", {"message": translate_error(msg), "detail": msg})
 
 
-def _tool_start(tool_name: str, label: str = "") -> dict:
-    return _sse_event("tool_start", {"tool": tool_name, "label": label or tool_name})
+def _tool_start(tool_name: str, label: str = "", tool_id: str = "") -> dict:
+    return _sse_event("tool_start", {
+        "tool": tool_name,
+        "label": label or tool_name,
+        "id": tool_id or tool_name,
+    })
 
 
-def _tool_end(success: bool, summary: str = "", sql: str = "") -> dict:
-    return _sse_event("tool_end", {"success": success, "summary": summary, "sql": sql})
+def _tool_end(tool_name: str, success: bool, summary: str = "",
+              sql: str = "", tool_id: str = "") -> dict:
+    return _sse_event("tool_end", {
+        "success": success,
+        "summary": summary,
+        "sql": sql,
+        "id": tool_id or tool_name,
+    })
+
+
+def _thinking(text: str) -> dict:
+    return _sse_event("thinking", text)
+
+
+def _ask(data: dict) -> dict:
+    return _sse_event("ask", data)
+
+
+def _confirm(data: dict) -> dict:
+    return _sse_event("confirm", data)
 
 
 def _stream_end() -> dict:
@@ -65,30 +88,28 @@ def _stream_end() -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════
-#  错误分类
+#  错误分类（保留 v1.0 自愈逻辑，用于 run_sql 失败时）
 # ═══════════════════════════════════════════════════════════════
 
 def categorize_tool_error(error_msg: str) -> str:
     """
-    区分错误类型（P1-5）：
+    区分错误类型：
       'syntax'   → SQL 语法错误，可自动重试
       'semantic' → 字段/表名/语义错误，浮现给用户确认
-      'empty'    → 结果为空，询问用户
+      'empty'    → 结果为空
       'anomaly'  → 结果异常，强制人工介入
     """
     msg = error_msg.lower()
 
     for p in ['syntax error', 'parse error', 'parser error',
-              'unexpected token', 'unexpected character',
-              'catalog error']:
+              'unexpected token', 'unexpected character', 'catalog error']:
         if p in msg:
             return 'syntax'
 
-    # DuckDB Binder Error 通常是语义错误（列/表不存在），只有明确语法问题时重试
     if 'binder error' in msg:
         if any(k in msg for k in ['column', 'table', 'does not exist', 'no such']):
             return 'semantic'
-        return 'syntax'  # 其他 binder 错误归为语法
+        return 'syntax'
 
     for p in ['no rows', 'empty result', '0 rows']:
         if p in msg:
@@ -103,7 +124,7 @@ def categorize_tool_error(error_msg: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════
-#  Agent 核心循环
+#  Agent 核心循环（v1.5：tool-calling）
 # ═══════════════════════════════════════════════════════════════
 
 def run_agent_loop(
@@ -111,12 +132,37 @@ def run_agent_loop(
     llm_client: LLMClient,
     skill_loader: SkillLoader,
     turn_count: int = 0,
+    session_messages: list[dict] = None,
+    pending: dict = None,
 ) -> Generator[dict, None, None]:
     """
-    Agent 主循环（Phase 1 最简版）。
+    Agent 主循环（v1.5 tool-calling 重构版）。
 
-    Yields SSE 事件字典，Flask 路由逐条推送给前端。
+    参数:
+      user_message:     用户输入文本
+      llm_client:       LLMClient 实例（需支持 chat() with tools）
+      skill_loader:     SkillLoader 实例
+      turn_count:       累计对话轮数（用于上限校验）
+      session_messages: 会话消息历史；None = 新会话
+      pending:          暂停状态；非 None = 续跑（用户回答了 ask/confirm）
+
+    Yields SSE 事件字典。
     """
+    # ── 加载 ToolContext ────────────────────────────────────
+    from agent.tools_spec import TOOL_DEFINITIONS, dispatch_tool, ToolContext
+    import yaml
+    from pathlib import Path
+
+    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
+    with open(config_path, encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    tool_ctx = ToolContext(
+        config=config,
+        calculation_config=config.get("calculation_config", {}),
+    )
+
+    # ── 基础校验 ──────────────────────────────────────────
     if turn_count >= MAX_TURNS:
         yield _error("对话轮数已达上限，请开启新对话继续。")
         yield _stream_end()
@@ -128,121 +174,294 @@ def run_agent_loop(
         yield _stream_end()
         return
 
-    # ── 1. 构建上下文 ───────────────────────────────────────
+    # ── 构建 schema + skills 上下文 ──────────────────────────
     schema_ctx = build_schema_context()
-
-    # ── 2. 意图识别 ─────────────────────────────────────────
     registry = skill_loader.load_registry()
-    skill_name = skill_loader.detect_relevant_skill(user_message, registry)
+    skills_desc = _build_skills_registry_text(registry)
 
-    if skill_name:
-        skill_info = next((s for s in registry if s.name == skill_name), None)
-        if skill_info:
-            desc_short = skill_info.description.split('\n')[0][:60]
-            yield _text(f"🔍 检测到意图：{desc_short}...\n\n")
-            if skill_info.calc_type == 'fixed':
-                yield _text(
-                    f"⚠️「{skill_info.name}」属于合规/报告类操作，使用固化计算。\n"
-                    f"（固化计算执行功能在 Phase 3 实现）"
-                )
-                yield _stream_end()
-                return
+    # ── 组装 messages ────────────────────────────────────
+    if session_messages is None:
+        session_messages = []
 
-    # ── 3. SQL 生成 + 执行循环（含自愈重试）───────────────
-    yield _tool_start("run_sql", "生成 SQL 查询")
+    if not session_messages:
+        # 首条消息：加入 system prompt
+        system_prompt = _build_system_prompt(schema_ctx, skills_desc)
+        session_messages.append({"role": "system", "content": system_prompt})
 
-    last_error = ""
-    sql_text = ""
+    # 处理暂停续跑
+    if pending:
+        pending_type = pending.get("type", "")
+        tool_call_id = pending.get("tool_call_id", "")
 
-    for retry in range(MAX_TOOL_RETRY + 1):
-        if retry == 0:
-            prompt = _build_sql_prompt(user_message, schema_ctx)
-        else:
-            prompt = _build_retry_prompt(user_message, schema_ctx, last_error)
-
-        sql_text, llm_resp = llm_client.generate_sql(prompt, schema_context="")
-
-        if not llm_resp.success or not sql_text:
-            yield _tool_end(False, f"SQL 生成失败：{translate_error(llm_resp.error)}")
-            yield _error(llm_resp.error)
-            yield _stream_end()
-            return
-
-        yield _text(f"\n```sql\n{sql_text}\n```\n\n")
-
-        conn = get_connection()
-        result: QueryResult = execute_query(sql_text, conn)
-
-        if result.success:
-            yield _tool_end(True, f"查询完成，返回 {result.row_count} 行", sql=sql_text)
-
-            if result.row_count == 0:
-                yield _text("查询结果为空。请检查筛选条件是否正确，或确认数据表中存在符合条件的记录。")
-
-            yield _table({
-                "title": "查询结果",
-                "columns": result.columns,
-                "rows": result.rows,
-                "sql": sql_text,
+        if pending_type == "ask":
+            # 用户回答了 ask_user 的选择题
+            session_messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call_id,
+                "content": user_message,
             })
+        elif pending_type == "confirm":
+            # 来自 /api/confirm 的结果
+            confirmed = pending.get("confirmed", False)
+            session_messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call_id,
+                "content": json.dumps({"confirmed": confirmed}, ensure_ascii=False),
+            })
+        # pending 已处理，不加新的 user message
+    else:
+        # 普通新消息
+        session_messages.append({"role": "user", "content": user_message})
+
+    # ── Tool-calling 循环 ──────────────────────────────────
+    for turn in range(MAX_TURNS):
+        try:
+            result = llm_client.chat(session_messages, tools=TOOL_DEFINITIONS)
+        except Exception as e:
+            yield _error(f"LLM 调用失败：{str(e)}")
             yield _stream_end()
             return
 
-        # 失败 → 分类处理
-        error_type = categorize_tool_error(result.error)
-
-        if error_type == 'syntax' and retry < MAX_TOOL_RETRY:
-            last_error = result.error
-            yield _text(f"（SQL 语法有误，正在自动修正... 第 {retry + 1}/{MAX_TOOL_RETRY} 次重试）\n")
-            continue
-
-        elif error_type == 'semantic' and retry < MAX_TOOL_RETRY:
-            # 语义错误（如列名不存在），让 LLM 修正后重试
-            last_error = result.error
-            yield _text(f"（列名或表名有误，正在根据反馈修正... 第 {retry + 1}/{MAX_TOOL_RETRY} 次重试）\n")
-            continue
-
-        elif error_type == 'empty':
-            yield _tool_end(True, "查询结果为空", sql=sql_text)
-            yield _text("查询结果为空，可能筛选条件过严或数据表中暂无匹配数据。建议调整查询条件后重试。")
-            yield _stream_end()
-            return
-
-        else:
-            yield _tool_end(False, f"结果异常，需要人工确认：{translate_error(result.error)}", sql=sql_text)
+        if not result.success:
             yield _error(result.error)
             yield _stream_end()
             return
 
-    yield _tool_end(False, f"经过 {MAX_TOOL_RETRY} 次重试后仍失败", sql=sql_text)
-    yield _error(f"SQL 语法修正失败，已达最大重试次数。请重新描述你的需求。")
+        # 流式输出文本内容
+        if result.text:
+            yield _text(result.text)
+
+        # 无 tool_calls → 最终回答
+        if not result.tool_calls:
+            assistant_msg = {"role": "assistant", "content": result.text}
+            session_messages.append(assistant_msg)
+            yield _stream_end()
+            return
+
+        # 有 tool_calls → 添加 assistant 消息（含 tool_calls）
+        assistant_msg = {
+            "role": "assistant",
+            "content": result.text or None,
+            "tool_calls": [
+                {
+                    "id": tc["id"],
+                    "type": "function",
+                    "function": {
+                        "name": tc["name"],
+                        "arguments": json.dumps(tc["arguments"], ensure_ascii=False),
+                    },
+                }
+                for tc in result.tool_calls
+            ],
+        }
+        session_messages.append(assistant_msg)
+
+        # 执行每个工具调用
+        for tc in result.tool_calls:
+            tool_name = tc["name"]
+            tool_args = tc["arguments"]
+            tool_id = tc["id"]
+
+            # 构建可读标签
+            label = _tool_label(tool_name, tool_args)
+            yield _tool_start(tool_name, label, tool_id)
+
+            # 执行工具
+            if tool_name == "run_sql":
+                tool_result = _execute_with_retry(tool_args, tool_ctx, tool_id)
+            else:
+                tool_result = dispatch_tool(tool_name, tool_args, tool_ctx)
+
+            # 检查暂停信号
+            if tool_result.get("__pause__"):
+                pause_type = tool_result["__pause_type__"]
+                del tool_result["__pause__"]
+                del tool_result["__pause_type__"]
+
+                yield _tool_end(tool_name, True, "等待用户回应", tool_id=tool_id)
+
+                if pause_type == "ask":
+                    yield _ask({
+                        "question": tool_result.get("question", ""),
+                        "options": tool_result.get("options", []),
+                    })
+                elif pause_type == "confirm":
+                    yield _confirm({
+                        "title": tool_result.get("title", ""),
+                        "summary": tool_result.get("summary", []),
+                        "sql_or_formula": tool_result.get("sql_or_formula", ""),
+                    })
+
+                # 保存暂停状态到 _session（由 main.py 读取）
+                pending_state = {
+                    "type": pause_type,
+                    "tool_call_id": tool_id,
+                }
+                if pause_type == "confirm":
+                    pending_state["title"] = tool_result.get("title", "")
+
+                yield {"type": "__pending__", "data": pending_state}
+                yield _stream_end()
+                return
+
+            # 普通结果 → 追加 tool message
+            ok = tool_result.get("ok", False)
+            summary = _result_summary(tool_name, tool_result)
+            sql_display = tool_result.get("sql", "")
+
+            yield _tool_end(tool_name, ok, summary, sql=sql_display, tool_id=tool_id)
+
+            session_messages.append({
+                "role": "tool",
+                "tool_call_id": tool_id,
+                "content": json.dumps(tool_result, ensure_ascii=False, default=str),
+            })
+
+    # 达到最大轮数
+    yield _error(f"已达到最大交互轮数（{MAX_TURNS}），请简化问题或重新描述需求。")
     yield _stream_end()
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SQL 执行 + 自愈重试（run_sql 工具专用）
+# ═══════════════════════════════════════════════════════════════
+
+def _execute_with_retry(args: dict, tool_ctx, tool_id: str) -> dict:
+    """
+    执行 run_sql 工具，失败时尝试自动修正（最多 MAX_TOOL_RETRY 次）。
+    仅对 syntax 类型错误自动重试，semantic/empty/anomaly 直接返回。
+    """
+    from tools.query_runner import execute_query
+
+    sql = args.get("sql", "")
+    if not sql.strip():
+        return {"ok": False, "error": "SQL 为空"}
+
+    conn = tool_ctx.duckdb_conn
+
+    for retry in range(MAX_TOOL_RETRY + 1):
+        result = execute_query(sql, conn)
+
+        if result.success:
+            rows = result.rows[:200]
+            return {
+                "ok": True,
+                "columns": result.columns,
+                "rows": rows,
+                "row_count": result.row_count,
+                "truncated": result.row_count > 200,
+                "sql": sql,
+            }
+
+        error_type = categorize_tool_error(result.error)
+
+        if error_type == 'syntax' and retry < MAX_TOOL_RETRY:
+            # 尝试让 LLM 修正（作为 tool 消息返回错误，下一轮 chat 会处理）
+            return {
+                "ok": False,
+                "error": result.error,
+                "error_type": "syntax",
+                "retry_hint": (
+                    f"SQL 语法错误（第{retry + 1}次尝试）。"
+                    f"请检查：1) 表名/列名是否与 schema 中完全一致 "
+                    f"2) 中文列名是否用双引号包裹 3) 是否漏了 LIMIT"
+                ),
+                "sql": sql,
+            }
+        elif error_type == 'semantic' and retry < MAX_TOOL_RETRY:
+            return {
+                "ok": False,
+                "error": result.error,
+                "error_type": "semantic",
+                "retry_hint": "列名或表名不存在，请检查 schema 并修正。",
+                "sql": sql,
+            }
+        else:
+            return {"ok": False, "error": result.error, "error_type": error_type, "sql": sql}
+
+    return {"ok": False, "error": f"SQL 修正失败（已重试 {MAX_TOOL_RETRY} 次）", "sql": sql}
 
 
 # ═══════════════════════════════════════════════════════════════
 #  Prompt 构建
 # ═══════════════════════════════════════════════════════════════
 
-def _build_sql_prompt(user_message: str, schema_ctx: str) -> str:
+def _build_system_prompt(schema_ctx: str, skills_desc: str) -> str:
+    """构建 system prompt（加载 prompts/system_prompt.txt 模板并填充）"""
+    from pathlib import Path
+    template_path = Path(__file__).resolve().parent.parent / "prompts" / "system_prompt.txt"
+    if template_path.exists():
+        template = template_path.read_text(encoding="utf-8")
+    else:
+        template = "你是 DataAgent，一个专业的金融资管数据分析助手。"
+
+    tables = get_loaded_tables()
+    if tables:
+        table_summary = "\n".join(
+            f"- {t['name']}（{t['rows']}行 × {t['cols']}列，类型：{t['type']}）"
+            for t in tables
+        )
+    else:
+        table_summary = "（暂无已加载数据表）"
+
     return (
-        f"{schema_ctx}\n\n"
-        f"用户问题：{user_message}\n\n"
-        f"★ 严格规则：\n"
-        f"1. SELECT 和 WHERE 中的列名必须使用上面「语义字段映射」中列出的「实际列名」，不得自己编造\n"
-        f"2. 列名用双引号包裹\n"
-        f"3. 必须在末尾加上 LIMIT，不超过 100\n"
-        f"4. 只返回 SQL，不要有任何解释文字"
+        template
+        .replace("{loaded_tables_summary}", table_summary)
+        .replace("{skills_registry}", skills_desc)
     )
 
 
-def _build_retry_prompt(user_message: str, schema_ctx: str, last_error: str) -> str:
-    return (
-        f"{schema_ctx}\n\n"
-        f"用户问题：{user_message}\n\n"
-        f"上次 SQL 执行报错：{last_error}\n"
-        f"请根据错误信息修正 SQL。记住：\n"
-        f"1. 列名必须严格使用上面的「实际列名」，不能自己编造或简化\n"
-        f"2. 列名用双引号包裹\n"
-        f"3. 末尾加 LIMIT 100\n"
-        f"4. 只返回 SQL"
-    )
+def _build_skills_registry_text(registry) -> str:
+    """将 Skill 注册表格式化为 prompt 文本"""
+    if not registry:
+        return "（暂无可用技能）"
+    lines = []
+    for s in registry:
+        desc_short = s.description.split('\n')[0][:80]
+        calc_label = "[固化计算]" if s.calc_type == 'fixed' else "[探索式]"
+        lines.append(f"- **{s.name}** {calc_label}: {desc_short}")
+    return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Helper
+# ═══════════════════════════════════════════════════════════════
+
+def _tool_label(tool_name: str, args: dict) -> str:
+    """为工具调用生成用户可读的标签"""
+    if tool_name == "profile_table":
+        return f"分析表结构：{args.get('table_name', '?')}"
+    elif tool_name == "run_sql":
+        purpose = args.get("purpose", "")
+        return f"执行查询：{purpose}" if purpose else "执行 SQL 查询"
+    elif tool_name == "run_calculator":
+        calc_names = {
+            "entity_concentration": "主体集中度",
+            "nav_metrics": "净值指标",
+            "asset_structure": "资产结构",
+            "credit_distribution": "评级分布",
+        }
+        cn = calc_names.get(args.get("calculator", ""), args.get("calculator", ""))
+        return f"固化计算：{cn}"
+    elif tool_name == "ask_user":
+        q = args.get("question", "")
+        return f"询问：{q[:40]}..."
+    elif tool_name == "request_confirmation":
+        return f"请求确认：{args.get('title', '')}"
+    return tool_name
+
+
+def _result_summary(tool_name: str, result: dict) -> str:
+    """为工具执行结果生成简短摘要"""
+    if not result.get("ok"):
+        return result.get("error", "执行失败")[:80]
+    if tool_name == "profile_table":
+        return f"{result.get('row_count', 0)}行，{len(result.get('columns', []))}列"
+    elif tool_name == "run_sql":
+        return f"返回 {result.get('row_count', 0)} 行"
+    elif tool_name == "run_calculator":
+        calc = result.get("calculator", "")
+        if calc == "entity_concentration":
+            return f"{result.get('breach_count', 0)} 项超标"
+        return f"计算完成，{result.get('count', 0)} 条记录"
+    return "OK"

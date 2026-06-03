@@ -37,6 +37,19 @@ class LLMResponse:
 
 
 @dataclass
+class ChatResult:
+    """chat() 方法返回结果"""
+    success: bool
+    text: str = ""
+    tool_calls: list[dict] = field(default_factory=list)
+    raw: dict = field(default_factory=dict)
+    error: str = ""
+    elapsed_ms: int = 0
+    token_count: int = 0
+    model: str = ""
+
+
+@dataclass
 class ReportDegradedResult:
     """
     report_text 不可用时的降级输出。
@@ -190,6 +203,114 @@ class LLMClient:
         valid_names = {s['name'] for s in skill_registry}
         return name if name in valid_names else None, result
 
+    # ── Tool-calling 接口 (chat) ───────────────────────────────
+
+    def chat(
+        self, messages: list[dict], tools: list[dict] | None = None,
+        timeout: int = None, max_tokens: int = None,
+    ) -> ChatResult:
+        """
+        Tool-calling 对话接口（OpenAI function-calling 风格）。
+
+        复用既有 provider 选择逻辑（primary 优先，external_allowed 控制外发）。
+        tool_mode=native 直接发送 tools 数组；react 兜底可后置。
+
+        参数:
+          messages:  完整对话历史 [{"role":"system"|"user"|"assistant"|"tool", ...}]
+          tools:     工具定义列表（OpenAI 格式），None 则无工具
+          timeout:   超时秒数（默认取自 config）
+          max_tokens: 最大输出 token（默认取自 config）
+
+        返回 ChatResult，其中 tool_calls 已归一为 [{id, name, arguments: dict}]。
+        """
+        tool_mode = self.sql_gen_cfg.get('tool_mode', 'native')
+        if timeout is None:
+            timeout = self.sql_gen_cfg.get('timeout', 30)
+        if max_tokens is None:
+            max_tokens = self.sql_gen_cfg.get('max_tokens', 2000)
+
+        if tool_mode == 'native':
+            return self._chat_native(messages, tools, timeout, max_tokens)
+        else:
+            return self._chat_react(messages, tools, timeout, max_tokens)
+
+    def _chat_native(
+        self, messages: list[dict], tools: list[dict] | None,
+        timeout: int, max_tokens: int,
+    ) -> ChatResult:
+        """Native OpenAI function-calling 模式"""
+        primary = self.sql_gen_cfg.get('primary', 'enterprise_internal')
+        result = self._call_with_messages(primary, messages, tools, timeout, max_tokens)
+
+        if result.success:
+            return result
+
+        # 内网失败，检查是否允许外部兜底
+        if not self.sql_gen_cfg.get('external_allowed', False):
+            return ChatResult(
+                success=False, error=f"内网 LLM 不可用且不允许外发: {result.error}",
+                elapsed_ms=result.elapsed_ms,
+            )
+
+        fallback = self.sql_gen_cfg.get('fallback')
+        if not fallback:
+            return ChatResult(
+                success=False, error=f"LLM 不可用且无兜底配置: {result.error}",
+                elapsed_ms=result.elapsed_ms,
+            )
+
+        return self._call_with_messages(fallback, messages, tools, timeout, max_tokens)
+
+    def _chat_react(
+        self, messages: list[dict], tools: list[dict] | None,
+        timeout: int, max_tokens: int,
+    ) -> ChatResult:
+        """
+        React 文本协议兜底（本期可后置，仅当 native 解析不稳定时启用）。
+
+        把工具说明拼进 system prompt，要求模型输出：
+          最终回答 或 {"action":"tool_name","args":{...}}
+        由 _parse_react_action() 解析为 tool_calls。
+        """
+        if tools:
+            tool_desc = _format_tools_for_react(tools)
+            # 找到 system 消息并追加工具说明
+            for msg in messages:
+                if msg.get("role") == "system":
+                    msg["content"] = (
+                        msg["content"] + "\n\n## 可用工具\n" + tool_desc
+                        + "\n\n当需要调用工具时，输出一行 JSON："
+                        '{"action":"工具名","args":{...}}'
+                        "\n否则直接输出最终回答。"
+                    )
+                    break
+            else:
+                messages.insert(0, {
+                    "role": "system",
+                    "content": "可用工具：\n" + tool_desc,
+                })
+
+        primary = self.sql_gen_cfg.get('primary', 'enterprise_internal')
+        resp = self._call(primary, messages[-1].get("content", ""),
+                          system=messages[0].get("content", "") if messages else "",
+                          timeout=timeout, max_tokens=max_tokens)
+        if not resp.success:
+            return ChatResult(success=False, error=resp.error, elapsed_ms=resp.elapsed_ms)
+
+        text = resp.text
+        tool_calls = _parse_react_action(text)
+        if tool_calls:
+            return ChatResult(
+                success=True, text="", tool_calls=tool_calls,
+                elapsed_ms=resp.elapsed_ms, token_count=resp.token_count,
+                model=resp.model,
+            )
+        return ChatResult(
+            success=True, text=text, tool_calls=[],
+            elapsed_ms=resp.elapsed_ms, token_count=resp.token_count,
+            model=resp.model,
+        )
+
     # ── 流式接口 ──────────────────────────────────────────────
 
     def stream_sql_gen(self, prompt: str, schema_context: str = "") -> Generator[str, None, LLMResponse]:
@@ -299,6 +420,100 @@ class LLMClient:
             return LLMResponse(success=False, endpoint=provider_name, model=model,
                                text="", error=str(e)[:200])
 
+    def _call_with_messages(
+        self, provider_name: str, messages: list[dict],
+        tools: list[dict] | None = None, timeout: int = 30, max_tokens: int = 2000,
+    ) -> ChatResult:
+        """
+        使用完整 messages 数组调用 LLM（支持 tools）。
+
+        返回 ChatResult，解析 choices[0].message 中的 content 和 tool_calls。
+        """
+        provider = self.providers.get(provider_name)
+        if not provider:
+            return ChatResult(success=False, error=f"未配置 LLM 提供方: {provider_name}")
+
+        url = provider.get('url', '')
+        model = provider.get('model', '')
+        api_key = (
+            os.environ.get(f"{provider_name.upper()}_API_KEY")
+            or provider.get('api_key', '')
+        )
+
+        if not url or url.startswith('http://['):
+            return ChatResult(success=False, error="LLM 服务地址未配置")
+
+        headers = {'Content-Type': 'application/json'}
+        if api_key:
+            headers['Authorization'] = f'Bearer {api_key}'
+
+        payload = {
+            'model': model,
+            'messages': messages,
+            'max_tokens': max_tokens,
+            'stream': False,
+        }
+        if tools:
+            payload['tools'] = tools
+            payload['tool_choice'] = 'auto'
+
+        start = time.time()
+        try:
+            resp = requests.post(
+                f"{url.rstrip('/')}/chat/completions",
+                json=payload, headers=headers, timeout=timeout,
+            )
+            elapsed_ms = int((time.time() - start) * 1000)
+
+            if resp.status_code == 200:
+                data = resp.json()
+                choice = data['choices'][0]
+                message = choice.get('message', {})
+                text = message.get('content', '') or ''
+                usage = data.get('usage', {})
+
+                # 解析 tool_calls
+                tool_calls_raw = message.get('tool_calls', [])
+                tool_calls = []
+                for tc in tool_calls_raw:
+                    func = tc.get('function', {})
+                    try:
+                        args = json.loads(func.get('arguments', '{}'))
+                    except json.JSONDecodeError:
+                        args = {}
+                    tool_calls.append({
+                        'id': tc.get('id', ''),
+                        'name': func.get('name', ''),
+                        'arguments': args,
+                    })
+
+                return ChatResult(
+                    success=True, text=text, tool_calls=tool_calls,
+                    raw=data, elapsed_ms=elapsed_ms,
+                    token_count=usage.get('total_tokens', 0), model=model,
+                )
+            elif resp.status_code in (401, 403):
+                return ChatResult(success=False, error="api_key", elapsed_ms=elapsed_ms)
+            elif resp.status_code >= 500:
+                return ChatResult(
+                    success=False, elapsed_ms=elapsed_ms,
+                    error=f"connection refused (HTTP {resp.status_code})",
+                )
+            else:
+                return ChatResult(
+                    success=False, elapsed_ms=elapsed_ms,
+                    error=f"HTTP {resp.status_code}: {resp.text[:200]}",
+                )
+        except requests.Timeout:
+            return ChatResult(success=False, error="timeout",
+                            elapsed_ms=int((time.time() - start) * 1000))
+        except requests.ConnectionError:
+            return ChatResult(success=False, error="connection refused",
+                            elapsed_ms=int((time.time() - start) * 1000))
+        except Exception as e:
+            return ChatResult(success=False, error=str(e)[:200],
+                            elapsed_ms=int((time.time() - start) * 1000))
+
     def _call_streaming(self, provider_name: str, prompt: str,
                         system: str = "", timeout: int = 30, max_tokens: int = 2000):
         """流式调用 LLM，返回 (chunks_generator, LLMResponse)。"""
@@ -407,3 +622,38 @@ class LLMClient:
         lines.append("")
         lines.append(f"[原始请求: {prompt[:100]}...]")
         return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  React 协议辅助函数（兜底模式，本期可后置）
+# ═══════════════════════════════════════════════════════════════
+
+def _format_tools_for_react(tools: list[dict]) -> str:
+    """将 OpenAI 工具定义转为文本描述（供 react 模式 system prompt）"""
+    lines = []
+    for tool in tools:
+        func = tool.get("function", {})
+        name = func.get("name", "")
+        desc = func.get("description", "")
+        params = func.get("parameters", {}).get("properties", {})
+        required = func.get("parameters", {}).get("required", [])
+        lines.append(f"- {name}: {desc}")
+        for pname, pinfo in params.items():
+            req = "（必填）" if pname in required else ""
+            lines.append(f"    {pname}{req}: {pinfo.get('description', '')}")
+    return "\n".join(lines)
+
+
+def _parse_react_action(text: str) -> list[dict]:
+    """从 LLM 输出中解析 react 协议的 tool_call JSON"""
+    import re
+    # 匹配 {"action":"...","args":{...}} 格式
+    match = re.search(r'\{[^{}]*"action"\s*:\s*"(\w+)"\s*,\s*"args"\s*:\s*(\{[^}]+\})[^{}]*\}', text)
+    if not match:
+        return []
+    try:
+        name = match.group(1)
+        args = json.loads(match.group(2))
+        return [{"id": f"call_{name}", "name": name, "arguments": args}]
+    except (json.JSONDecodeError, KeyError):
+        return []

@@ -18,15 +18,24 @@ Windows 生产启动：
 
 import json
 import os
+import queue
 import socket
+import threading
 import time
-import yaml
+import uuid
 from pathlib import Path
 
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 from platform_adapter.ui_driver import get_driver
 from platform_adapter.notify_driver import get_notify_driver
+
+
+# ═══════════════════════════════════════════════════════════════
+#  基础路径（绝对路径，兼容 PyInstaller 打包 + 任意 CWD）
+# ═══════════════════════════════════════════════════════════════
+
+BASE_DIR = Path(__file__).parent
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -41,23 +50,51 @@ def find_free_port() -> int:
         return s.getsockname()[1]
 
 
-def load_config(path: str = 'config.yaml') -> dict:
-    with open(path, encoding='utf-8') as f:
+def load_config(path: str = None) -> dict:
+    import yaml
+    cfg_path = path or str(BASE_DIR / 'config.yaml')
+    with open(cfg_path, encoding='utf-8') as f:
         return yaml.safe_load(f)
 
 
+def wait_for_flask(port: int, timeout: float = 10.0):
+    """健康检查：等待 Flask 就绪再打开窗口，最多等 timeout 秒"""
+    import urllib.request
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            urllib.request.urlopen(f'http://127.0.0.1:{port}/', timeout=1)
+            return True
+        except Exception:
+            time.sleep(0.2)
+    return False
+
+
 # ═══════════════════════════════════════════════════════════════
-#  全局状态（Phase 1 简化为内存 session）
+#  全局状态
 # ═══════════════════════════════════════════════════════════════
 
+_session_lock = threading.Lock()
 _session = {
     "turn_count": 0,
     "loaded_files": [],  # [{path, table_name, date_tag, table_type}]
+    "messages": [],      # ★R1 新增：对话历史 [{role, content, ...}]
+    "pending": None,     # ★R1 新增：暂停状态 {type, tool_call_id, ...}
 }
+
+# SSE 流队列：sid → queue.Queue
+# EventSource 只支持 GET，因此采用两步模式：
+#   1. POST /api/chat → 后台启动 agent，返回 stream_id
+#   2. GET /api/stream/<sid> → 消费队列，推送 SSE
+_stream_queues: dict[str, queue.Queue] = {}
+_stream_queues_lock = threading.Lock()
 
 
 def reset_session():
-    _session["turn_count"] = 0
+    with _session_lock:
+        _session["turn_count"] = 0
+        _session["messages"] = []
+        _session["pending"] = None
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -66,7 +103,13 @@ def reset_session():
 
 def create_flask_app() -> Flask:
     """创建 Flask 应用，注册所有 API 路由"""
-    app = Flask(__name__, static_folder='ui', static_url_path='/static', template_folder='ui')
+    # 使用绝对路径，兼容任意 CWD 和 PyInstaller
+    app = Flask(
+        __name__,
+        static_folder=str(BASE_DIR / 'ui'),
+        static_url_path='/static',
+        template_folder=str(BASE_DIR / 'ui'),
+    )
     CORS(app)
 
     # ── 前端页面 ────────────────────────────────────────────
@@ -94,13 +137,12 @@ def create_flask_app() -> Flask:
         date_tag = request.form.get('date_tag', '')
         table_name = request.form.get('table_name', '')
 
-        # 保存文件到 data/uploads/{table_type}/
-        upload_dir = Path('data/uploads') / table_type
+        # 绝对路径，兼容任意 CWD
+        upload_dir = BASE_DIR / 'data' / 'uploads' / table_type
         upload_dir.mkdir(parents=True, exist_ok=True)
         file_path = str(upload_dir / file.filename)
         file.save(file_path)
 
-        # 自动生成表名
         if not table_name:
             stem = Path(file.filename).stem
             table_name = f"{table_type}_{stem}"
@@ -112,14 +154,16 @@ def create_flask_app() -> Flask:
         except Exception as e:
             return jsonify({"ok": False, "error": f"文件加载失败：{str(e)[:200]}"}), 500
 
-        _session["loaded_files"].append({
-            "path": file_path, "table_name": table_name,
-            "date_tag": date_tag or "", "table_type": table_type,
-        })
+        with _session_lock:
+            _session["loaded_files"].append({
+                "path": file_path, "table_name": table_name,
+                "date_tag": date_tag or "", "table_type": table_type,
+            })
 
         return jsonify({"ok": True, "table_name": table_name})
 
-    # ── POST /api/chat — 对话 SSE 流 ────────────────────────
+    # ── POST /api/chat — 启动对话，返回 stream_id ────────────
+    # 前端拿到 stream_id 后再用 EventSource 订阅 /api/stream/<sid>
     @app.route('/api/chat', methods=['POST'])
     def api_chat():
         data = request.get_json(force=True) if request.is_json else {}
@@ -127,28 +171,110 @@ def create_flask_app() -> Flask:
         if not message:
             return jsonify({"ok": False, "error": "消息为空"}), 400
 
-        root = app.root_path  # 闭包捕获
+        sid = str(uuid.uuid4())
+        q: queue.Queue = queue.Queue()
 
-        def generate():
-            import os as _os
+        with _stream_queues_lock:
+            _stream_queues[sid] = q
+
+        # ★R1：读取会话消息历史和暂停状态
+        with _session_lock:
+            current_turn = _session["turn_count"]
+            session_msgs = list(_session["messages"])  # 浅拷贝
+            pending = _session.get("pending")
+            # 清除 pending（本次请求会处理它）
+            _session["pending"] = None
+
+        # 在后台线程运行 agent loop，事件写入队列
+        def run_agent_bg():
             from agent.loop import run_agent_loop
             from agent.llm_client import LLMClient
             from agent.skill_loader import SkillLoader
             from tools.data_loader import init_duckdb_connection
 
             init_duckdb_connection()
-            cfg_path = _os.path.join(root, 'config.yaml')
-            skills_dir = _os.path.join(root, 'skills')
+            cfg_path = str(BASE_DIR / 'config.yaml')
+            skills_dir = str(BASE_DIR / 'skills')
             llm_client = LLMClient(cfg_path)
             skill_loader = SkillLoader(local_dir=skills_dir)
 
             try:
-                for event in run_agent_loop(message, llm_client, skill_loader, _session["turn_count"]):
-                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-                _session["turn_count"] += 1
+                for event in run_agent_loop(
+                    message, llm_client, skill_loader,
+                    turn_count=current_turn,
+                    session_messages=session_msgs,
+                    pending=pending,
+                ):
+                    # ★R1：处理暂停信号 — 保存状态供下次请求续跑
+                    if event.get("type") == "__pending__":
+                        with _session_lock:
+                            _session["pending"] = event["data"]
+                            _session["messages"] = list(session_msgs)
+                        continue  # 不推给前端
+
+                    q.put(event)
+
+                # 循环正常结束 → 保存最终消息历史
+                with _session_lock:
+                    _session["messages"] = list(session_msgs)
+                    _session["turn_count"] += 1
             except Exception as e:
-                error_event = {"type": "error", "data": f"Agent 处理异常：{str(e)}"}
-                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+                q.put({"type": "error", "data": f"Agent 处理异常：{str(e)}"})
+            finally:
+                q.put(None)  # 哨兵：流结束
+
+        threading.Thread(target=run_agent_bg, daemon=True).start()
+        return jsonify({"ok": True, "stream_id": sid})
+
+    # ── POST /api/confirm — 用户确认/取消 ──────────────────
+    @app.route('/api/confirm', methods=['POST'])
+    def api_confirm():
+        """处理 request_confirmation 的用户回应"""
+        data = request.get_json(force=True) if request.is_json else {}
+        confirmed = data.get('confirmed', False)
+        feedback = data.get('feedback', '')
+
+        with _session_lock:
+            pending = _session.get("pending")
+            if not pending or pending.get("type") != "confirm":
+                return jsonify({"ok": False, "error": "没有待确认事项"}), 400
+            # 把确认结果注入 pending
+            pending["confirmed"] = confirmed
+            if feedback:
+                pending["feedback"] = feedback
+            _session["pending"] = pending
+
+        return jsonify({
+            "ok": True,
+            "message": "已确认，正在继续..." if confirmed else "已取消",
+            "confirmed": confirmed,
+        })
+
+    # ── GET /api/stream/<sid> — SSE 流（EventSource 消费）──
+    @app.route('/api/stream/<sid>')
+    def api_stream(sid):
+        with _stream_queues_lock:
+            q = _stream_queues.get(sid)
+        if q is None:
+            return jsonify({"error": "stream not found"}), 404
+
+        def generate():
+            try:
+                while True:
+                    try:
+                        event = q.get(timeout=120)
+                    except queue.Empty:
+                        # 超时保活 ping
+                        yield ": keep-alive\n\n"
+                        continue
+                    if event is None:
+                        # 正常结束，推送 stream_end 给前端
+                        yield f"data: {json.dumps({'type': 'stream_end', 'data': None}, ensure_ascii=False)}\n\n"
+                        break
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            finally:
+                with _stream_queues_lock:
+                    _stream_queues.pop(sid, None)
 
         return Response(
             stream_with_context(generate()),
@@ -174,6 +300,9 @@ def create_flask_app() -> Flask:
 # ═══════════════════════════════════════════════════════════════
 
 def main():
+    # 将工作目录切换到项目根目录，确保各模块的相对路径兼容
+    os.chdir(BASE_DIR)
+
     config = load_config()
     port = find_free_port()
 

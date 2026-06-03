@@ -3,10 +3,12 @@
 # ── LLM 配置 ──────────────────────────────────────────────
 # ★ 测试阶段：统一使用 DeepSeek（内网 LLM 不可用时临时配置）★
 llm:
-  sql_gen:                             # SQL生成 / 意图分类
+  sql_gen:                             # SQL生成 / 意图分类 / Tool-calling
     primary: deepseek                  # ★测试：直连 DeepSeek
     fallback: deepseek
     external_allowed: true             # ★测试：允许外发
+    tool_mode: native                  # native = OpenAI function-calling（默认）
+                                       # react  = 文本 JSON 协议（仅作兜底，可后置）
     timeout: 30
     max_tokens: 2000
 

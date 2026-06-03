@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DataAgent · UI 预览原型</title>
+<!--
+  独立可点击原型（DEMO 模式，无后端、零 CDN，浏览器直接打开）。
+  目的：让研发 Claude 直观看到 Phase R 的交互/布局，再据此实现并接后端。
+  真实实现见 docs/refactor/ui-design.md 与 03-ui-rebuild.md。
+-->
+<style>
+:root{
+  --bg-base:#F8F9FA;--bg-sidebar:#FFFFFF;--bg-card:#FFFFFF;--bg-input:#FFFFFF;
+  --bg-agent:#F0F4FF;--bg-code:#F1F5F9;--bg-hover:#F1F5F9;
+  --border:#E2E8F0;--text-primary:#0F172A;--text-secondary:#64748B;--text-muted:#94A3B8;
+  --blue:#3B82F6;--blue-bg:#EFF6FF;--indigo:#6366F1;
+  --success:#10B981;--success-bg:#ECFDF5;--warning:#F59E0B;--warning-bg:#FFFBEB;
+  --error:#EF4444;--error-bg:#FEF2F2;--neutral:#6B7280;--radius:8px;--radius-lg:12px;
+}
+[data-theme="dark"]{
+  --bg-base:#0F172A;--bg-sidebar:#1E293B;--bg-card:#1E293B;--bg-input:#1E293B;
+  --bg-agent:#1E2D4A;--bg-code:#0F172A;--bg-hover:#334155;--border:#334155;
+  --text-primary:#F1F5F9;--text-secondary:#94A3B8;--text-muted:#64748B;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;font-size:14px;
+  line-height:1.6;color:var(--text-primary);background:var(--bg-base);height:100vh;overflow:hidden;}
+.numeric{font-variant-numeric:tabular-nums;}
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh;}
+/* header */
+.header{display:flex;align-items:center;gap:8px;padding:0 16px;background:var(--bg-sidebar);
+  border-bottom:1px solid var(--border);}
+.logo{font-weight:700;font-size:16px;margin-right:auto;}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;
+  background:var(--bg-hover);color:var(--text-secondary);cursor:pointer;border:none;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.dot.on{background:var(--success);}.dot.warn{background:var(--warning);}.dot.off{background:var(--error);}
+.iconbtn{background:none;border:none;cursor:pointer;font-size:15px;color:var(--text-secondary);padding:4px;}
+/* body */
+.body{display:grid;grid-template-columns:240px 1fr;overflow:hidden;}
+.sidebar{background:var(--bg-sidebar);border-right:1px solid var(--border);overflow-y:auto;padding:12px;}
+.sec{margin-bottom:18px;}
+.sec-h{display:flex;align-items:center;font-size:11px;letter-spacing:.5px;color:var(--text-muted);
+  text-transform:uppercase;margin-bottom:6px;}
+.sec-h .act{margin-left:auto;color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;}
+.item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:13px;
+  color:var(--text-primary);cursor:pointer;}
+.item:hover{background:var(--bg-hover);}
+.item .meta{margin-left:auto;font-size:11px;color:var(--text-muted);}
+.item.active{background:var(--blue-bg);}
+.tag{font-size:10px;padding:1px 7px;border-radius:8px;margin-left:auto;}
+.tag.fixed{background:var(--blue-bg);color:var(--blue);}
+.tag.exp{background:var(--bg-hover);color:var(--text-secondary);}
+.toggle{margin-left:auto;width:34px;height:18px;border-radius:9px;background:#CBD5E1;position:relative;cursor:pointer;transition:.15s;}
+.toggle.on{background:var(--blue);}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.15s;}
+.toggle.on::after{left:18px;}
+/* main */
+.main{display:flex;flex-direction:column;min-width:0;}
+.subhead{display:flex;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-secondary);}
+.subhead .new{margin-left:auto;border:1px solid var(--border);background:var(--bg-card);color:var(--blue);
+  padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;}
+.chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;}
+.row{display:flex;gap:10px;}
+.row.user{justify-content:flex-end;}
+.bubble{max-width:78%;padding:10px 14px;border-radius:12px;font-size:13.5px;}
+.bubble.user{background:#EEF2F7;}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--indigo);color:#fff;display:flex;
+  align-items:center;justify-content:center;flex-shrink:0;}
+.agent{background:var(--bg-agent);}
+.thinking{background:var(--bg-agent);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-size:13px;}
+.card.ok{border-color:var(--success);}
+.tool-h{display:flex;align-items:center;gap:8px;}
+.tool-h .st{margin-left:auto;font-size:12px;}
+.st.green{color:var(--success);}
+.muted{color:var(--text-secondary);font-size:11.5px;margin-top:4px;}
+table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:6px;}
+th{ text-align:left;color:var(--text-secondary);font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:2px solid var(--border);padding:6px 8px;}
+td{padding:6px 8px;border-bottom:1px solid var(--border);}
+td.num{text-align:right;font-variant-numeric:tabular-nums;}
+tr:last-child td{font-weight:600;}
+/* confirm */
+.confirm{border-left:4px solid var(--blue);background:var(--blue-bg);border-radius:var(--radius-lg);padding:16px;}
+.confirm h3{font-size:14px;margin-bottom:4px;}
+.confirm .sub{font-size:12px;color:var(--text-secondary);margin-bottom:10px;}
+.btn{border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;}
+.btn.primary{background:var(--blue);color:#fff;}
+.btn.ghost{background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary);font-weight:400;}
+.btn.opt{background:var(--bg-card);border:1px solid var(--blue);color:var(--blue);margin:4px 6px 0 0;}
+.link{color:var(--blue);font-size:12px;cursor:pointer;display:inline-block;margin:8px 0;}
+.status-ok{color:var(--success);}
+/* quality */
+.quality{border-left:4px solid var(--warning);background:var(--warning-bg);border-radius:var(--radius-lg);padding:14px;}
+/* input */
+.inputbar{border-top:1px solid var(--border);padding:10px 20px 14px;}
+.quick{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.q{font-size:12px;padding:5px 12px;border-radius:16px;border:1px solid var(--border);background:var(--bg-card);
+  color:var(--text-secondary);cursor:pointer;}
+.q:hover{border-color:var(--blue);color:var(--blue);}
+.inrow{display:flex;gap:10px;}
+textarea{flex:1;resize:none;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13.5px;
+  background:var(--bg-input);color:var(--text-primary);font-family:inherit;}
+textarea:focus{outline:none;border-color:var(--blue);}
+.send{padding:0 22px;border:none;border-radius:10px;background:var(--blue);color:#fff;font-weight:600;cursor:pointer;}
+.disabled{opacity:.55;pointer-events:none;}
+.hintbar{font-size:12px;color:var(--warning);margin-bottom:6px;display:none;}
+.hintbar.show{display:block;}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- HEADER -->
+  <div class="header">
+    <span class="logo">📊 DataAgent</span>
+    <button class="chip"><span class="dot on"></span> Qwen3-32B · 180ms</button>
+    <button class="chip" id="memChip" onclick="toggleMem()">🧠 记忆 关</button>
+    <button class="chip">8.2K / 64K</button>
+    <button class="chip">92MB</button>
+    <button class="iconbtn" onclick="toggleTheme()" title="主题">🌙</button>
+    <button class="iconbtn" title="设置">⚙</button>
+  </div>
+
+  <div class="body">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <!-- 最近会话（新增） -->
+      <div class="sec">
+        <div class="sec-h">💬 最近会话 <span class="act" onclick="newChat()">＋新对话</span></div>
+        <div class="item active" onclick="loadSession(0)"><span>●</span> 象屿系集中度核查 <span class="meta">14:33</span></div>
+        <div class="item" onclick="loadSession(1)"><span style="color:var(--text-muted)">○</span> 5月持仓结构分析 <span class="meta">昨天</span></div>
+        <div class="item" onclick="loadSession(2)"><span style="color:var(--text-muted)">○</span> 海晟租赁敞口查询 <span class="meta">05-28</span></div>
+        <div class="item" style="color:var(--blue);font-size:12px;">查看全部会话…</div>
+      </div>
+      <!-- 已加载数据 -->
+      <div class="sec">
+        <div class="sec-h">📂 已加载数据 <span class="act" onclick="demoQuality()">＋上传</span></div>
+        <div class="item"><span class="dot on"></span> 持仓_20260515 <span class="meta">283行</span></div>
+        <div class="item"><span class="dot warn"></span> 主体评级_0525 <span class="meta">156行</span></div>
+        <div class="item"><span class="dot" style="background:var(--blue)"></span> 申赎数据_0515 <span class="meta">推断</span></div>
+      </div>
+      <!-- Skills -->
+      <div class="sec">
+        <div class="sec-h">🔖 Skills</div>
+        <div class="item">集中度监控 <span class="tag fixed">固化</span></div>
+        <div class="item">持仓查询 <span class="tag exp">探索</span></div>
+        <div class="item">运作报告 <span class="tag fixed">固化</span></div>
+      </div>
+      <!-- 集团系 -->
+      <div class="sec">
+        <div class="sec-h">👥 集团系 <span class="act">管理</span></div>
+        <div class="item">象屿系 <span class="meta">3主体</span></div>
+        <div class="item">建发系 <span class="meta">2主体</span></div>
+      </div>
+      <!-- 记忆库 -->
+      <div class="sec">
+        <div class="sec-h">🧠 记忆库</div>
+        <div class="item">跨会话记忆 <span class="toggle" id="memToggle" onclick="toggleMem()"></span></div>
+        <div class="muted" id="memHint">已关闭 · 仅本机存储，不外发</div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="subhead">象屿系集中度核查 <button class="new" onclick="newChat()">＋ 新对话</button></div>
+      <div class="chat" id="chat"></div>
+      <div class="inputbar">
+        <div class="hintbar" id="hint">⏸ 请先在上方完成确认/选择后再继续输入</div>
+        <div class="quick">
+          <button class="q" onclick="demoConcentration()">⚠️ 集中度监控（演示确认卡片）</button>
+          <button class="q" onclick="demoAsk()">❓ 模糊问题（演示澄清卡片）</button>
+          <button class="q" onclick="demoQuality()">📊 上传（演示质量卡片）</button>
+          <button class="q" onclick="newChat()">🧹 清空</button>
+        </div>
+        <div class="inrow" id="inrow">
+          <textarea id="input" rows="2" placeholder="输入分析需求，支持 @表名 引用…  Enter 发送 / Shift+Enter 换行"></textarea>
+          <button class="send" id="send" onclick="sendUser()">发送 ↵</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+// ============ 基础工具 ============
+const chat = document.getElementById('chat');
+function el(html){const d=document.createElement('div');d.innerHTML=html.trim();return d.firstElementChild;}
+function add(node){chat.appendChild(node);chat.scrollTop=chat.scrollHeight;return node;}
+function userMsg(t){add(el(`<div class="row user"><div class="bubble user">${t}</div></div>`));}
+function agentMsg(t){add(el(`<div class="row"><div class="avatar">🤖</div><div class="bubble agent">${t}</div></div>`));}
+function thinking(t){add(el(`<div class="row"><div style="width:28px"></div><div class="thinking">▸ 思考过程：${t} <span style="float:right;color:var(--text-muted)">展开</span></div></div>`));}
+function lockInput(lock){
+  document.getElementById('inrow').classList.toggle('disabled',lock);
+  document.getElementById('hint').classList.toggle('show',lock);
+}
+
+// ============ 演示：集中度 → 工具卡片 → 人工确认 ============
+function demoConcentration(){
+  newChat();
+  userMsg('象屿系主体的集中度有没有超标？用穿透后口径。');
+  setTimeout(()=>thinking('已识别象屿系3个成员，按集团合并口径调用固化计算…'),300);
+  setTimeout(()=>{
+    add(el(`<div class="row"><div style="width:28px"></div><div class="card ok" style="flex:1">
+      <div class="tool-h">⚡ <b>run_calculator</b> · entity_concentration <span class="st green">✅ 已算</span></div>
+      <div class="muted">口径来源：config（穿透后市值 · 集团合并 · 阈值10%）· 非 LLM 生成 · 数据指纹已存审计</div>
+    </div></div>`));
+  },700);
+  setTimeout(showConfirm,1100);
+}
+function showConfirm(){
+  lockInput(true);
+  const c=add(el(`<div class="row"><div style="width:28px"></div><div class="confirm" style="flex:1">
+    <h3>⏸ 请确认计算结果，确认后再生成对外报告</h3>
+    <div class="sub">象屿系集中度 · 数据截至 2026-05-15 · 持仓_20260515（MD5 已存审计）</div>
+    <div class="card" style="background:var(--bg-card)">
+      <table>
+        <tr><th>集中度指标</th><th style="text-align:right">计算值</th><th style="text-align:right">阈值</th><th style="text-align:right">状态</th></tr>
+        <tr><td>主体集中度（象屿系，合并）</td><td class="num">8.4%</td><td class="num">10%</td><td class="num status-ok">✅ 合规</td></tr>
+        <tr><td>单券最高集中度</td><td class="num">6.2%</td><td class="num">10%</td><td class="num status-ok">✅ 合规</td></tr>
+        <tr><td style="color:var(--text-secondary)">计算口径</td><td colspan="3" class="num" style="color:var(--text-secondary);font-weight:400">穿透后市值（含集团合并）</td></tr>
+      </table>
+    </div>
+    <span class="link">📋 查看固化公式 / SQL</span><br/>
+    <button class="btn primary" onclick="onConfirm()">✅ 确认，生成报告</button>
+    <button class="btn ghost" onclick="onCancel()">❌ 取消</button>
+  </div></div>`));
+}
+function onConfirm(){
+  lockInput(false);
+  agentMsg('已确认。象屿系（含象屿股份、象屿物流、海晟融资租赁，按集团合并口径）主体集中度 <b>8.4%</b>，单券最高 <b>6.2%</b>，<b>均未超 10% 限额</b>。已写入合规审计日志，可据此生成运作报告段落。');
+}
+function onCancel(){lockInput(false);agentMsg('已取消本次计算，未生成报告。你可以调整口径或产品范围后重试。');}
+
+// ============ 演示：澄清卡片 ============
+function demoAsk(){
+  newChat();
+  userMsg('帮我看看XX产品的市值情况');
+  setTimeout(()=>thinking('"市值"存在多种口径，需向用户确认以保证结果正确…'),300);
+  setTimeout(()=>{
+    lockInput(true);
+    add(el(`<div class="row"><div style="width:28px"></div><div class="confirm" style="flex:1">
+      <h3>❓ 需要你确认一个口径</h3>
+      <div class="sub">为保证数字正确，请选择"市值"的口径：</div>
+      <button class="btn opt" onclick="onAsk('穿透后市值')">穿透后市值</button>
+      <button class="btn opt" onclick="onAsk('半穿透市值')">半穿透市值</button>
+      <button class="btn opt" onclick="onAsk('账面市值')">账面市值</button>
+    </div></div>`));
+  },700);
+}
+function onAsk(v){lockInput(false);userMsg('用'+v);agentMsg(`好的，按【${v}】计算。正在查询该产品持仓并汇总…（此处接 run_sql / run_calculator）`);}
+
+// ============ 演示：数据质量卡片 ============
+function demoQuality(){
+  add(el(`<div class="row"><div style="width:28px"></div><div class="quality" style="flex:1">
+    <b>📊 数据质量 · 持仓_20260515 · 283行 · 47列</b>
+    <div style="margin-top:8px;font-size:12.5px">
+      <div style="color:var(--warning)">⚠️ 需要注意（2项）</div>
+      <div class="muted">• 限额占用主体 空值率 3.2%（9行）—— 将影响集中度计算</div>
+      <div class="muted">• 3个主体未在 entity_alias 识别 <span class="link">补充别名</span></div>
+      <div style="color:var(--success);margin-top:6px">✅ 正常（44列空值 &lt; 1%）</div>
+      <div class="muted">🔗 与 主体评级_0525 的 JOIN 兼容性：94%</div>
+    </div>
+  </div></div>`));
+}
+
+// ============ 普通发送 / 会话 ============
+const sessions=[
+  null,
+  [['user','5月持仓结构按资产大类怎么分布？'],['agent','按 G06 一级分类汇总：利率债 42%、信用债 38%、同业存单 12%、其他 8%。（演示回放）']],
+  [['user','海晟融资租赁的敞口有多少？'],['agent','海晟融资租赁（象屿系）合计敞口约 0.79 亿，占组合 6.4%。（演示回放）']],
+];
+function sendUser(){
+  const i=document.getElementById('input');const t=i.value.trim();if(!t)return;
+  userMsg(t);i.value='';
+  setTimeout(()=>agentMsg('（演示原型：真实回答由后端 Agent 循环生成。试试左下角的演示按钮看确认/澄清/质量卡片。）'),300);
+}
+function loadSession(idx){
+  chat.innerHTML='';
+  if(idx===0){demoConcentration();return;}
+  const s=sessions[idx]||[];
+  s.forEach(([r,t])=> r==='user'?userMsg(t):agentMsg(t));
+  add(el(`<div class="row"><div style="width:28px"></div><div class="muted">— 历史会话回放（只读）— <span class="link">在此会话继续</span></div></div>`));
+}
+function newChat(){chat.innerHTML='';lockInput(false);
+  agentMsg('你好，我是 DataAgent。上传数据后用中文提问即可；涉及合规/报告的数字我会用固化口径计算并请你确认。');}
+
+// ============ 主题 / 记忆开关 ============
+function toggleTheme(){const h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';}
+let memOn=false;
+function toggleMem(){memOn=!memOn;
+  document.getElementById('memToggle').classList.toggle('on',memOn);
+  document.getElementById('memChip').textContent='🧠 记忆 '+(memOn?'开':'关');
+  document.getElementById('memHint').textContent=memOn?'已开启 · 仅记字段口径纠正，仅本机、不外发':'已关闭 · 仅本机存储，不外发';
+}
+
+// ============ SSE（真实实现参考，DEMO 不启用）============
+/* async function consumeSSE(resp){const r=resp.body.getReader();const dec=new TextDecoder();let buf='';
+   while(true){const {done,value}=await r.read();if(done)break;buf+=dec.decode(value,{stream:true});
+   const lines=buf.split('\n');buf=lines.pop();for(const ln of lines){if(ln.startsWith('data: ')){
+   try{handleChunk(JSON.parse(ln.slice(6)));}catch(e){}}}}} */
+
+newChat();
+</script>
+</body>
+</html>

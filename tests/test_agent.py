@@ -225,3 +225,268 @@ class TestAgentLoopBasic:
         llm_client, skill_loader = self._get_components()
         events = list(run_agent_loop('查询持仓', llm_client, skill_loader))
         assert events[-1]['type'] == 'stream_end'
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Phase R1 新增测试：tool-calling loop
+# ═══════════════════════════════════════════════════════════════
+
+class MockChatLLM:
+    """Mock LLMClient 用于测试 tool-calling loop"""
+
+    def __init__(self, responses: list = None):
+        from agent.llm_client import ChatResult
+        self.responses = responses or []
+        self.call_count = 0
+        self.messages_log: list[list[dict]] = []
+
+    def chat(self, messages, tools=None, timeout=None, max_tokens=None):
+        from agent.llm_client import ChatResult
+        self.messages_log.append(list(messages))
+        if self.call_count < len(self.responses):
+            result = self.responses[self.call_count]
+            self.call_count += 1
+            return result
+        return ChatResult(success=True, text="最终回答", tool_calls=[])
+
+
+def _make_chat_result(text="", tool_calls=None):
+    """快捷构造 ChatResult"""
+    from agent.llm_client import ChatResult
+    return ChatResult(
+        success=True, text=text,
+        tool_calls=tool_calls or [],
+        elapsed_ms=100, token_count=50, model="mock",
+    )
+
+
+def _make_tool_call(name, args, tc_id=""):
+    """快捷构造 tool_call dict"""
+    import uuid
+    return {
+        "id": tc_id or f"call_{uuid.uuid4().hex[:8]}",
+        "name": name,
+        "arguments": args,
+    }
+
+
+def _setup_test_holding_table():
+    """创建一张最小持仓测试表"""
+    import duckdb
+    import tools.data_loader as dl
+    dl._global_conn = None
+    dl._loaded_tables.clear()
+    conn = dl.init_duckdb_connection()
+    conn.execute("""
+        CREATE TABLE test_holding AS SELECT * FROM (VALUES
+            ('产品A', '象屿集团', 1234567.89, 'AAA'),
+            ('产品B', '建发集团', 2345678.90, 'AA+'),
+            ('产品A', '国贸集团', 3456789.01, 'AA'),
+        ) AS t("产品名称", "限额占用方主体", "穿透后市值", "外部评级")
+    """)
+    dl._loaded_tables["test_holding"] = type('obj', (object,), {
+        'table_name': 'test_holding',
+        'row_count': 3,
+        'col_count': 4,
+        'encoding': 'utf-8',
+        'date_tag': None,
+        'field_map': {
+            '产品名称': '产品名称',
+            '限额占用主体': '限额占用方主体',
+            '穿透后市值': '穿透后市值',
+            '外部评级': '外部评级',
+        },
+        'unmatched_cols': [],
+        'missing_required': [],
+        'warnings': [],
+        'table_type': 'holding',
+    })()
+    return conn
+
+
+class TestToolCallingLoop:
+    """R1: tool-calling Agent 循环测试"""
+
+    @staticmethod
+    def _get_skill_loader():
+        from agent.skill_loader import SkillLoader
+        return SkillLoader(local_dir='skills/')
+
+    def test_loop_multistep_runs_tools(self):
+        """验证多步 tool-calling 事件顺序正确"""
+        conn = _setup_test_holding_table()
+        skill_loader = self._get_skill_loader()
+
+        # Mock LLM: profile_table → run_sql → 最终回答
+        mock = MockChatLLM([
+            _make_chat_result(text="让我先看看表结构",
+                tool_calls=[_make_tool_call("profile_table",
+                    {"table_name": "test_holding"}, "tc1")]),
+            _make_chat_result(text="现在查询数据",
+                tool_calls=[_make_tool_call("run_sql",
+                    {"sql": "SELECT * FROM test_holding LIMIT 10",
+                     "purpose": "查看全部数据"}, "tc2")]),
+            _make_chat_result(text="查询结果如上。", tool_calls=[]),
+        ])
+
+        from agent.loop import run_agent_loop
+        events = list(run_agent_loop("分析这张表", mock, skill_loader))
+
+        # 断言事件顺序
+        event_types = [e['type'] for e in events]
+        assert 'tool_start' in event_types
+        assert 'tool_end' in event_types
+        assert 'text' in event_types
+        assert event_types[-1] == 'stream_end'
+
+        # LLM 应被调用了3次
+        assert mock.call_count == 3
+
+    def test_loop_calculator_path(self):
+        """验证 run_calculator 路径正确执行"""
+        conn = _setup_test_holding_table()
+        skill_loader = self._get_skill_loader()
+
+        mock = MockChatLLM([
+            _make_chat_result(text="这是合规场景，用固化计算",
+                tool_calls=[_make_tool_call("run_calculator",
+                    {"calculator": "entity_concentration",
+                     "holding_table": "test_holding"}, "tc1")]),
+            _make_chat_result(text="集中度计算完成，无超标。", tool_calls=[]),
+        ])
+
+        from agent.loop import run_agent_loop
+        events = list(run_agent_loop("检查集中度是否超标", mock, skill_loader))
+
+        # 应有 tool_start for run_calculator
+        tool_starts = [e for e in events if e['type'] == 'tool_start']
+        assert any('run_calculator' in str(e['data']) for e in tool_starts), \
+            f"Expected run_calculator tool_start, got: {tool_starts}"
+
+        # 应正常结束
+        assert events[-1]['type'] == 'stream_end'
+
+    def test_loop_ask_user_pause_resume(self):
+        """验证 ask_user 暂停 → 保存 pending → 续跑"""
+        conn = _setup_test_holding_table()
+        skill_loader = self._get_skill_loader()
+
+        # 第一次：ask_user 暂停
+        mock1 = MockChatLLM([
+            _make_chat_result(text="需要确认",
+                tool_calls=[_make_tool_call("ask_user",
+                    {"question": "用穿透后还是半穿透口径？",
+                     "options": ["穿透后", "半穿透"]}, "tc_ask")]),
+        ])
+
+        from agent.loop import run_agent_loop
+        events1 = list(run_agent_loop(
+            "查集中度", mock1, skill_loader,
+            session_messages=None, pending=None,
+        ))
+
+        # 应有 ask 事件
+        ask_events = [e for e in events1 if e['type'] == 'ask']
+        assert len(ask_events) == 1
+        assert '穿透后' in str(ask_events[0]['data'])
+
+        # 应有 __pending__ 事件
+        pending_events = [e for e in events1 if e['type'] == '__pending__']
+        assert len(pending_events) == 1
+        pending = pending_events[0]['data']
+        assert pending['type'] == 'ask'
+        assert pending['tool_call_id'] == 'tc_ask'
+
+        # 续跑：用户回答，传入 pending
+        mock2 = MockChatLLM([
+            _make_chat_result(text="好的，用穿透后口径计算。", tool_calls=[]),
+        ])
+
+        # 重建 session_messages（从 events1 中提取消息无法做到，用简化方式）
+        msgs = [
+            {"role": "system", "content": "你是 DataAgent。"},
+            {"role": "user", "content": "查集中度"},
+            {"role": "assistant", "content": "需要确认", "tool_calls": [
+                {"id": "tc_ask", "type": "function",
+                 "function": {"name": "ask_user", "arguments": '{"question":"用穿透后还是半穿透口径？","options":["穿透后","半穿透"]}'}}
+            ]},
+        ]
+
+        events2 = list(run_agent_loop(
+            "穿透后", mock2, skill_loader,
+            session_messages=msgs,
+            pending=pending,
+        ))
+
+        # 应正常结束
+        assert events2[-1]['type'] == 'stream_end'
+        # 不应再有 ask 事件（已续跑）
+        assert not any(e['type'] == 'ask' for e in events2)
+
+    def test_no_llm_sql_for_compliance(self):
+        """合规路径不应让 LLM 生成的 SQL 进入 query_runner"""
+        conn = _setup_test_holding_table()
+        skill_loader = self._get_skill_loader()
+
+        # run_calculator 使用固化公式，不经过 query_runner
+        mock = MockChatLLM([
+            _make_chat_result(text="合规场景，用固化计算",
+                tool_calls=[_make_tool_call("run_calculator",
+                    {"calculator": "entity_concentration"}, "tc1")]),
+            _make_chat_result(text="完成。", tool_calls=[]),
+        ])
+
+        from agent.loop import run_agent_loop
+        events = list(run_agent_loop("集中度超标了吗", mock, skill_loader))
+
+        # 不应该有 run_sql 的 tool_start
+        sql_starts = [e for e in events if e['type'] == 'tool_start'
+                      and e['data'].get('tool') == 'run_sql']
+        assert len(sql_starts) == 0, "合规路径不应调用 run_sql"
+
+        # 应有 run_calculator 的 tool_start
+        calc_starts = [e for e in events if e['type'] == 'tool_start'
+                       and e['data'].get('tool') == 'run_calculator']
+        assert len(calc_starts) >= 1
+
+    def test_multiturn_memory(self):
+        """两次连续消息：第二条应带上第一条的上下文"""
+        conn = _setup_test_holding_table()
+        skill_loader = self._get_skill_loader()
+
+        # 第一轮对话 — 传入空列表，loop 会往里追加消息
+        session_msgs: list[dict] = []
+
+        mock1 = MockChatLLM([
+            _make_chat_result(text="A产品的集中度是5%，未超标。", tool_calls=[]),
+        ])
+
+        from agent.loop import run_agent_loop
+        events1 = list(run_agent_loop(
+            "A产品集中度怎么样", mock1, skill_loader,
+            session_messages=session_msgs, pending=None,
+        ))
+        assert events1[-1]['type'] == 'stream_end'
+        # loop 结束后 session_msgs 应被更新（含 system + user + assistant）
+        assert len(session_msgs) >= 3, f"Expected >=3 msgs, got {len(session_msgs)}: {[m.get('role') for m in session_msgs]}"
+
+        # 第二轮对话（带历史消息）
+        mock2 = MockChatLLM([
+            _make_chat_result(text="B产品集中度是3%，也未超标。", tool_calls=[]),
+        ])
+
+        events2 = list(run_agent_loop(
+            "那B产品呢", mock2, skill_loader,
+            session_messages=session_msgs,  # 同一列表引用，含第一轮历史
+            pending=None,
+        ))
+        assert events2[-1]['type'] == 'stream_end'
+
+        # 第二轮传给 LLM 的消息应包含第一轮的上下文
+        msgs_round2 = mock2.messages_log[0] if mock2.messages_log else []
+        roles = [m.get('role') for m in msgs_round2]
+        assert 'system' in roles
+        # 至少应有 4 条消息（system + round1 user + round1 assistant + round2 user）
+        # round2 assistant 是 chat() 返回后才追加的，不在 messages_log 中
+        assert len(msgs_round2) >= 4, \
+            f"Expected >=4 msgs, got {len(msgs_round2)}: {roles}"
