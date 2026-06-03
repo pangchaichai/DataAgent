@@ -1,0 +1,202 @@
+# 部门周报数据字典
+table_type: weekly_report
+description: "投资部门周度报告数据源（预计算的汇总指标表，非原始持仓）"
+encoding: utf-8
+teams:
+  - 投资团队
+team_notes:
+  投资团队: "周报-本周数据源.csv（46列），每周汇总快照，含规模/收益率/回撤/杠杆/久期等预计算指标"
+
+fields:
+  # ── 标识字段 ────────────────────────────────────────────
+  - semantic: "统计日期"
+    physical_candidates: ["统计日期"]
+    dtype: date
+    required: true
+
+  - semantic: "组合代码"
+    physical_candidates: ["组合代码"]
+    dtype: str
+    required: true
+
+  - semantic: "组合简称"
+    physical_candidates: ["组合简称"]
+    dtype: str
+
+  - semantic: "产品标签"
+    physical_candidates: ["产品标签"]
+    dtype: str
+    required: true
+
+  - semantic: "投资经理"
+    physical_candidates: ["投资经理"]
+    dtype: str
+
+  - semantic: "投资助理"
+    physical_candidates: ["投资助理"]
+    dtype: str
+
+  # ── 规模指标 ───────────────────────────────────────────
+  - semantic: "规模"
+    physical_candidates: ["规模"]
+    dtype: float
+    compliance_use: true
+
+  - semantic: "规模变化"
+    physical_candidates: ["规模变化"]
+    dtype: float
+
+  - semantic: "期初规模"
+    physical_candidates: ["期初规模"]
+    dtype: float
+
+  # ── 净值指标 ───────────────────────────────────────────
+  - semantic: "净值变化"
+    physical_candidates: ["净值变化"]
+    dtype: float
+
+  - semantic: "当日单位净值"
+    physical_candidates: ["当日单位净值"]
+    dtype: float
+
+  - semantic: "期初净值"
+    physical_candidates: ["期初净值"]
+    dtype: float
+
+  # ── 风险指标 ───────────────────────────────────────────
+  - semantic: "杠杆率"
+    physical_candidates: ["杠杆率"]
+    dtype: float
+
+  - semantic: "杠杆率变化"
+    physical_candidates: ["杠杆率变化"]
+    dtype: float
+
+  - semantic: "期初杠杆率"
+    physical_candidates: ["期初杠杆率"]
+    dtype: float
+
+  - semantic: "久期"
+    physical_candidates: ["久期"]
+    dtype: float
+
+  - semantic: "久期变化"
+    physical_candidates: ["久期变化"]
+    dtype: float
+
+  - semantic: "期初久期"
+    physical_candidates: ["期初久期"]
+    dtype: float
+
+  # ── 收益指标 ───────────────────────────────────────────
+  - semantic: "静态收益率"
+    physical_candidates: ["静态收益率"]
+    dtype: float
+
+  - semantic: "组合收益率7日年化"
+    physical_candidates: ["组合收益率(7日年化)"]
+    dtype: float
+
+  - semantic: "组合收益率1月年化"
+    physical_candidates: ["组合收益率(1月年化)"]
+    dtype: float
+
+  - semantic: "组合收益率3月年化"
+    physical_candidates: ["组合收益率(3月年化)"]
+    dtype: float
+
+  - semantic: "组合收益率6月年化"
+    physical_candidates: ["组合收益率(6月年化)"]
+    dtype: float
+
+  - semantic: "组合收益率12月年化"
+    physical_candidates: ["组合收益率(12月年化)"]
+    dtype: float
+
+  - semantic: "组合收益率今年以来年化"
+    physical_candidates: ["组合收益率(今年以来年化)"]
+    dtype: float
+
+  - semantic: "组合收益率成立以来年化"
+    physical_candidates: ["组合收益率(成立以来年化)"]
+    dtype: float
+
+  # ── 回撤指标 ───────────────────────────────────────────
+  - semantic: "最大回撤1月"
+    physical_candidates: ["最大回撤(1月)"]
+    dtype: float
+
+  - semantic: "最大回撤3月"
+    physical_candidates: ["最大回撤(3月)"]
+    dtype: float
+
+  - semantic: "最大回撤6月"
+    physical_candidates: ["最大回撤(6月)"]
+    dtype: float
+
+  - semantic: "最大回撤12月"
+    physical_candidates: ["最大回撤(12月)"]
+    dtype: float
+
+  - semantic: "最大回撤成立以来"
+    physical_candidates: ["最大回撤(成立以来)"]
+    dtype: float
+
+  # ── 业绩基准 ───────────────────────────────────────────
+  - semantic: "是否达基"
+    physical_candidates: ["是否达基"]
+    dtype: str
+
+  - semantic: "超出业绩基准"
+    physical_candidates: ["超出业绩基准"]
+    dtype: float
+
+  - semantic: "业绩基准下线"
+    physical_candidates: ["业绩基准下线"]
+    dtype: float
+
+  - semantic: "业绩基准值"
+    physical_candidates: ["业绩基准值"]
+    dtype: str
+
+  # ── 资产配置占比 ───────────────────────────────────────
+  - semantic: "净资产占比资管计划"
+    physical_candidates: ["净资产占比_资管计划"]
+    dtype: float
+
+  - semantic: "净资产占权益类资产"
+    physical_candidates: ["净资产占比_权益类资产"]
+    dtype: float
+
+  - semantic: "净资产占比可转债"
+    physical_candidates: ["净资产占比_可转债"]
+    dtype: float
+
+  - semantic: "净资产占比基金固收"
+    physical_candidates: ["净资产占比_基金（固收类）", "净资产占比_基金(固收类)"]
+    dtype: float
+
+  - semantic: "净资产占比基金权益"
+    physical_candidates: ["净资产占比_基金（权益类）", "净资产占比_基金(权益类)"]
+    dtype: float
+
+  # ── 产品属性 ───────────────────────────────────────────
+  - semantic: "开放类型"
+    physical_candidates: ["开放类型"]
+    dtype: str
+
+  - semantic: "产品起息日"
+    physical_candidates: ["产品起息日"]
+    dtype: date
+
+  - semantic: "产品到期日"
+    physical_candidates: ["产品到期日"]
+    dtype: date
+
+  - semantic: "是否重点产品"
+    physical_candidates: ["是否重点产品（固收）", "是否重点产品"]
+    dtype: str
+
+  - semantic: "重点产品标签"
+    physical_candidates: ["重点产品标签"]
+    dtype: str

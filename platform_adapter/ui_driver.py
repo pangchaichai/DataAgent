@@ -38,6 +38,19 @@ class UIDriver(ABC):
         pass
 
 
+def _wait_for_flask(port: int, timeout: float = 10.0) -> bool:
+    """健康检查：轮询直到 Flask 响应，避免窗口早于服务就绪而载入"""
+    import urllib.request
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            urllib.request.urlopen(f'http://127.0.0.1:{port}/', timeout=1)
+            return True
+        except Exception:
+            time.sleep(0.2)
+    return False
+
+
 class BrowserDevDriver(UIDriver):
     """
     Linux/Mac 开发驱动
@@ -49,7 +62,6 @@ class BrowserDevDriver(UIDriver):
         return True  # 任何环境都可用
 
     def start(self, flask_app, port: int, title: str, width: int, height: int):
-        # Flask 在后台线程运行
         flask_thread = threading.Thread(
             target=lambda: flask_app.run(
                 host='127.0.0.1', port=port,
@@ -59,19 +71,18 @@ class BrowserDevDriver(UIDriver):
         )
         flask_thread.start()
 
-        # 等待 Flask 就绪
-        time.sleep(0.8)
-
-        # 打开系统浏览器
         url = f'http://127.0.0.1:{port}'
         print(f"\n{'='*50}")
         print(f"  DataAgent 开发模式（Linux/Browser）")
         print(f"  访问地址：{url}")
         print(f"  关闭方式：Ctrl+C")
         print(f"{'='*50}\n")
-        webbrowser.open(url)
 
-        # 保持主线程运行
+        if _wait_for_flask(port):
+            webbrowser.open(url)
+        else:
+            print(f"⚠️  Flask 未能在 10s 内就绪，请手动访问 {url}")
+
         try:
             while True:
                 time.sleep(1)
@@ -82,7 +93,11 @@ class BrowserDevDriver(UIDriver):
 class PyWebViewDriver(UIDriver):
     """
     Windows 生产驱动
-    PyWebView 原生窗口，支持文件拖拽、无浏览器地址栏
+    PyWebView 原生窗口，强制使用 WebView2（Edge Chromium 内核）
+
+    ★ 必须安装 WebView2 Runtime，否则会给出安装引导。
+      WebView2 Runtime 下载：https://developer.microsoft.com/microsoft-edge/webview2/
+      大多数 Windows 10/11 已预装，如未预装请下载「常青独立安装程序」。
     """
 
     def is_available(self) -> bool:
@@ -94,27 +109,84 @@ class PyWebViewDriver(UIDriver):
         except ImportError:
             return False
 
+    @staticmethod
+    def _check_webview2_runtime() -> bool:
+        """检测 WebView2 Runtime 是否已安装（Windows Only）"""
+        try:
+            import winreg
+            # WebView2 Runtime 注册表路径（64位和32位）
+            paths = [
+                r'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                r'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+            ]
+            for reg_path in paths:
+                try:
+                    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, reg_path)
+                    winreg.CloseKey(key)
+                    return True
+                except OSError:
+                    pass
+            return False
+        except Exception:
+            return False
+
     def start(self, flask_app, port: int, title: str, width: int, height: int):
         import webview
+
+        # WebView2 Runtime 检测
+        if not self._check_webview2_runtime():
+            print("\n" + "="*60)
+            print("  ⚠️  未检测到 WebView2 Runtime")
+            print("  DataAgent 需要 Microsoft WebView2 Runtime 才能运行。")
+            print()
+            print("  请按以下步骤安装：")
+            print("  1. 访问 https://developer.microsoft.com/microsoft-edge/webview2/")
+            print("  2. 下载「常青独立安装程序」（Evergreen Standalone Installer）")
+            print("  3. 安装完成后重新启动 DataAgent")
+            print()
+            print("  注意：Windows 11 和大多数 Windows 10 已预装 WebView2，")
+            print("  若您看到此提示，请确认系统更新已完成。")
+            print("="*60 + "\n")
+            # 仍然尝试启动，让 PyWebView 显示自己的错误信息（可能有内置引导）
 
         flask_thread = threading.Thread(
             target=lambda: flask_app.run(
                 host='127.0.0.1', port=port,
-                threaded=True, use_reloader=False
+                threaded=True, use_reloader=False, debug=False
             ),
             daemon=True
         )
         flask_thread.start()
-        time.sleep(0.5)
+
+        # 健康检查：等 Flask 就绪后再创建窗口
+        if not _wait_for_flask(port, timeout=15.0):
+            print(f"⚠️  Flask 服务未能在 15s 内就绪（端口 {port}），强制继续...")
 
         webview.create_window(
             title=title,
             url=f'http://127.0.0.1:{port}',
             width=width,
             height=height,
-            resizable=True
+            resizable=True,
+            min_size=(800, 600),
         )
-        webview.start()
+
+        # 强制指定 edgechromium（WebView2）后端，避免回退到 mshtml（IE11）
+        # mshtml 不支持 fetch API / EventSource / CSS 变量等现代特性
+        try:
+            webview.start(gui='edgechromium')
+        except Exception as e:
+            err = str(e).lower()
+            if 'edgechromium' in err or 'webview2' in err or 'not found' in err:
+                print("\n⚠️  WebView2 启动失败，尝试默认后端...")
+                print("   请安装 WebView2 Runtime 以获得最佳体验")
+                try:
+                    webview.start()
+                except Exception as e2:
+                    print(f"❌  PyWebView 启动失败：{e2}")
+                    print("   请检查 WebView2 Runtime 是否已安装。")
+            else:
+                raise
 
 
 def get_driver() -> UIDriver:

@@ -4,7 +4,14 @@
 
 ---
 
-## 当前阶段：Phase 2（进行中）
+## 当前阶段：Phase R 完成（92/92 单测）→ Phase 5（Windows 内测验证）
+
+## Phase R — Agent 内核重构 ✅ 完成（2026-06-03）
+- [x] R1: Agent 内核重构为 tool-calling Agent（5 工具 + function-calling + 暂停续跑）
+- [x] R2: 数据质量诊断 — 上传即输出质量报告
+- [x] R3: UI 重建 — 全本地资源 · 状态透明 · 确认不可忽略
+- [x] R4: 未知表内联推断（sanitize + 字典草稿）
+- [x] R5: 收窄版跨会话记忆（BM25+SQLite，仅口径纠正，默认关闭）
 
 ## Phase 0 — 环境搭建 ✅ 已完成
 - [x] 虚拟环境创建 + 开发依赖安装
@@ -38,13 +45,13 @@
 - [x] tools/compliance_audit.py（JSONL 审计日志，含 MD5 指纹）
 - [ ] skills/fund_nav_report/ 改为调用 calculators（模板待 C-02 确认后实现）
 
-## Phase 3 — 合规监控 + 参谈要点 ✅ 已完成（2026-06-01，72/72 测试通过）
+## Phase 3 — 合规监控 + 参谈要点 ✅ 代码完成（待 Windows 联试验收）
 - [x] tools/entity_manager.py（集团系 CRUD + 逆向索引 + 持久化）
 - [x] scheduler/task_manager.py（完整补跑检测 + 数据时效校验 + 运行记录）
 - [x] tools/notify.py（超标告警/数据过期/报告完成/任务失败 业务通知）
 - [x] skills/concentration_monitor/（SKILL.md calc_type:fixed + fixed_calculator）
 - [x] skills/meeting_report/（SKILL.md + template.md.j2 就绪）
-- [ ] Phase 3 验收
+- [ ] Phase 3 验收（等 Windows 3 项修复验证通过后一并验收）
 
 ## Phase 4 — 批量报告（进入条件：C-02/03/04 模板已确认）
 - [ ] skills/dept_weekly_report/ + template

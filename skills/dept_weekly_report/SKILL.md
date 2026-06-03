@@ -1,88 +1,55 @@
 ---
 name: dept_weekly_report
 description: |
-  生成某个投资部门的周度投资情况报告，按部门维度汇总本周持仓变化、收益表现、资产结构等。
+  生成投资部门周度投资情况报告，按产品标签分类展示各产品的规模变化、收益表现、
+  杠杆久期、资产配置占比、最大回撤等核心指标。
   支持手动触发和每周定时自动生成两种方式。
   触发词：周报、每周报告、部门周报、本周情况、周度统计
 required_table_types:
-  - holding              # 必须：本期持仓数据
-  - nav                  # 建议：净值数据
-optional_table_types:
-  - rating_entity        # 可选：评级数据
+  - weekly_report        # 周报-本周数据源.csv
 template_file: template.md.j2
 ---
 
 ## 适用场景
-每周生成投资部门维度的工作简报，汇总本周持仓状况、收益表现、资产结构分布等。
-报告内容和格式以后续提供的周报模板为准，当前先按标准结构生成。
+每周生成投资部门维度的工作简报。数据源为预计算的周度汇总指标表（周报-本周数据源.csv），
+包含规模、净值、杠杆率、久期、各期限收益率、最大回撤、资产配置占比、业绩基准等核心指标。
 
 ## 前提条件
-已加载本期持仓数据表，且已在 config.yaml 中配置当前用户的部门信息。
+- 已上传「周报-本周数据源.csv」
+- 数据表已通过 weekly_report_dict.yaml 完成字段映射
+
+## 数据说明
+周报数据源包含7种产品标签：
+  - 现金管理类产品、现金替代类产品、其他产品
+  - 机构专户、长封闭产品、QDII人民币产品、美元产品
+其中标记「是否重点产品=是」或「重点产品标签=是」的产品需单独汇总展示。
 
 ## 执行步骤
 
-### Step 1：确定部门范围
-- 从 config.yaml 读取 `user_profile.department`
-- 从 config.yaml 读取 `user_profile.managed_products`（该部门管理的产品列表）
-- 若用户在指令中指定了其他部门，以指令为准
+### Step 1：加载并校验数据
+- 确认 weekly_report 表已加载
+- 校验统计日期是否为当周周五
 
-### Step 2：部门持仓汇总
-```sql
-SELECT
-  G06一级分类 AS 资产类型,
-  COUNT(DISTINCT 资产代码) AS 品种数,
-  COUNT(DISTINCT 产品名称) AS 涉及产品数,
-  ROUND(SUM("资产市值_穿透后") / 10000, 2) AS "合计市值(万元)"
-FROM holding_table
-WHERE 产品名称 IN ({dept_products_list})  -- 替换为部门产品列表
-GROUP BY G06一级分类
-ORDER BY "合计市值(万元)" DESC
-LIMIT 30
-```
+### Step 2：按产品标签分类统计
+对每种产品标签，提取核心指标：
+- 产品数量、总规模、规模环比变化
+- 加权平均收益率（7日/1月/3月/今年以来）
+- 加权平均久期和杠杆率
+- 达基比例（是否达基=是的产品占比）
 
-### Step 3：评级分布统计
-```sql
-SELECT
-  CASE
-    WHEN 外部评级 = 'AAA' THEN 'AAA'
-    WHEN 外部评级 = 'AA+' THEN 'AA+'
-    WHEN 外部评级 = 'AA' THEN 'AA'
-    WHEN 外部评级 IS NULL OR 外部评级 = '' THEN '无评级'
-    ELSE 'AA-及以下'
-  END AS 评级区间,
-  ROUND(SUM("资产市值_穿透后") / 10000, 2) AS "市值(万元)",
-  COUNT(DISTINCT 资产代码) AS 品种数
-FROM holding_table
-WHERE 产品名称 IN ({dept_products_list})
-GROUP BY 评级区间
-ORDER BY "市值(万元)" DESC
-LIMIT 10
-```
+### Step 3：风险指标汇总
+- 各产品最大回撤（1月/3月/成立以来）
+- 杠杆率和久期变化（当期 vs 期初）
 
-### Step 4：各产品净值表现（如已加载净值表）
-```sql
-SELECT
-  产品名称,
-  单位净值,
-  "当前周期年化收益率(%)",
-  "本季度最大回撤(%)"
-FROM nav_table
-WHERE 产品名称 IN ({dept_products_list})
-ORDER BY "当前周期年化收益率(%)" DESC
-LIMIT 20
-```
+### Step 4：重点产品明细表
+筛选「是否重点产品=是」的产品，展示完整指标（规模/收益率/回撤/杠杆/久期/资产配置占比）。
 
 ### Step 5：生成报告文字
 将数值统计结果交给企业内网 LLM，生成周报文字说明段落。
 
 ## 人工确认节点
-定时任务自动生成：直接输出，保存到 data/outputs/ 目录，并通过 chat 通知用户
-用户手动触发：展示数值汇总后询问确认，再生成完整报告
+- 定时自动生成：直接输出 data/outputs/，chat 通知用户
+- 用户手动触发：展示数值汇总后询问确认
 
 ## 输出路径
-`data/outputs/周报_{部门名称}_{年份}第{周次}周.md`
-
-## 注意事项
-- 周报模板样式待业务人员后续提供，提供后更新 template.md.j2
-- 当前按标准结构输出，格式确认后可一键切换为正式模板
-- 若某产品本期无持仓数据，在报告中注明"本期无持仓"
+`data/outputs/周报_{部门名称}_{统计日期}.md`

@@ -1,0 +1,58 @@
+# 投资部门周报
+
+**统计日期**：{{ report_date }}
+**部门**：{{ department }}
+**数据范围**：{{ product_count }} 个产品，总规模 {{ total_scale }}
+
+---
+
+## 一、部门总体概况
+
+| 指标 | 数值 |
+|------|------|
+| 产品数量 | {{ product_count }} |
+| 总规模（亿元） | {{ total_scale }} |
+| 规模环比变化（亿元） | {{ scale_change }} |
+| 加权平均收益率（7日年化） | {{ avg_return_7d }} |
+| 加权平均收益率（今年以来年化） | {{ avg_return_ytd }} |
+| 达基产品占比 | {{ meet_benchmark_ratio }} |
+
+---
+
+## 二、各产品类型分表
+
+{% for category in categories %}
+### {{ category.label }}
+
+| 组合简称 | 规模(亿) | 规模变化 | 收益率(7日) | 收益率(1月) | 收益率(今年以来) | 久期 | 杠杆率 | 最大回撤(成立以来) | 是否达基 |
+|---------|---------|---------|-----------|-----------|-------------|-----|-------|---------------|---------|
+{% for p in category.products %}
+| {{ p.name }} | {{ p.scale }} | {{ p.scale_change }} | {{ p.ret_7d }} | {{ p.ret_1m }} | {{ p.ret_ytd }} | {{ p.duration }} | {{ p.leverage }} | {{ p.max_dd }} | {{ p.meet_benchmark }} |
+{% endfor %}
+
+{% endfor %}
+
+---
+
+## 三、重点产品明细
+
+| 组合简称 | 产品标签 | 规模(亿) | 收益率(7日) | 收益率(今年以来) | 久期 | 杠杆率 | 资管计划占比 | 权益占比 | 最大回撤(成立以来) | 业绩基准 |
+|---------|---------|---------|-----------|-------------|-----|-------|-----------|---------|---------------|---------|
+{% for p in key_products %}
+| {{ p.name }} | {{ p.label }} | {{ p.scale }} | {{ p.ret_7d }} | {{ p.ret_ytd }} | {{ p.duration }} | {{ p.leverage }} | {{ p.amac_ratio }} | {{ p.equity_ratio }} | {{ p.max_dd }} | {{ p.benchmark }} |
+{% endfor %}
+
+---
+
+## 四、风险提示
+
+{% for alert in risk_alerts %}
+- {{ alert }}
+{% endfor %}
+{% if not risk_alerts %}
+本周无异常风险指标。
+{% endif %}
+
+---
+
+*报告由 DataAgent 自动生成*

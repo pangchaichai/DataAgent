@@ -1,57 +1,35 @@
-table_type: holding
 description: 理财产品底层资产持仓明细表
 encoding: auto
-join_keys:
-  to_nav:
-    semantic: 产品名称
-    physical_candidates:
-    - 产品名称
-    - 理财产品名称
-    - 基金名称
-    - 组合名称
-    note: 关联净值表的关键。C-07：需与净值表产品名称字段值完全一致
-  to_rating_entity:
-    semantic: 限额占用主体
-    physical_candidates:
-    - 限额占用方主体
-    - 主体名称
-    - 发行人名称
-    - 主体
-    note: 关联主体评级表。需经过实体归一处理（entity_alias.yaml）
-  to_rating_bond:
-    semantic: 资产代码
-    physical_candidates:
-    - 资产代码
-    - 债券代码
-    - 证券代码
 fields:
-- semantic: 持仓日期
+- dtype: date
   physical_candidates:
   - 持仓日期
   - 数据日期
   - 估值日期
-  dtype: date
   required: true
-- semantic: 产品名称
+  semantic: 持仓日期
+- dtype: str
   physical_candidates:
   - 产品名称
   - 产品简称
   - 理财产品名称
-  dtype: str
   required: true
-- semantic: 资产代码
+  semantic: 产品名称
+- dtype: str
   physical_candidates:
   - 资产代码
   - 债券代码
   - 证券代码
-  dtype: str
-- semantic: 资产名称
+  semantic: 资产代码
+- dtype: str
   physical_candidates:
   - 资产名称
   - 债券名称
   - 证券简称
-  dtype: str
-- semantic: 穿透后市值
+  semantic: 资产名称
+- compliance_use: true
+  dtype: float
+  note: 合规集中度计算口径，C-01定后固化是全穿透还是半穿透
   physical_candidates:
   - 资产市值_穿透后
   - 资产市值_穿透后（元）
@@ -60,63 +38,85 @@ fields:
   - 穿透后市值（元）
   - 全穿透市值
   - 市值_穿透
-  dtype: float
-  requires_cleaning: thousands_separator
   quote_in_sql: true
-  note: 合规集中度计算口径，C-01定后固化是全穿透还是半穿透
-  compliance_use: true
-- semantic: 半穿透市值
+  requires_cleaning: thousands_separator
+  semantic: 穿透后市值
+- dtype: float
   physical_candidates:
   - 资产市值_半穿透
   - 半穿透市值(元)
   - 市值_半穿透
-  dtype: float
-  requires_cleaning: thousands_separator
   quote_in_sql: true
-- semantic: 资产大类
+  requires_cleaning: thousands_separator
+  semantic: 半穿透市值
+- dtype: str
   physical_candidates:
   - G06一级分类
   - g06一级分类
   - 资产大类
   - 一级资产类别
-  dtype: str
-- semantic: 资产细类
+  semantic: 资产大类
+- dtype: str
   physical_candidates:
   - G06二级分类
   - g06二级分类
   - 资产细类
   - 二级资产类别
-  dtype: str
-- semantic: 外部评级
+  semantic: 资产细类
+- dtype: str
   physical_candidates:
   - 外部评级
   - 外评
   - 债项外部评级
-  dtype: str
-- semantic: 限额占用主体
+  semantic: 外部评级
+- dtype: str
   physical_candidates:
   - 限额占用方主体
   - 限额占用主体
   - 主体名称
   - 发行人
-  dtype: str
-- semantic: 剩余期限
+  semantic: 限额占用主体
+- dtype: float
+  note: 单位：年
   physical_candidates:
   - 剩余期限（年）
   - 剩余期限(年)
   - 剩余期限
   - 剩余年限
-  dtype: float
-  note: 单位：年
-- semantic: 到期日
+  semantic: 剩余期限
+- dtype: date
   physical_candidates:
   - 到期日
   - 债券到期日
   - 到期时间
-  dtype: date
-teams:
-- 投资团队
-- 研究员
+  semantic: 到期日
+join_keys:
+  to_nav:
+    note: 关联净值表的关键。C-07：需与净值表产品名称字段值完全一致
+    physical_candidates:
+    - 产品名称
+    - 理财产品名称
+    - 基金名称
+    - 组合名称
+    semantic: 产品名称
+  to_rating_bond:
+    physical_candidates:
+    - 资产代码
+    - 债券代码
+    - 证券代码
+    semantic: 资产代码
+  to_rating_entity:
+    note: 关联主体评级表。需经过实体归一处理（entity_alias.yaml）
+    physical_candidates:
+    - 限额占用方主体
+    - 主体名称
+    - 发行人名称
+    - 主体
+    semantic: 限额占用主体
+table_type: holding
 team_notes:
   投资团队: 持仓产品管理-*.csv（62列，列名含（元）等单位后缀）
   研究员: 底层资产持仓及债券信息表*.csv（66列，列名无单位后缀，含穿透类型）
+teams:
+- 投资团队
+- 研究员
