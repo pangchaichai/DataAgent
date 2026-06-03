@@ -76,3 +76,8 @@ duckdb:
 scheduler:
   enabled: true
   task_config: tasks/task_config.yaml
+
+# ── 跨会话记忆（R5）────────────────────────────────────
+memory:
+  enabled: false                      # 默认关闭；用户在 UI 开启
+  max_db_mb: 5                        # 体积告警阈值

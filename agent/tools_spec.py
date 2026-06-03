@@ -156,6 +156,44 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    # ── propose_dict_entry（R4）──
+    {
+        "type": "function",
+        "function": {
+            "name": "propose_dict_entry",
+            "description": (
+                "将字段语义映射提案写入草稿目录。仅用于用户确认后保存映射。"
+                "草稿保存在 data_dictionary/drafts/ 下，不进入正式映射。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "table_type": {"type": "string", "description": "表类型"},
+                    "semantic_name": {"type": "string", "description": "语义字段名"},
+                    "physical_column": {"type": "string", "description": "实际列名"},
+                },
+                "required": ["table_type", "semantic_name", "physical_column"],
+            },
+        },
+    },
+    # ── confirm_dict（R4）──
+    {
+        "type": "function",
+        "function": {
+            "name": "confirm_dict",
+            "description": (
+                "将 drafts/ 中的草稿合并进正式数据字典。此操作不可逆，"
+                "必须先经过 request_confirmation 获得用户明确同意。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "table_type": {"type": "string", "description": "要合并的表类型"},
+                },
+                "required": ["table_type"],
+            },
+        },
+    },
 ]
 
 
@@ -202,6 +240,8 @@ def dispatch_tool(name: str, args: dict, ctx: ToolContext) -> dict:
         "run_calculator": _tool_run_calculator,
         "ask_user": _tool_ask_user,
         "request_confirmation": _tool_request_confirmation,
+        "propose_dict_entry": _tool_propose_dict_entry,
+        "confirm_dict": _tool_confirm_dict,
     }
     handler = dispatch_map.get(name)
     if handler is None:
@@ -441,6 +481,100 @@ def _tool_request_confirmation(args: dict, ctx: ToolContext) -> dict:
         "title": args.get("title", ""),
         "summary": args.get("summary", []),
         "sql_or_formula": args.get("sql_or_formula", ""),
+    }
+
+
+def _tool_propose_dict_entry(args: dict, ctx: ToolContext) -> dict:
+    """将字段语义映射提案写入草稿目录"""
+    table_type = args.get("table_type", "")
+    semantic = args.get("semantic_name", "")
+    physical = args.get("physical_column", "")
+
+    drafts_dir = (
+        Path(__file__).resolve().parent.parent / "data_dictionary" / "drafts"
+    )
+    drafts_dir.mkdir(parents=True, exist_ok=True)
+
+    draft_file = drafts_dir / f"{table_type}_draft.yaml"
+    entries = {}
+    if draft_file.exists():
+        with open(draft_file, encoding="utf-8") as f:
+            entries = yaml.safe_load(f) or {}
+
+    if "fields" not in entries:
+        entries["fields"] = []
+    entries["fields"].append({
+        "semantic": semantic,
+        "physical_candidates": [physical],
+        "proposed": True,
+    })
+
+    with open(draft_file, "w", encoding="utf-8") as f:
+        yaml.dump(entries, f, allow_unicode=True, default_flow_style=False)
+
+    return {
+        "ok": True,
+        "draft_file": str(draft_file),
+        "table_type": table_type,
+        "mapping": {semantic: physical},
+    }
+
+
+def _tool_confirm_dict(args: dict, ctx: ToolContext) -> dict:
+    """将草稿合并进正式字典（须经确认）"""
+    table_type = args.get("table_type", "")
+    drafts_dir = (
+        Path(__file__).resolve().parent.parent / "data_dictionary" / "drafts"
+    )
+    draft_file = drafts_dir / f"{table_type}_draft.yaml"
+
+    if not draft_file.exists():
+        return {"ok": False, "error": f"没有 {table_type} 的待确认草稿"}
+
+    with open(draft_file, encoding="utf-8") as f:
+        draft_entries = yaml.safe_load(f) or {}
+
+    dict_dir = Path(__file__).resolve().parent.parent / "data_dictionary"
+    DICT_MAP = {
+        "holding": "holding_dict.yaml",
+        "nav": "nav_dict.yaml",
+        "rating_entity": "rating_entity_dict.yaml",
+        "rating_bond": "rating_bond_dict.yaml",
+        "monitoring": "monitoring_dict.yaml",
+        "weekly_report": "weekly_report_dict.yaml",
+    }
+    dict_filename = DICT_MAP.get(table_type)
+    if not dict_filename:
+        return {"ok": False, "error": f"未知表类型：{table_type}"}
+
+    dict_file = dict_dir / dict_filename
+    existing = {}
+    if dict_file.exists():
+        with open(dict_file, encoding="utf-8") as f:
+            existing = yaml.safe_load(f) or {}
+
+    # 合并草稿字段
+    existing_fields = existing.get("fields", [])
+    existing_semantics = {f["semantic"] for f in existing_fields}
+    for df in draft_entries.get("fields", []):
+        if df["semantic"] not in existing_semantics:
+            existing_fields.append({
+                "semantic": df["semantic"],
+                "physical_candidates": df.get("physical_candidates", []),
+            })
+
+    existing["fields"] = existing_fields
+    with open(dict_file, "w", encoding="utf-8") as f:
+        yaml.dump(existing, f, allow_unicode=True, default_flow_style=False)
+
+    # 删除已合并的草稿
+    draft_file.unlink()
+
+    return {
+        "ok": True,
+        "table_type": table_type,
+        "merged_count": len(draft_entries.get("fields", [])),
+        "dict_file": str(dict_file),
     }
 
 

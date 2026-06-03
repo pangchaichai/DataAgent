@@ -9,3 +9,4 @@ pywebview==4.3.3       # 原生窗口
 winotify==1.1.0        # Windows toast 通知
 pyinstaller==6.6.0     # 打包为 .exe
 psutil>=5.9.0
+rank_bm25>=0.2.2

@@ -17,6 +17,7 @@ def profile_table(
     conn: duckdb.DuckDBPyConnection,
     table_name: str,
     columns: list[str] | None = None,
+    sanitize: bool = False,
 ) -> dict:
     """
     剖析一张已加载的数据表。
@@ -102,7 +103,11 @@ def profile_table(
                     f'SELECT DISTINCT "{col_name}" FROM "{table_name}" '
                     f'WHERE "{col_name}" IS NOT NULL LIMIT 5'
                 ).fetchall()
-                info["samples"] = [str(s[0])[:100] for s in samples]
+                raw_samples = [str(s[0])[:100] for s in samples]
+                if sanitize:
+                    info["samples"] = _sanitize_samples(raw_samples, col_name)
+                else:
+                    info["samples"] = raw_samples
             except Exception:
                 info["samples"] = []
 
@@ -143,6 +148,27 @@ def _safe_float(val) -> float | None:
         return float(val)
     except (ValueError, TypeError):
         return None
+
+
+def _sanitize_samples(samples: list[str], col_name: str) -> list[str]:
+    """★R4: 外网场景脱敏样本值。保留结构信息，隐藏具体数据。"""
+    sanitized = []
+    for s in samples:
+        if not s:
+            sanitized.append(s)
+            continue
+        cn = col_name.lower()
+        if any(k in cn for k in ('主体', 'entity', '名称', 'name', '产品', 'product')):
+            # 实体名 → 保留长度信息
+            sanitized.append(f"[实体-{len(s)}字]")
+        elif any(k in cn for k in ('市值', '金额', 'amount', 'value', '规模')):
+            # 金额 → 量级
+            sanitized.append("[数值]")
+        elif any(k in cn for k in ('日期', 'date', '时间', 'time')):
+            sanitized.append("[日期]")
+        else:
+            sanitized.append(f"[文本-{len(s)}字]")
+    return sanitized
 
 
 def _get_field_map(table_name: str) -> dict:

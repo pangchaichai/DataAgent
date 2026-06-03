@@ -37,20 +37,20 @@
 - [x] `requirements-*.txt` 加 `psutil`
 - [ ] P0 验收清单全过（含断网可打开 + 会话回放）— 待实际启动验证
 
-## Step R4 — 未知表内联推断 ☐
+## Step R4 — 未知表内联推断 ✅ 完成（2026-06-03）
 > 文档：`04-schema-inline-inference.md`
-- [ ] profiler `sanitize` 选项
-- [ ] `propose_dict_entry` / `confirm_dict` 工具
-- [ ] `data_dictionary/drafts/`
-- [ ] 单测 5 项；旧测试绿
+- [x] profiler 增 `sanitize` 选项 — 外网场景脱敏
+- [x] `propose_dict_entry` / `confirm_dict` 工具 + 分发 — 草稿→正式字典
+- [x] `data_dictionary/drafts/` 目录
+- [x] 单测 3 项（脱敏/草稿/合并）；全 92 项通过
 
-## Step R5 — 收窄版记忆（增强，最后） ☐
+## Step R5 — 收窄版记忆（增强，最后） ✅ 完成（2026-06-03）
 > 文档：`05-memory-scoped.md`
-- [ ] `agent/memory.py`（仅 schema_correction，不自动注入）
-- [ ] **用户开关 `memory.enabled`（默认 OFF）+ no-op 短路 + UI 开关/清空**
-- [ ] `/api/memory/stats`
-- [ ] `requirements-*.txt` 加 `rank_bm25`
-- [ ] 单测 4 项；旧测试绿
+- [x] `agent/memory.py`（仅 schema_correction，BM25+SQLite）
+- [x] **用户开关 `memory.enabled`（默认 OFF）+ no-op 短路**
+- [x] `/api/memory/stats`
+- [x] `requirements-*.txt` 加 `rank_bm25`
+- [x] 单测 4 项；92/92 全绿
 
 ---
 

@@ -352,6 +352,13 @@ def create_flask_app() -> Flask:
             }
         )
 
+    # ── GET /api/memory/stats — 记忆库统计 ──────────────────
+    @app.route('/api/memory/stats')
+    def api_memory_stats():
+        from agent.memory import load_memory_from_config
+        mem = load_memory_from_config(str(BASE_DIR / 'config.yaml'))
+        return jsonify(mem.get_stats())
+
     # ── POST /api/reset — 重置对话会话 ──────────────────────
     @app.route('/api/reset', methods=['POST'])
     def api_reset():

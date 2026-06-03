@@ -491,3 +491,128 @@ class TestToolCallingLoop:
         # round2 assistant 是 chat() 返回后才追加的，不在 messages_log 中
         assert len(msgs_round2) >= 4, \
             f"Expected >=4 msgs, got {len(msgs_round2)}: {roles}"
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Phase R4 新增：内联推断测试
+# ═══════════════════════════════════════════════════════════════
+
+class TestSchemaInference:
+    """R4: 未知表内联推断"""
+
+    def test_sanitize_samples(self):
+        """外网脱敏应替换实际值为占位符"""
+        from tools.profiler import _sanitize_samples
+        raw = ["厦门象屿集团有限公司", "建发集团"]
+        result = _sanitize_samples(raw, "限额占用主体")
+        assert "厦门象屿" not in str(result)
+        assert "[实体" in str(result[0])
+
+    def test_propose_dict_is_draft_only(self):
+        """propose_dict_entry 只写 drafts/，不改正式字典"""
+        import yaml
+        from pathlib import Path
+        from agent.tools_spec import _tool_propose_dict_entry, ToolContext
+
+        ctx = ToolContext()
+        # 写入测试草稿
+        result = _tool_propose_dict_entry({
+            "table_type": "test_type",
+            "semantic_name": "测试市值",
+            "physical_column": "test_mkt_val",
+        }, ctx)
+        assert result["ok"]
+
+        # 验证只在 drafts/
+        drafts_dir = Path(__file__).resolve().parent.parent / "data_dictionary" / "drafts"
+        draft_file = drafts_dir / "test_type_draft.yaml"
+        assert draft_file.exists()
+
+        # 清理
+        draft_file.unlink(missing_ok=True)
+
+    def test_confirm_dict_merges_draft(self):
+        """confirm_dict 应合并草稿到正式字典"""
+        import yaml
+        from pathlib import Path
+        from agent.tools_spec import _tool_propose_dict_entry, _tool_confirm_dict, ToolContext
+
+        ctx = ToolContext()
+        # 先写草稿
+        _tool_propose_dict_entry({
+            "table_type": "holding",
+            "semantic_name": "测试字段_R4",
+            "physical_column": "test_col",
+        }, ctx)
+
+        # 确认入库（到正式 dict）
+        result = _tool_confirm_dict({"table_type": "holding"}, ctx)
+        assert result["ok"]
+
+        # 验证已合并
+        dict_file = Path(__file__).resolve().parent.parent / "data_dictionary" / "holding_dict.yaml"
+        with open(dict_file, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        semantics = [f["semantic"] for f in data.get("fields", [])]
+        assert "测试字段_R4" in semantics
+
+        # 清理：从正式字典中移除测试字段
+        data["fields"] = [f for f in data.get("fields", []) if f["semantic"] != "测试字段_R4"]
+        with open(dict_file, "w", encoding="utf-8") as f:
+            yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Phase R5 新增：收窄版记忆
+# ═══════════════════════════════════════════════════════════════
+
+class TestAgentMemory:
+    """R5: scoped cross-session memory"""
+
+    def test_memory_disabled_noop(self, tmp_path):
+        """关闭时 save_correction 应不做任何事"""
+        from agent.memory import AgentMemory
+        db = tmp_path / "test.db"
+        mem = AgentMemory(str(db), enabled=False)
+        mem.initialize()
+        mem.save_correction("市值-holding", "用穿透后")
+        # 数据库不应被创建
+        assert not db.exists()
+
+    def test_memory_enabled_save_recall(self, tmp_path):
+        """开启后保存和召回应正常工作"""
+        from agent.memory import AgentMemory
+        db = tmp_path / "test.db"
+        mem = AgentMemory(str(db), enabled=True)
+        mem.initialize()
+        mem.save_correction("市值字段-holding", "使用穿透后市值而非账面市值")
+        mem.save_correction("产品名称-nav", "产品简称对应产品名称")
+
+        results = mem.recall("市值")
+        assert len(results) >= 1
+        assert any("穿透后" in r["content"] for r in results)
+
+        # 清理
+        mem._conn.close()
+        db.unlink(missing_ok=True)
+
+    def test_memory_empty_recall(self, tmp_path):
+        """空记忆库召回应返回空列表"""
+        from agent.memory import AgentMemory
+        db = tmp_path / "test_empty.db"
+        mem = AgentMemory(str(db), enabled=True)
+        mem.initialize()
+        results = mem.recall("任何查询")
+        assert results == []
+        mem._conn.close()
+        db.unlink(missing_ok=True)
+
+    def test_memory_no_sql_pattern(self):
+        """不应有 sql_pattern/business_rule 写入路径"""
+        from agent.memory import AgentMemory
+        mem = AgentMemory(enabled=True)
+        # 验证类只有 save_correction 一个写方法
+        write_methods = [m for m in dir(mem) if m.startswith('save')]
+        assert 'save_correction' in write_methods
+        assert 'save_sql' not in write_methods
+        assert 'save_business_rule' not in write_methods
