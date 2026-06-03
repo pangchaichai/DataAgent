@@ -311,6 +311,14 @@ def run_agent_loop(
 
             yield _tool_end(tool_name, ok, summary, sql=sql_display, tool_id=tool_id)
 
+            if tool_name == "run_sql" and ok and tool_result.get("columns"):
+                yield _table({
+                    "title": tool_args.get("purpose", "查询结果"),
+                    "columns": tool_result["columns"],
+                    "rows": tool_result.get("rows", []),
+                    "sql": sql_display,
+                })
+
             session_messages.append({
                 "role": "tool",
                 "tool_call_id": tool_id,

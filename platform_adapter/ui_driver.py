@@ -169,6 +169,7 @@ class PyWebViewDriver(UIDriver):
             height=height,
             resizable=True,
             min_size=(800, 600),
+            text_select=True,
         )
 
         # 强制指定 edgechromium（WebView2）后端，避免回退到 mshtml（IE11）
