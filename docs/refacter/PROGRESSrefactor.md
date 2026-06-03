@@ -29,13 +29,13 @@
 - [x] loop 上下文注入 critical 摘要（`agent/context.py`）
 - [x] 质量单测 3 项；旧测试绿 — 85/85 全过
 
-## Step R3 — UI 重建（全本地资源） ☐
+## Step R3 — UI 重建（全本地资源） ✅ 完成（2026-06-03）
 > 文档：`03-ui-rebuild.md` + 权威设计 `ui-design.md`；参照 `index-preview.html` / `ui-mockup.svg`
-- [ ] `ui/index.html` 重建 + `ui/static/` 本地资源（零 CDN）
-- [ ] **侧边栏「最近会话」分区 + 回放**；会话落盘 `data/sessions/{id}.jsonl`
-- [ ] `/api/health` `/api/skills` `/api/confirm` `/api/sessions` `/api/sessions/<id>`
-- [ ] `requirements-*.txt` 加 `psutil`
-- [ ] P0 验收清单全过（含断网可打开 + 会话回放）
+- [x] `ui/index.html` 重建 — Header 状态栏 + 侧边栏 + 消息卡片 + 全本地资源（零 CDN）
+- [x] **侧边栏「最近会话」分区 + 回放**；会话落盘 `data/sessions/{id}.jsonl`
+- [x] `/api/health` `/api/skills` `/api/confirm` `/api/sessions` `/api/sessions/<id>` `/api/groups`
+- [x] `requirements-*.txt` 加 `psutil`
+- [ ] P0 验收清单全过（含断网可打开 + 会话回放）— 待实际启动验证
 
 ## Step R4 — 未知表内联推断 ☐
 > 文档：`04-schema-inline-inference.md`

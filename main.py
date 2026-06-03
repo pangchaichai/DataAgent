@@ -76,10 +76,11 @@ def wait_for_flask(port: int, timeout: float = 10.0):
 
 _session_lock = threading.Lock()
 _session = {
+    "session_id": "",       # ★R3: 当前会话 ID（生成并持久化）
     "turn_count": 0,
     "loaded_files": [],  # [{path, table_name, date_tag, table_type}]
-    "messages": [],      # ★R1 新增：对话历史 [{role, content, ...}]
-    "pending": None,     # ★R1 新增：暂停状态 {type, tool_call_id, ...}
+    "messages": [],      # ★R1: 对话历史 [{role, content, ...}]
+    "pending": None,     # ★R1: 暂停状态 {type, tool_call_id, ...}
 }
 
 # SSE 流队列：sid → queue.Queue
@@ -90,11 +91,67 @@ _stream_queues: dict[str, queue.Queue] = {}
 _stream_queues_lock = threading.Lock()
 
 
+def _new_session_id() -> str:
+    """生成新的会话 ID 并确保 sessions 目录存在"""
+    sid = uuid.uuid4().hex[:12]
+    (BASE_DIR / 'data' / 'sessions').mkdir(parents=True, exist_ok=True)
+    return sid
+
+
+def _save_session_messages():
+    """★R3: 将当前会话 messages 持久化到 data/sessions/{id}.jsonl"""
+    sid = _session.get("session_id")
+    if not sid:
+        return
+    # 提取可持久化的消息（过滤 tool_calls 中的 function 对象）
+    clean_msgs = []
+    for m in _session.get("messages", []):
+        cm = {"role": m.get("role"), "content": m.get("content")}
+        if m.get("tool_calls"):
+            cm["tool_calls"] = m["tool_calls"]
+        if m.get("tool_call_id"):
+            cm["tool_call_id"] = m["tool_call_id"]
+        clean_msgs.append(cm)
+
+    # 生成标题（首条用户消息前40字）
+    title = ""
+    for m in clean_msgs:
+        if m["role"] == "user" and m.get("content"):
+            title = str(m["content"])[:40]
+            break
+
+    from tools.data_loader import get_loaded_tables
+    tables = [t["name"] for t in get_loaded_tables()]
+
+    meta = {
+        "id": sid,
+        "title": title or "新对话",
+        "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "tables": tables,
+        "turn_count": _session.get("turn_count", 0),
+    }
+
+    session_file = BASE_DIR / 'data' / 'sessions' / f'{sid}.jsonl'
+    with open(session_file, 'w', encoding='utf-8') as f:
+        f.write(json.dumps(meta, ensure_ascii=False) + '\n')
+        for m in clean_msgs:
+            f.write(json.dumps(m, ensure_ascii=False) + '\n')
+
+
 def reset_session():
     with _session_lock:
+        old_id = _session.get("session_id", "")
         _session["turn_count"] = 0
         _session["messages"] = []
         _session["pending"] = None
+        _session["session_id"] = _new_session_id()
+        # 删除空会话文件
+        if old_id:
+            old_file = BASE_DIR / 'data' / 'sessions' / f'{old_id}.jsonl'
+            try:
+                old_file.unlink(missing_ok=True)
+            except Exception:
+                pass
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -185,10 +242,11 @@ def create_flask_app() -> Flask:
 
         # ★R1：读取会话消息历史和暂停状态
         with _session_lock:
+            if not _session.get("session_id"):
+                _session["session_id"] = _new_session_id()
             current_turn = _session["turn_count"]
-            session_msgs = list(_session["messages"])  # 浅拷贝
+            session_msgs = list(_session["messages"])
             pending = _session.get("pending")
-            # 清除 pending（本次请求会处理它）
             _session["pending"] = None
 
         # 在后台线程运行 agent loop，事件写入队列
@@ -216,6 +274,7 @@ def create_flask_app() -> Flask:
                         with _session_lock:
                             _session["pending"] = event["data"]
                             _session["messages"] = list(session_msgs)
+                            _save_session_messages()  # ★R3: 暂停时也持久化
                         continue  # 不推给前端
 
                     q.put(event)
@@ -224,6 +283,7 @@ def create_flask_app() -> Flask:
                 with _session_lock:
                     _session["messages"] = list(session_msgs)
                     _session["turn_count"] += 1
+                    _save_session_messages()  # ★R3: 持久化会话
             except Exception as e:
                 q.put({"type": "error", "data": f"Agent 处理异常：{str(e)}"})
             finally:
@@ -297,6 +357,116 @@ def create_flask_app() -> Flask:
     def api_reset():
         reset_session()
         return jsonify({"ok": True})
+
+    # ── GET /api/health — 系统健康状态 ─────────────────────
+    @app.route('/api/health')
+    def api_health():
+        try:
+            import psutil
+            proc = psutil.Process()
+            ram_mb = round(proc.memory_info().rss / 1024 / 1024, 1)
+        except Exception:
+            ram_mb = 0
+
+        with _session_lock:
+            token_used = 0
+            turn = _session.get("turn_count", 0)
+
+        llm_status = "online"
+        llm_name = "deepseek-chat"
+        llm_latency = 0
+
+        # 尝试获取 LLM 状态（从 config）
+        try:
+            from agent.llm_client import LLMClient
+            client = LLMClient(str(BASE_DIR / 'config.yaml'))
+            llm_name = client.sql_gen_cfg.get('model', 'deepseek-chat')
+        except Exception:
+            pass
+
+        return jsonify({
+            "llm_status": llm_status,
+            "llm_name": llm_name,
+            "llm_latency": llm_latency,
+            "ram_mb": ram_mb,
+            "token_used": token_used,
+            "token_limit": 64000,
+            "turn_count": turn,
+        })
+
+    # ── GET /api/skills — Skills 注册表 ──────────────────────
+    @app.route('/api/skills')
+    def api_skills():
+        from agent.skill_loader import SkillLoader
+        loader = SkillLoader(local_dir=str(BASE_DIR / 'skills'))
+        registry = loader.load_registry()
+        skills = [
+            {
+                "name": s.name,
+                "description": s.description.split('\n')[0][:80],
+                "calc_type": s.calc_type,
+            }
+            for s in registry
+        ]
+        return jsonify({"skills": skills})
+
+    # ── GET /api/groups — 集团系列表 ──────────────────────────
+    @app.route('/api/groups')
+    def api_groups():
+        from tools.entity_manager import EntityManager
+        mgr = EntityManager(str(BASE_DIR / 'groups.yaml'))
+        return jsonify({"groups": mgr.list_groups()})
+
+    # ── GET /api/sessions — 最近会话列表 ────────────────────
+    @app.route('/api/sessions')
+    def api_sessions():
+        sessions_dir = BASE_DIR / 'data' / 'sessions'
+        if not sessions_dir.exists():
+            return jsonify({"sessions": []})
+
+        sessions = []
+        for f in sorted(sessions_dir.glob('*.jsonl'), key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                with open(f, encoding='utf-8') as fp:
+                    meta = json.loads(fp.readline())
+                sessions.append({
+                    "id": meta.get("id", f.stem),
+                    "title": meta.get("title", "未命名"),
+                    "updated_at": meta.get("updated_at", ""),
+                    "tables": meta.get("tables", []),
+                    "turn_count": meta.get("turn_count", 0),
+                })
+            except Exception:
+                continue
+
+        return jsonify({"sessions": sessions})
+
+    # ── GET /api/sessions/<id> — 载入会话消息 ──────────────
+    @app.route('/api/sessions/<session_id>')
+    def api_session_detail(session_id):
+        session_file = BASE_DIR / 'data' / 'sessions' / f'{session_id}.jsonl'
+        if not session_file.exists():
+            return jsonify({"error": "会话不存在"}), 404
+
+        messages = []
+        meta = {}
+        try:
+            with open(session_file, encoding='utf-8') as f:
+                lines = f.readlines()
+            if lines:
+                meta = json.loads(lines[0])
+                for line in lines[1:]:
+                    messages.append(json.loads(line))
+        except Exception as e:
+            return jsonify({"error": f"读取会话失败：{e}"}), 500
+
+        return jsonify({
+            "id": meta.get("id", session_id),
+            "title": meta.get("title", ""),
+            "updated_at": meta.get("updated_at", ""),
+            "tables": meta.get("tables", []),
+            "messages": messages,
+        })
 
     return app
 

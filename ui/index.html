@@ -1,646 +1,667 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>DataAgent</title>
-
-<!-- Local CSS (offline, no CDN dependency) -->
 <link rel="stylesheet" href="/static/tailwind-local.css">
-<!-- Local ECharts -->
-<script src="/static/echarts.min.js"></script>
-
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
-  .msg-bubble { max-width: 85%; word-wrap: break-word; }
-  .tool-card { border-left: 3px solid #e94560; }
-  .scrollbar-thin::-webkit-scrollbar { width: 5px; }
-  .scrollbar-thin::-webkit-scrollbar-thumb { background: #3a3a5c; border-radius: 3px; }
-  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+/* ══════════════════════════════════════════════════════════════
+   Phase R3 UI — 全本地 · 状态透明 · 确认不可忽略
+   设计权威: docs/refacter/ui-design.md
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --bg-base:#F8F9FA; --bg-sidebar:#FFFFFF; --bg-card:#FFFFFF; --bg-input:#FFFFFF;
+  --bg-agent:#F0F4FF; --bg-code:#F1F5F9; --bg-hover:#F1F5F9;
+  --border:#E2E8F0; --border-focus:#3B82F6;
+  --text-primary:#0F172A; --text-secondary:#64748B; --text-muted:#94A3B8;
+  --blue:#3B82F6; --blue-bg:#EFF6FF; --indigo:#6361F1;
+  --success:#10B981; --success-bg:#ECFDF5; --warning:#F59E0B; --warning-bg:#FFFBEB;
+  --error:#EF4444; --error-bg:#FEF2F2; --neutral:#6B7280;
+  --radius:8px; --radius-lg:12px;
+}
+[data-theme="dark"]{
+  --bg-base:#0F172A; --bg-sidebar:#1E293B; --bg-card:#1E293B; --bg-input:#1E293B;
+  --bg-agent:#1E2D4A; --bg-code:#0F172A; --bg-hover:#334155; --border:#334155;
+  --text-primary:#F1F5F9; --text-secondary:#94A3B8; --text-muted:#64748B;
+}
 
-  /* @mention 弹出列表 */
-  .mention-popup {
-    position: absolute; bottom: 100%; left: 0;
-    background: #16213e; border: 1px solid #334;
-    border-radius: 8px; max-height: 180px; overflow-y: auto;
-    display: none; z-index: 100; min-width: 200px;
-    box-shadow: 0 -4px 16px rgba(0,0,0,0.4);
-  }
-  .mention-popup.show { display: block; }
-  .mention-item {
-    padding: 6px 12px; cursor: pointer; font-size: 13px;
-    color: #ccc; border-bottom: 1px solid #1e1e3a;
-  }
-  .mention-item:hover { background: #0f3460; color: #fff; }
-  .mention-item .table-rows { font-size: 11px; color: #888; margin-left: 8px; }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  font-size:14px;line-height:1.6;color:var(--text-primary);background:var(--bg-base);
+  height:100vh;overflow:hidden;-webkit-user-select:text;user-select:text;}
+.numeric{font-variant-numeric:tabular-nums;}
+code,pre{font-family:"JetBrains Mono","Cascadia Code",monospace;font-size:13px;}
 
-  /* 快捷按钮 */
-  .quick-btn {
-    padding: 6px 14px; font-size: 13px; border-radius: 16px;
-    border: 1px solid #334; background: #16213e; color: #ccc;
-    cursor: pointer; white-space: nowrap; transition: all 0.15s;
-  }
-  .quick-btn:hover { background: #0f3460; color: #fff; border-color: #e94560; }
+.app{display:grid;grid-template-rows:52px 1fr;height:100vh;}
+/* Header */
+.header{display:flex;align-items:center;gap:8px;padding:0 16px;
+  background:var(--bg-sidebar);border-bottom:1px solid var(--border);z-index:10;}
+.logo{font-weight:700;font-size:16px;margin-right:auto;white-space:nowrap;}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;
+  font-size:12px;background:var(--bg-hover);color:var(--text-secondary);cursor:pointer;
+  border:none;white-space:nowrap;}
+.chip:hover{background:var(--border);}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.dot.on{background:var(--success);}.dot.warn{background:var(--warning);}.dot.off{background:var(--error);}
+.iconbtn{background:none;border:none;cursor:pointer;font-size:16px;color:var(--text-secondary);padding:4px 6px;}
 
-  /* 侧边栏区块 */
-  .sidebar-section { margin-bottom: 16px; }
-  .sidebar-section-title {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
-    color: #666; margin-bottom: 6px; padding-left: 2px;
-  }
-  .sidebar-item {
-    display: flex; align-items: center; gap: 6px;
-    padding: 5px 8px; border-radius: 6px; font-size: 13px;
-    color: #bbb; cursor: pointer;
-  }
-  .sidebar-item:hover { background: #1e1e3a; color: #fff; }
-  .sidebar-item .badge {
-    font-size: 10px; background: #0f3460; color: #8ab4f8;
-    padding: 1px 6px; border-radius: 8px; margin-left: auto;
-  }
+/* Body */
+.body{display:grid;grid-template-columns:240px 1fr;overflow:hidden;}
+.sidebar{background:var(--bg-sidebar);border-right:1px solid var(--border);
+  overflow-y:auto;padding:12px;}
+.sec{margin-bottom:18px;}
+.sec-h{display:flex;align-items:center;font-size:11px;letter-spacing:.5px;
+  color:var(--text-muted);text-transform:uppercase;margin-bottom:6px;}
+.sec-h .act{margin-left:auto;color:var(--blue);cursor:pointer;text-transform:none;
+  letter-spacing:0;font-size:11px;}
+.item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;
+  font-size:13px;color:var(--text-primary);cursor:pointer;}
+.item:hover{background:var(--bg-hover);}
+.item .meta{margin-left:auto;font-size:11px;color:var(--text-muted);}
+.item.active{background:var(--blue-bg);}
+.tag{font-size:10px;padding:1px 7px;border-radius:8px;margin-left:auto;}
+.tag.fixed{background:var(--blue-bg);color:var(--blue);}
+.tag.exp{background:var(--bg-hover);color:var(--text-secondary);}
 
-  /* 状态栏 */
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .status-dot.online { background: #4ade80; }
-  .status-dot.offline { background: #f87171; }
-  .status-dot.pending { background: #fbbf24; }
+/* Main chat */
+.main{display:flex;flex-direction:column;min-width:0;background:var(--bg-base);}
+.subhead{display:flex;align-items:center;padding:10px 20px;
+  border-bottom:1px solid var(--border);font-size:13px;color:var(--text-secondary);}
+.subhead .new{margin-left:auto;border:1px solid var(--border);background:var(--bg-card);
+  color:var(--blue);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;}
+.subhead .new:hover{background:var(--blue-bg);}
+.chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;}
+.chat .welcome{text-align:center;color:var(--text-muted);margin-top:60px;font-size:15px;}
+.chat .welcome b{color:var(--text-primary);}
 
-  /* 消息区 */
-  .message-user { justify-content: flex-end; }
-  .message-system { justify-content: flex-start; }
-  .message-user .msg-bubble { background: #0f3460; color: #e8e8f0; }
-  .message-system .msg-bubble { background: #1e1e3a; color: #d0d0e0; }
-  .message-error .msg-bubble { background: #3a1a1a; color: #fca5a5; border: 1px solid #662222; }
+/* Messages */
+.row{display:flex;gap:10px;}
+.row.user{justify-content:flex-end;}
+.bubble{max-width:78%;padding:10px 14px;border-radius:12px;font-size:13.5px;
+  line-height:1.7;word-wrap:break-word;}
+.bubble.user{background:var(--bg-hover);color:var(--text-primary);}
+.bubble.agent{background:var(--bg-agent);color:var(--text-primary);}
+.bubble pre{background:var(--bg-code);padding:8px 10px;border-radius:6px;
+  overflow-x:auto;font-size:12.5px;margin:6px 0;}
+.bubble code{background:var(--bg-code);padding:1px 5px;border-radius:4px;font-size:12.5px;}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--indigo);color:#fff;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+.thinking{background:var(--bg-agent);border-radius:8px;padding:8px 12px;
+  font-size:12.5px;color:var(--text-secondary);cursor:pointer;
+  border-left:3px solid var(--indigo);}
+.thinking .expand{float:right;color:var(--text-muted);font-size:11px;}
+.thinking .steps{display:none;margin-top:6px;font-size:12px;}
+.thinking.open .steps{display:block;}
 
-  /* 工具卡片 */
-  .tool-exec-card {
-    background: #14142a; border-radius: 8px; padding: 12px 16px;
-    margin: 8px 0; font-size: 13px;
-  }
-  .tool-exec-card .sql-block {
-    background: #0a0a1a; padding: 8px 12px; border-radius: 4px;
-    font-family: 'Fira Code', 'Cascadia Code', monospace;
-    font-size: 12px; color: #8ab4f8; overflow-x: auto;
-    white-space: pre-wrap; max-height: 120px; overflow-y: auto;
-  }
+/* Tool cards */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 14px;font-size:13px;}
+.card.ok{border-color:var(--success);background:var(--success-bg);}
+.card.err{border-color:var(--error);background:var(--error-bg);}
+.card.running{border-color:var(--blue);background:var(--blue-bg);}
+.card .tool-h{display:flex;align-items:center;gap:8px;}
+.card .tool-h .st{margin-left:auto;font-size:12px;}
+.card .muted{color:var(--text-secondary);font-size:11.5px;margin-top:4px;}
+.card .sql-block{display:none;margin-top:8px;}
+.card .sql-block.open{display:block;}
+.st.green{color:var(--success);}.st.red{color:var(--error);}.st.blue{color:var(--blue);}
 
-  /* 动画 */
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-  .fade-in { animation: fadeIn 0.25s ease-out; }
+/* Tables */
+.data-table-wrap{overflow-x:auto;max-height:400px;overflow-y:auto;margin-top:6px;}
+.data-table{border-collapse:collapse;width:100%;font-size:12.5px;}
+.data-table th{text-align:left;color:var(--text-secondary);font-size:11px;
+  text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border);
+  padding:6px 8px;position:sticky;top:0;background:var(--bg-card);cursor:pointer;}
+.data-table th:hover{color:var(--blue);}
+.data-table td{padding:6px 8px;border-bottom:1px solid var(--border);}
+.data-table td.num{text-align:right;font-variant-numeric:tabular-nums;}
+.data-table tr:last-child td{font-weight:600;}
+.csv-btn{font-size:11px;color:var(--blue);cursor:pointer;margin-top:4px;display:inline-block;}
+
+/* Confirm / Ask */
+.confirm{border-left:4px solid var(--blue);background:var(--blue-bg);
+  border-radius:var(--radius-lg);padding:16px;}
+.confirm h3{font-size:14px;margin-bottom:4px;}
+.confirm .sub{font-size:12px;color:var(--text-secondary);margin-bottom:10px;}
+.btn{border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;}
+.btn.primary{background:var(--blue);color:#fff;}
+.btn.primary:hover{opacity:.9;}
+.btn.ghost{background:var(--bg-card);border:1px solid var(--border);
+  color:var(--text-secondary);font-weight:400;}
+.btn.ghost:hover{background:var(--bg-hover);}
+.btn.opt{background:var(--bg-card);border:1px solid var(--blue);color:var(--blue);
+  margin:4px 6px 0 0;}
+.btn.opt:hover{background:var(--blue-bg);}
+.link{color:var(--blue);font-size:12px;cursor:pointer;display:inline-block;margin:8px 0;}
+.link:hover{text-decoration:underline;}
+.status-ok{color:var(--success);}
+.status-warn{color:var(--warning);}
+
+/* Quality */
+.quality{border-left:4px solid var(--warning);background:var(--warning-bg);
+  border-radius:var(--radius-lg);padding:14px;}
+.quality .q-row{font-size:12px;margin:3px 0;}
+
+/* Input */
+.inputbar{border-top:1px solid var(--border);padding:10px 20px 14px;
+  background:var(--bg-sidebar);}
+.quick{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.q{font-size:12px;padding:5px 12px;border-radius:16px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text-secondary);cursor:pointer;}
+.q:hover{border-color:var(--blue);color:var(--blue);}
+.inrow{display:flex;gap:10px;}
+textarea{flex:1;resize:none;border:1px solid var(--border);border-radius:10px;
+  padding:10px 14px;font-size:13.5px;background:var(--bg-input);
+  color:var(--text-primary);font-family:inherit;-webkit-user-select:text;user-select:text;}
+textarea:focus{outline:none;border-color:var(--blue);}
+.send{padding:0 22px;border:none;border-radius:10px;background:var(--blue);color:#fff;
+  font-weight:600;cursor:pointer;}
+.send:hover{opacity:.9;}
+.disabled{opacity:.55;pointer-events:none;}
+.hintbar{font-size:12px;color:var(--warning);margin-bottom:6px;display:none;}
+.hintbar.show{display:block;}
+.dragover{border:2px dashed var(--blue)!important;}
 </style>
 </head>
+<body>
+<div class="app">
+  <!-- HEADER -->
+  <div class="header">
+    <span class="logo">📊 DataAgent</span>
+    <span class="chip" id="llmChip"><span class="dot on"></span> <span id="llmName">--</span></span>
+    <span class="chip">💾 <span id="ramMb">--</span>MB</span>
+    <span class="chip"><span id="tokenUsed">0</span> / <span id="tokenLimit">64K</span></span>
+    <button class="iconbtn" onclick="toggleTheme()" title="切换主题">🌙</button>
+    <button class="iconbtn" onclick="resetChat()" title="新对话">＋</button>
+  </div>
 
-<body class="bg-surface text-gray-200 h-screen flex flex-col">
-
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--  主内容区：侧边栏 + 聊天                                         -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <div class="flex flex-1 overflow-hidden">
-
-    <!-- ── 左侧边栏 190px ──────────────────────────────────────── -->
-    <aside id="sidebar" class="w-[190px] bg-panel border-r border-gray-700/50 flex flex-col flex-shrink-0 select-none">
-      <div class="p-3 border-b border-gray-700/50">
-        <h1 class="text-base font-bold text-white tracking-wide">📊 DataAgent</h1>
+  <!-- BODY -->
+  <div class="body">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sec">
+        <div class="sec-h">💬 最近会话 <span class="act" onclick="loadSessions()">刷新</span></div>
+        <div id="sessionList"><div class="item" style="color:var(--text-muted)">加载中…</div></div>
       </div>
-      <nav class="flex-1 overflow-y-auto scrollbar-thin p-3">
-
-        <!-- 已加载数据区 -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">📁 已加载数据</div>
-          <div id="sidebar-tables">
-            <div class="sidebar-item text-muted text-xs italic">暂无数据表</div>
-          </div>
-        </div>
-
-        <!-- 集团系区 -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">🏢 集团系</div>
-          <div id="sidebar-groups" class="sidebar-item text-muted text-xs italic">暂无定义</div>
-        </div>
-
-        <!-- Skills区 -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">⚡ Skills</div>
-          <div id="sidebar-skills">
-            <!-- 动态填充 -->
-          </div>
-        </div>
-      </nav>
-
-      <!-- 侧边栏底部：数据上传按钮 -->
-      <div class="p-3 border-t border-gray-700/50">
-        <label for="file-upload" class="flex items-center justify-center gap-1.5 w-full
-               py-2 px-3 rounded-lg text-xs text-muted border border-dashed border-gray-600
-               hover:border-accent hover:text-white cursor-pointer transition-colors">
-          <span>📤</span> 上传数据文件
-        </label>
-        <input id="file-upload" type="file" accept=".csv,.xlsx" multiple class="hidden"
-               onchange="handleFileUpload(event)">
+      <div class="sec">
+        <div class="sec-h">📂 已加载数据 <span class="act" id="uploadLink">＋上传</span></div>
+        <div id="tableList"><div class="item" style="color:var(--text-muted)">暂无数据</div></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h">🔖 Skills</div>
+        <div id="skillList"><div class="item" style="color:var(--text-muted)">加载中…</div></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h">👥 集团系</div>
+        <div id="groupList"><div class="item" style="color:var(--text-muted)">加载中…</div></div>
       </div>
     </aside>
 
-    <!-- ── 右侧主聊天区 ───────────────────────────────────────── -->
-    <main class="flex-1 flex flex-col min-w-0">
-
-      <!-- 消息列表 + 工具卡片 -->
-      <div id="chat-messages" class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
-        <!-- 欢迎消息 -->
-        <div class="flex items-start gap-2 fade-in">
-          <div class="msg-bubble bg-panel text-sm px-4 py-3 rounded-xl">
-            <p class="font-medium mb-1">👋 你好，我是 DataAgent</p>
-            <p class="text-muted text-xs leading-relaxed">
-              你可以用中文对话方式查询持仓数据、生成报告、检查合规指标。<br>
-              试试输入 <code class="bg-accent/30 px-1 rounded text-white">@表名</code> 指定数据源，
-              或直接提问如「查一下XX产品的持仓情况」。
-            </p>
-          </div>
+    <!-- MAIN CHAT -->
+    <main class="main">
+      <div class="subhead">
+        <span id="chatTitle">新对话</span>
+        <button class="new" onclick="resetChat()">＋ 新对话</button>
+      </div>
+      <div class="chat" id="chat">
+        <div class="welcome">
+          <b>👋 你好，我是 DataAgent</b><br>
+          上传数据文件后用中文提问即可<br>
+          <span style="font-size:13px;">合规/报告数字我会用固化口径计算并请你确认</span>
         </div>
       </div>
-
-      <!-- 工具执行卡片区 -->
-      <div id="tool-cards" class="px-4"></div>
-
-      <!-- 快捷按钮行 -->
-      <div id="quick-actions" class="flex gap-2 px-4 py-2 overflow-x-auto scrollbar-thin">
-        <button class="quick-btn" onclick="sendQuick('查一下当前各产品的持仓情况')">📋 查持仓</button>
-        <button class="quick-btn" onclick="sendQuick('生成产品运作报告')">📄 运作报告</button>
-        <button class="quick-btn" onclick="sendQuick('生成参谈要点报告')">🎯 参谈要点</button>
-        <button class="quick-btn" onclick="sendQuick('检查主体集中度是否超标')">⚠️ 集中度监控</button>
-        <button class="quick-btn" onclick="sendQuick('按资产类型统计持仓分布')">📊 分类统计</button>
-      </div>
-
-      <!-- 输入框区域 -->
-      <div class="relative px-4 pb-3 pt-2 border-t border-gray-700/50">
-        <!-- @mention 弹出列表 -->
-        <div id="mention-popup" class="mention-popup"></div>
-        <div class="flex gap-2">
-          <textarea id="chat-input"
-                    class="flex-1 bg-panel border border-gray-600 rounded-xl px-4 py-2.5
-                           text-sm text-gray-200 placeholder-gray-500 resize-none
-                           focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30
-                           scrollbar-thin"
-                    rows="2" placeholder="输入查询指令，用 @表名 指定数据源...&#10;Enter 发送，Shift+Enter 换行"
-                    onkeydown="handleInputKeydown(event)"
-                    oninput="handleMentionInput(event)"></textarea>
-          <button id="send-btn"
-                  class="px-5 py-2.5 bg-highlight hover:bg-red-500 rounded-xl text-white text-sm
-                         font-medium transition-colors flex-shrink-0"
-                  onclick="sendMessage()">
-            发送
-          </button>
+      <div class="inputbar">
+        <div class="hintbar" id="hint">⏸ 请先在上方完成确认或选择后再继续输入</div>
+        <div class="quick">
+          <button class="q" onclick="sendQuick('/tables')">/tables</button>
+          <button class="q" onclick="sendQuick('/skills')">/skills</button>
+          <button class="q" onclick="sendQuick('/health')">/health</button>
+          <button class="q" onclick="resetChat()">🧹 清空</button>
         </div>
-        <p class="text-xs text-gray-600 mt-1.5 ml-1">Enter 发送 · Shift+Enter 换行 · @ 指定数据表</p>
+        <div class="inrow" id="inrow">
+          <textarea id="input" rows="2"
+            placeholder="输入分析需求… Enter 发送 / Shift+Enter 换行"
+            onkeydown="onInputKey(event)"></textarea>
+          <button class="send" id="sendBtn" onclick="sendMessage()">发送 ↵</button>
+        </div>
+        <input type="file" id="fileInput" style="display:none" accept=".csv,.xlsx,.xls"
+          onchange="uploadFile(this.files[0])" multiple/>
       </div>
     </main>
   </div>
+</div>
 
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--  底部状态栏                                                       -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <footer class="h-7 bg-panel border-t border-gray-700/50 flex items-center px-4 gap-4
-                  text-xs text-muted flex-shrink-0 select-none">
-    <span id="status-llm">
-      <span class="status-dot offline mr-1"></span> LLM 未连接
-    </span>
-    <span class="text-gray-600">|</span>
-    <span id="status-tables">📁 0 表</span>
-    <span class="text-gray-600">|</span>
-    <span id="status-turns">💬 轮数 0/15</span>
-    <span class="text-gray-600">|</span>
-    <span id="status-memory">🧠 -- MB</span>
-    <span class="flex-1"></span>
-    <span id="status-clock" class="text-gray-500"></span>
-  </footer>
+<script>
+// ============ STATE ============
+const ST = { streamId: null, locked: false, currentSessionId: '', pendingCharts: [] };
 
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <!--  JavaScript — 核心交互逻辑                                       -->
-  <!-- ════════════════════════════════════════════════════════════ -->
-  <script>
-  // ── 全局状态 ──────────────────────────────────────────────────
-  const state = {
-    loadedTables: [],      // [{name, rows, cols, date}]
-    groups: [],            // [{name, members}]
-    skills: [],            // [{name, description}]
-    conversationTurn: 0,
-    llmConnected: false,
-  };
+// ============ DOM ============
+const C=id=>document.getElementById(id);
+const chat=C('chat');
+function el(h){const d=document.createElement('div');d.innerHTML=h.trim();return d.firstElementChild;}
+function add(n){chat.appendChild(n);chat.scrollTop=chat.scrollHeight;return n;}
+function clearChat(){chat.innerHTML='';}
 
-  // ── ★ ECharts 后置渲染机制 ★ ─────────────────────────────────
-  const pendingCharts = [];
+// ============ API ============
+async function api(method, path, body){
+  const opts={method,headers:{}};
+  if(body){opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(body);}
+  const r=await fetch(path,opts);
+  return r.json();
+}
 
-  function renderStreamChunk(chunk) {
-    /*
-     * chunk = { type: 'text'|'table'|'chart'|'tool_start'|'tool_end'|'error', data: ... }
-     * 文本直接显示，chart 加入 pendingCharts 队列
-     * stream_end 事件触发时统一 echarts.init() 所有待渲染图表
-     */
-    switch (chunk.type) {
-      case 'chart':
-        if (chunk.data) pendingCharts.push(chunk.data);
-        break;
-      case 'text':
-        if (chunk.data) appendMessageText(chunk.data);
-        break;
-      case 'table':
-        if (chunk.data) renderTableCard(chunk.data);
-        break;
-      case 'tool_start':
-        showToolCard(chunk.data);
-        break;
-      case 'tool_end':
-        updateToolCard(chunk.data);
-        break;
-      case 'error':
-        const errMsg = typeof chunk.data === 'object' ? chunk.data.message : chunk.data;
-        const errDetail = typeof chunk.data === 'object' ? chunk.data.detail : '';
-        appendMessage('error', errDetail ? `${errMsg}（详情：${errDetail}）` : errMsg);
-        break;
-      default:
-        console.log('[StreamChunk] 未知类型', chunk.type);
-    }
-  }
-
-  function renderAllPendingCharts() {
-    /* stream_end 事件触发时统一 echarts.init() 所有待渲染图表 */
-    pendingCharts.forEach(c => {
-      const dom = document.getElementById(c.containerId);
-      if (dom) {
-        const chart = echarts.init(dom);
-        chart.setOption(c.option);
-        window.addEventListener('resize', () => chart.resize());
-      }
-    });
-    pendingCharts.length = 0; // 清空队列
-  }
-
-  // ── SSE 事件消费（Phase 1 Step 8 前后端联通时激活）───────────
-  function handleSSEEvent(event) {
-    try {
-      const payload = JSON.parse(event.data);
-      if (payload.type === 'stream_end') {
-        renderAllPendingCharts();
-        state.conversationTurn++;
-        updateStatus('turns', state.conversationTurn);
-      } else {
-        renderStreamChunk(payload);
-      }
-    } catch (e) {
-      console.error('[SSE] 消息解析失败', e);
-    }
-  }
-
-  // ── 消息渲染 ──────────────────────────────────────────────────
-  function appendMessage(role, text) {
-    const container = document.getElementById('chat-messages');
-    const wrapper = document.createElement('div');
-    const cls = role === 'user' ? 'message-user' : role === 'error' ? 'message-error' : 'message-system';
-    wrapper.className = `flex items-start gap-2 fade-in ${cls}`;
-    wrapper.innerHTML = `<div class="msg-bubble text-sm px-4 py-2.5 rounded-xl">${escapeHtml(text)}</div>`;
-    container.appendChild(wrapper);
-    container.scrollTop = container.scrollHeight;
-  }
-
-  function appendMessageText(text) {
-    const container = document.getElementById('chat-messages');
-    const last = container.querySelector('.message-system:last-child .msg-bubble');
-    if (last) {
-      last.innerHTML += escapeHtml(text);
+async function uploadFile(file){
+  if(!file)return;
+  const fd=new FormData();
+  fd.append('file',file);
+  fd.append('table_type',guessType(file.name));
+  try{
+    const r=await fetch('/api/upload',{method:'POST',body:fd});
+    const d=await r.json();
+    if(d.ok){
+      addMsg('agent',`✅ 已加载：<b>${escHtml(d.table_name)}</b>（${file.name}）`);
+      if(d.quality_report) renderQualityCard(d.quality_report, d.table_name);
+      refreshSidebar();
     } else {
-      appendMessage('system', text);
+      addMsg('agent',`❌ 上传失败：${escHtml(d.error)}`);
     }
-    container.scrollTop = container.scrollHeight;
-  }
+  }catch(e){addMsg('agent',`❌ 上传异常：${e.message}`);}
+}
 
-  function renderTableCard(data) {
-    /* data = { columns: [...], rows: [[...], ...], title, sql } */
-    let html = `<div class="tool-exec-card fade-in">
-      <div class="font-medium text-sm mb-2">📊 ${escapeHtml(data.title || '查询结果')}</div>
-      <div class="overflow-x-auto"><table class="w-full text-xs border-collapse">
-        <thead><tr>${
-          (data.columns||[]).map(c => `<th class="text-left px-2 py-1.5 text-muted border-b border-gray-700">${escapeHtml(c)}</th>`).join('')
-        }</tr></thead>
-        <tbody>${
-          (data.rows||[]).map((row, i) =>
-            `<tr class="${i%2===0?'bg-white/3':''}">${row.map(c => `<td class="px-2 py-1 border-b border-gray-800/50">${escapeHtml(String(c??''))}</td>`).join('')}</tr>`
-          ).join('')
-        }</tbody>
-      </table></div>`;
-    if (data.sql) {
-      html += `<details class="mt-2"><summary class="text-xs text-muted cursor-pointer">🔍 查看 SQL</summary>
-               <div class="sql-block mt-1">${escapeHtml(data.sql)}</div></details>`;
-    }
-    html += '</div>';
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    document.getElementById('chat-messages').appendChild(div.firstElementChild);
-    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
-  }
+function guessType(fn){
+  const n=fn.toLowerCase();
+  if(n.includes('持仓')||n.includes('holding'))return'holding';
+  if(n.includes('净值')||n.includes('nav'))return'nav';
+  if(n.includes('评级')&&n.includes('主体'))return'rating_entity';
+  if(n.includes('评级')&&n.includes('债券'))return'rating_bond';
+  if(n.includes('监控'))return'monitoring';
+  if(n.includes('周报'))return'weekly_report';
+  return'unknown';
+}
 
-  function showToolCard(data) {
-    const id = `tool-${data.id || Date.now()}`;
-    const div = document.createElement('div');
-    div.id = id;
-    div.className = 'tool-exec-card fade-in';
-    div.innerHTML = `<div class="flex items-center gap-2 text-xs text-muted">
-      <span class="animate-pulse">⏳</span> ${escapeHtml(data.label || data.tool || '工具执行中...')}
-    </div>`;
-    document.getElementById('chat-messages').appendChild(div);
-    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
-    return id;
-  }
+// ============ SESSION ============
+async function loadSessions(){
+  try{
+    const d=await api('GET','/api/sessions');
+    const s=d.sessions||[];
+    const list=C('sessionList');
+    if(!s.length){list.innerHTML='<div class="item" style="color:var(--text-muted)">暂无历史会话</div>';return;}
+    list.innerHTML=s.slice(0,10).map(sess=>{
+      const active=sess.id===ST.currentSessionId;
+      const dot=active?'<span style="color:var(--success)">●</span>':'<span style="color:var(--text-muted)">○</span>';
+      return `<div class="item${active?' active':''}" onclick="loadSession('${sess.id}')">
+        ${dot} ${escHtml(sess.title||'未命名')} <span class="meta">${(sess.updated_at||'').slice(5,16)}</span></div>`;
+    }).join('');
+    list.innerHTML+='<div class="item" style="color:var(--blue);font-size:12px;cursor:pointer" onclick="resetChat()">＋ 新对话</div>';
+  }catch(e){}
+}
 
-  function updateToolCard(data) {
-    const el = data.id ? document.getElementById(`tool-${data.id}`) : null;
-    if (!el) return;
-    const icon = data.success ? '✅' : '❌';
-    let html = `<div class="flex items-center gap-2 text-xs mb-1">
-      <span>${icon}</span> <span class="${data.success?'text-green-400':'text-red-400'}">${escapeHtml(data.summary||'完成')}</span>
-    </div>`;
-    if (data.sql) {
-      html += `<details class="mt-1"><summary class="text-xs text-muted cursor-pointer">🔍 SQL</summary>
-               <div class="sql-block mt-1">${escapeHtml(data.sql)}</div></details>`;
-    }
-    el.innerHTML = html;
-  }
-
-  // ── 发送消息 ──────────────────────────────────────────────────
-  function sendMessage() {
-    const input = document.getElementById('chat-input');
-    const text = input.value.trim();
-    if (!text) return;
-
-    appendMessage('user', text);
-    input.value = '';
-    input.style.height = 'auto';
-    document.getElementById('mention-popup').classList.remove('show');
-
-    // @mention 检测
-    const mentions = parseMentions(text);
-    if (mentions.length > 0) console.log('[DataAgent] @mentions:', mentions);
-    checkMultiTableHint(mentions);
-
-    // Step 8：POST /api/chat → SSE 流式消费
-    updateStatus('llm', 'pending');
-    fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
-    }).then(response => {
-      if (!response.ok) {
-        appendMessage('error', `请求失败 (HTTP ${response.status})`);
-        updateStatus('llm', 'offline');
-        return;
-      }
-      updateStatus('llm', 'connected');
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      function read() {
-        reader.read().then(({ done, value }) => {
-          if (done) { return; }
-          buffer += decoder.decode(value, { stream: true });
-          // 处理完整的 SSE 行
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const payload = JSON.parse(line.slice(6));
-                if (payload.type === 'stream_end') {
-                  renderAllPendingCharts();
-                  state.conversationTurn++;
-                  updateStatus('turns', state.conversationTurn);
-                } else {
-                  renderStreamChunk(payload);
-                }
-              } catch (e) {
-                console.error('[SSE] 解析失败', e);
-              }
-            }
-          }
-          read();
-        }).catch(err => {
-          console.error('[SSE] 读取错误', err);
-          updateStatus('llm', 'offline');
-        });
-      }
-      read();
-    }).catch(err => {
-      appendMessage('error', `发送失败：${err.message}`);
-      updateStatus('llm', 'offline');
+async function loadSession(id){
+  try{
+    const d=await api('GET',`/api/sessions/${id}`);
+    clearChat();
+    ST.currentSessionId=id;
+    C('chatTitle').textContent=d.title||'历史会话';
+    (d.messages||[]).forEach(m=>{
+      if(m.role==='user') addUserBubble(m.content);
+      else if(m.role==='assistant') addAgentBubble(m.content);
     });
-  }
+    addMsg('agent','<i>— 历史会话回放（只读）— <span class="link" onclick="continueChat()">在此会话继续</span></i>');
+    refreshSidebar();
+  }catch(e){addMsg('agent',`❌ 加载会话失败：${e.message}`);}
+}
 
-  function sendQuick(text) {
-    document.getElementById('chat-input').value = text;
+function continueChat(){
+  addMsg('agent','已载入历史上下文，可以继续对话。');
+}
+
+// ============ SSE ============
+async function sendMessage(){
+  const input=C('input');
+  const msg=input.value.trim();
+  if(!msg||ST.locked)return;
+  input.value='';
+  addUserBubble(msg);
+  C('chatTitle').textContent=msg.slice(0,40);
+  if(chat.querySelector('.welcome'))clearChat();
+
+  try{
+    const r=await fetch('/api/chat',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:msg}),
+    });
+    const d=await r.json();
+    if(!d.ok){addMsg('agent',`❌ ${d.error}`);return;}
+    ST.streamId=d.stream_id;
+
+    const es=new EventSource(`/api/stream/${ST.streamId}`);
+    es.onmessage=function(e){
+      try{handleChunk(JSON.parse(e.data));}catch(ex){}
+    };
+    es.onerror=function(){es.close();ST.streamId=null;};
+  }catch(e){addMsg('agent',`❌ 请求失败：${e.message}`);}
+}
+
+function handleChunk(chunk){
+  const t=chunk.type, d=chunk.data;
+
+  if(t==='text'){
+    let last=chat.lastElementChild;
+    if(last && last.classList.contains('row') && !last.classList.contains('user')
+       && last.querySelector('.bubble.agent') && !last.querySelector('.card')){
+      last.querySelector('.bubble.agent').innerHTML+=d;
+    } else {addAgentBubble(d);}
+  }
+  else if(t==='thinking'){
+    add(el(`<div class="row"><div style="width:28px"></div>
+      <div class="thinking" onclick="this.classList.toggle('open')">
+      ▸ ${escHtml(d)} <span class="expand"></span>
+      </div></div>`));
+  }
+  else if(t==='tool_start'){
+    const label=d.label||d.tool||'';
+    add(el(`<div class="row"><div style="width:28px"></div>
+      <div class="card running" style="flex:1" id="tool-${d.id}">
+      <div class="tool-h">⚡ <b>${escHtml(d.tool||'')}</b> ${escHtml(label)}
+      <span class="st blue">执行中…</span></div></div></div>`));
+  }
+  else if(t==='tool_end'){
+    const card=C(`tool-${d.id}`);
+    if(card){
+      card.classList.remove('running');
+      card.classList.add(d.success?'ok':'err');
+      const st=card.querySelector('.st');
+      if(st){
+        st.className='st '+(d.success?'green':'red');
+        st.textContent=d.success?(d.summary||'✅ 完成'):('❌ '+(d.summary||'失败'));
+      }
+      if(d.sql){
+        card.innerHTML+=`<div class="muted"><span class="link" onclick="this.nextElementSibling.classList.toggle('open')">📋 查看 SQL</span>
+          <pre class="sql-block">${escHtml(d.sql)}</pre></div>`;
+      }
+    }
+  }
+  else if(t==='table'){
+    add(renderTable(d));
+  }
+  else if(t==='confirm'){
+    ST.locked=true; lockInput(true);
+    add(renderConfirmCard(d));
+  }
+  else if(t==='ask'){
+    ST.locked=true; lockInput(true);
+    add(renderAskCard(d));
+  }
+  else if(t==='error'){
+    addMsg('agent',`❌ ${escHtml(d.message||d)}`);
+  }
+  else if(t==='stream_end'){
+    ST.streamId=null;
+    refreshSidebar();
+    ST.pendingCharts.forEach(opt=>renderChart(opt));
+    ST.pendingCharts=[];
+  }
+  else if(t==='chart'){
+    ST.pendingCharts.push(d);
+  }
+}
+
+// ============ RENDER ============
+function addUserBubble(text){
+  add(el(`<div class="row user"><div class="bubble user">${escHtml(text)}</div></div>`));
+}
+
+function addAgentBubble(html){
+  add(el(`<div class="row"><div class="avatar">🤖</div><div class="bubble agent">${html}</div></div>`));
+}
+
+function addMsg(role,html){
+  if(role==='user')addUserBubble(html);else addAgentBubble(html);
+}
+
+function renderTable(d){
+  const cols=d.columns||[], rows=d.rows||[];
+  let h=`<div class="card"><div class="tool-h"><b>📊 ${escHtml(d.title||'查询结果')}</b>
+    <span class="st">${rows.length} 行</span></div>
+    <div class="data-table-wrap"><table class="data-table">
+    <thead><tr>${cols.map((c,i)=>`<th onclick="sortTable(this,${i})">${escHtml(c)}</th>`).join('')}</tr></thead>
+    <tbody>`;
+  rows.forEach(r=>{
+    h+='<tr>';
+    r.forEach(v=>{
+      const isNum=typeof v==='number'||(typeof v==='string'&&!isNaN(parseFloat(v))&&isFinite(v));
+      h+=`<td class="${isNum?'num':''}">${isNum?Number(v).toLocaleString():escHtml(String(v??''))}</td>`;
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  if(d.sql)h+=`<div class="muted"><span class="link" onclick="this.nextElementSibling.classList.toggle('open')">📋 SQL</span>
+    <pre class="sql-block">${escHtml(d.sql)}</pre></div>`;
+  h+=`<span class="csv-btn" onclick="exportCSV(this)">📥 导出 CSV</span></div>`;
+  return el(h);
+}
+
+function renderConfirmCard(d){
+  const title=d.title||'请确认';
+  const summary=d.summary||[];
+  let tbl='';
+  if(summary.length){
+    tbl='<div class="card" style="background:var(--bg-card);margin:8px 0"><table class="data-table">';
+    tbl+='<tr><th>指标</th><th style="text-align:right">数值</th></tr>';
+    summary.forEach(s=>{
+      tbl+=`<tr><td>${escHtml(s.label||'')}</td><td class="num">${escHtml(String(s.value??''))}</td></tr>`;
+    });
+    tbl+='</table></div>';
+  }
+  return el(`<div class="row"><div style="width:28px"></div><div class="confirm" style="flex:1">
+    <h3>⏸ ${escHtml(title)}</h3>
+    <div class="sub">请确认以上数值与口径是否正确</div>${tbl}
+    ${d.sql_or_formula?`<span class="link" onclick="this.nextElementSibling.classList.toggle('open')">📋 查看公式/SQL</span>
+      <pre class="sql-block">${escHtml(d.sql_or_formula)}</pre>`:''}
+    <button class="btn primary" onclick="doConfirm(true)">✅ 确认，继续</button>
+    <button class="btn ghost" onclick="doConfirm(false)">❌ 取消</button>
+  </div></div>`);
+}
+
+function renderAskCard(d){
+  const q=d.question||'请选择';
+  const opts=d.options||[];
+  let btns=opts.map(o=>`<button class="btn opt" onclick="doAsk('${escHtml(o)}')">${escHtml(o)}</button>`).join('');
+  return el(`<div class="row"><div style="width:28px"></div><div class="confirm" style="flex:1">
+    <h3>❓ ${escHtml(q)}</h3>
+    <div class="sub">为保证数字正确，请选择一个选项</div>${btns}
+  </div></div>`);
+}
+
+function renderQualityCard(qr,tableName){
+  const crit=qr.critical_issues||[];
+  const warns=qr.warnings||[];
+  let h=`<div class="quality"><b>📊 数据质量 · ${escHtml(tableName)}</b>`;
+  if(crit.length){
+    h+=`<div style="margin-top:6px;font-size:12.5px;color:var(--error)">⚠️ 需要注意（${crit.length}项）</div>`;
+    crit.forEach(c=>h+=`<div class="q-row" style="color:var(--error)">• ${escHtml(c)}</div>`);
+  }
+  if(warns.length){
+    warns.slice(0,5).forEach(w=>h+=`<div class="q-row muted">• ${escHtml(w)}</div>`);
+  }
+  if(!crit.length&&!warns.length){
+    h+=`<div style="margin-top:6px;font-size:12.5px;color:var(--success)">✅ 数据质量正常</div>`;
+  }
+  h+='</div>';
+  add(el(`<div class="row"><div style="width:28px"></div>${h}</div>`));
+}
+
+function renderChart(opt){
+  if(typeof echarts==='undefined')return;
+  const id='chart_'+Math.random().toString(36).slice(2,8);
+  const c=add(el(`<div class="card"><div class="tool-h"><b>📈 ${escHtml(opt.title||'图表')}</b></div>
+    <div id="${id}" style="width:100%;height:350px"></div></div>`));
+  setTimeout(()=>{
+    const dom=C(id);
+    if(dom)echarts.init(dom).setOption(opt.option);
+  },100);
+}
+
+// ============ ACTIONS ============
+async function doConfirm(confirmed){
+  ST.locked=false; lockInput(false);
+  await api('POST','/api/confirm',{confirmed});
+  if(!confirmed)addMsg('agent','已取消本次操作。可调整后重试。');
+  else{
+    const input=C('input');
+    input.value='确认继续';
     sendMessage();
   }
+}
 
-  // ── @mention 解析 ────────────────────────────────────────────
-  function parseMentions(text) {
-    const re = /@(\S+)/g;
-    const matches = [];
-    let m;
-    while ((m = re.exec(text)) !== null) {
-      let name = m[1];
-      name = name.replace(/[,，。.！!？?；;：:、】\]）\)]+$/, '');
-      matches.push(name);
-    }
-    return matches;
-  }
+function doAsk(choice){
+  ST.locked=false; lockInput(false);
+  C('input').value=choice;
+  sendMessage();
+}
 
-  function checkMultiTableHint(mentions) {
-    // 规则2：同类型多表提示
-    const byType = {};
-    mentions.forEach(name => {
-      const base = name.replace(/_\d{6,8}$/, '');
-      if (!byType[base]) byType[base] = [];
-      byType[base].push(name);
-    });
-    Object.entries(byType).forEach(([base, names]) => {
-      if (names.length > 1) {
-        appendMessage('system', `⚠️ 您指定了 ${names.length} 张「${base}」类型的数据表：${names.join('、')}，是否进行跨期对比分析？`);
-      }
-    });
-  }
+async function sendQuick(cmd){
+  C('input').value=cmd;
+  sendMessage();
+}
 
-  function handleMentionInput(event) {
-    const input = event.target;
-    const cursorPos = input.selectionStart;
-    const beforeCursor = input.value.substring(0, cursorPos);
-    const atIdx = beforeCursor.lastIndexOf('@');
-    if (atIdx === -1) { hideMentionPopup(); return; }
+function lockInput(lock){
+  C('inrow').classList.toggle('disabled',lock);
+  C('hint').classList.toggle('show',lock);
+}
 
-    const query = beforeCursor.substring(atIdx + 1);
-    if (query.includes(' ') || query.includes('@')) { hideMentionPopup(); return; }
-    showMentionPopup(query);
-  }
+function sortTable(th,colIdx){
+  const table=th.closest('table');
+  const tbody=table.querySelector('tbody');
+  const rows=Array.from(tbody.querySelectorAll('tr'));
+  const asc=th.dataset.sort!=='asc';
+  rows.sort((a,b)=>{
+    const va=a.children[colIdx]?.textContent||'';
+    const vb=b.children[colIdx]?.textContent||'';
+    const na=parseFloat(va),nb=parseFloat(vb);
+    if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na;
+    return asc?va.localeCompare(vb):vb.localeCompare(va);
+  });
+  th.dataset.sort=asc?'asc':'desc';
+  rows.forEach(r=>tbody.appendChild(r));
+}
 
-  function showMentionPopup(filter) {
-    const popup = document.getElementById('mention-popup');
-    const tables = state.loadedTables.filter(t =>
-      t.name.toLowerCase().includes(filter.toLowerCase())
-    );
-    if (tables.length === 0) { popup.classList.remove('show'); return; }
-    popup.innerHTML = tables.map(t =>
-      `<div class="mention-item" onclick="insertMention('${escapeAttr(t.name)}')">
-        📊 ${escapeHtml(t.name)}<span class="table-rows">${t.rows}行</span>
-      </div>`
+function exportCSV(btn){
+  const card=btn.closest('.card');
+  const table=card.querySelector('table');
+  if(!table)return;
+  let csv='';
+  table.querySelectorAll('tr').forEach(r=>{
+    const cells=[];
+    r.querySelectorAll('th,td').forEach(c=>cells.push('"'+c.textContent.replace(/"/g,'""')+'"'));
+    csv+=cells.join(',')+'\n';
+  });
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='export.csv';
+  a.click();
+}
+
+// ============ SIDEBAR ============
+async function refreshSidebar(){
+  loadSessions(); loadTables(); loadSkills(); loadGroups();
+}
+
+async function loadTables(){
+  try{
+    const d=await api('GET','/api/tables');
+    const tables=d.tables||[];
+    const list=C('tableList');
+    if(!tables.length){list.innerHTML='<div class="item" style="color:var(--text-muted)">暂无数据</div>';return;}
+    list.innerHTML=tables.map(t=>{
+      const dot=t.type==='holding'?'<span class="dot on"></span>':
+                t.type==='nav'?'<span class="dot" style="background:var(--blue)"></span>':
+                '<span class="dot" style="background:var(--neutral)"></span>';
+      return `<div class="item">${dot} ${escHtml(t.name)} <span class="meta">${t.rows}行</span></div>`;
+    }).join('');
+    list.innerHTML+='<div class="item" style="color:var(--blue);font-size:12px" onclick="C(\'fileInput\').click()">＋ 上传文件</div>';
+  }catch(e){}
+}
+
+async function loadSkills(){
+  try{
+    const d=await api('GET','/api/skills');
+    const skills=d.skills||[];
+    const list=C('skillList');
+    if(!skills.length){list.innerHTML='<div class="item" style="color:var(--text-muted)">无可用技能</div>';return;}
+    list.innerHTML=skills.map(s=>
+      `<div class="item">${escHtml(s.name)} <span class="tag ${s.calc_type==='fixed'?'fixed':'exp'}">${s.calc_type==='fixed'?'固化':'探索'}</span></div>`
     ).join('');
-    popup.classList.add('show');
-  }
+  }catch(e){}
+}
 
-  function hideMentionPopup() {
-    document.getElementById('mention-popup').classList.remove('show');
-  }
-
-  function insertMention(tableName) {
-    const input = document.getElementById('chat-input');
-    const cursorPos = input.selectionStart;
-    const beforeCursor = input.value.substring(0, cursorPos);
-    const atIdx = beforeCursor.lastIndexOf('@');
-    input.value = input.value.substring(0, atIdx) + '@' + tableName + ' ' + input.value.substring(cursorPos);
-    input.focus();
-    hideMentionPopup();
-  }
-
-  // ── 键盘处理 ──────────────────────────────────────────────────
-  function handleInputKeydown(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      sendMessage();
-    }
-    if (event.key === 'Escape') hideMentionPopup();
-  }
-
-  // ── 文件上传 ──────────────────────────────────────────────────
-  function uploadFile(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    // 从文件名推断类型
-    const name = file.name.toLowerCase();
-    let tableType = 'unknown';
-    if (name.includes('持仓')) tableType = 'holding';
-    else if (name.includes('净值')) tableType = 'nav';
-    else if (name.includes('主体') || name.includes('评级')) tableType = 'rating_entity';
-    else if (name.includes('债券')) tableType = 'rating_bond';
-    formData.append('table_type', tableType);
-
-    appendMessage('system', `📤 正在上传：${file.name}...`);
-    fetch('/api/upload', { method: 'POST', body: formData })
-      .then(r => r.json())
-      .then(data => {
-        if (data.ok) {
-          appendMessage('system', `✅ ${file.name} 加载成功（表名：${data.table_name}）`);
-          refreshSidebar();
-        } else {
-          appendMessage('error', `❌ 上传失败：${data.error}`);
-        }
-      })
-      .catch(err => appendMessage('error', `❌ 上传异常：${err.message}`));
-  }
-
-  function handleFileUpload(event) {
-    const files = event.target.files;
-    if (!files.length) return;
-    Array.from(files).forEach(uploadFile);
-    event.target.value = '';
-  }
-
-  // 拖拽上传
-  (function setupDragDrop() {
-    const zone = document.getElementById('chat-messages');
-    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.outline = '2px dashed #e94560'; });
-    zone.addEventListener('dragleave', () => { zone.style.outline = ''; });
-    zone.addEventListener('drop', e => {
-      e.preventDefault();
-      zone.style.outline = '';
-      Array.from(e.dataTransfer.files).forEach(uploadFile);
-    });
-  })();
-
-  // ── 侧边栏初始化 ──────────────────────────────────────────────
-  function updateSidebarTables() {
-    // 从后端获取已加载表列表
-    fetch('/api/tables')
-      .then(r => r.json())
-      .then(data => {
-        state.loadedTables = data.tables || [];
-        const tablesDiv = document.getElementById('sidebar-tables');
-        if (state.loadedTables.length === 0) {
-          tablesDiv.innerHTML = '<div class="sidebar-item text-muted text-xs italic">暂无数据表</div>';
-        } else {
-          tablesDiv.innerHTML = state.loadedTables.map(t =>
-            `<div class="sidebar-item">
-              <span>📊</span> <span>${escapeHtml(t.name)}</span>
-              <span class="badge">${t.rows}行</span>
-            </div>`
-          ).join('');
-        }
-        updateStatus('tables', state.loadedTables.length);
-      })
-      .catch(() => {});
-  }
-
-  function refreshSidebar() {
-    updateSidebarTables();
-  }
-
-  function updateSidebar() {
-    // Skills 列表
-    const skills = [
-      { name: 'position_query', desc: '持仓查询' },
-      { name: 'flexible_stats', desc: '灵活统计' },
-      { name: 'concentration_monitor', desc: '集中度监控' },
-      { name: 'fund_nav_report', desc: '运作报告' },
-      { name: 'meeting_report', desc: '参谈要点' },
-      { name: 'partnership_summary', desc: '合作简报' },
-      { name: 'dept_weekly_report', desc: '部门周报' },
-      { name: 'monthly_bond_summary', desc: '月度债券简报' },
-    ];
-    document.getElementById('sidebar-skills').innerHTML = skills.map(s =>
-      `<div class="sidebar-item" onclick="sendQuick('${escapeAttr(s.desc)}')" title="${escapeAttr(s.desc)}">
-        <span>⚡</span> <span>${escapeHtml(s.desc)}</span>
-      </div>`
+async function loadGroups(){
+  try{
+    const r=await fetch('/api/groups');
+    if(!r.ok)return;
+    const d=await r.json();
+    const groups=d.groups||{};
+    const list=C('groupList');
+    const entries=Object.entries(groups);
+    if(!entries.length){list.innerHTML='<div class="item" style="color:var(--text-muted)">暂无集团系</div>';return;}
+    list.innerHTML=entries.map(([k,v])=>
+      `<div class="item">${escHtml(k)} <span class="meta">${v.length}主体</span></div>`
     ).join('');
+  }catch(e){}
+}
 
-    // 加载数据表列表
-    updateSidebarTables();
-  }
+// ============ INPUT ============
+function onInputKey(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
+}
 
-  // ── 状态栏更新 ────────────────────────────────────────────────
-  function updateStatus(key, value) {
-    const map = {
-      tables:  ['status-tables', `📁 ${value} 表`],
-      turns:   ['status-turns',  `💬 轮数 ${value}/15`],
-      memory:  ['status-memory', `🧠 ${value} MB`],
-    };
-    if (key === 'llm') {
-      const dot = document.querySelector('#status-llm .status-dot');
-      dot.className = `status-dot ${value === 'connected' ? 'online' : value === 'pending' ? 'pending' : 'offline'} mr-1`;
-      return;
-    }
-    if (map[key]) document.getElementById(map[key][0]).textContent = map[key][1];
-  }
+function resetChat(){
+  ST.locked=false; lockInput(false);
+  clearChat();
+  add(el(`<div class="welcome">
+    <b>👋 你好，我是 DataAgent</b><br>
+    上传数据文件后用中文提问即可<br>
+    <span style="font-size:13px;">合规/报告数字我会用固化口径计算并请你确认</span>
+  </div>`));
+  api('POST','/api/reset');
+  C('chatTitle').textContent='新对话';
+  ST.currentSessionId='';
+}
 
-  // ── 工具函数 ──────────────────────────────────────────────────
-  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-  function escapeAttr(s) { return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
-  function formatSize(b) { return b < 1024 ? b+' B' : b < 1024*1024 ? (b/1024).toFixed(1)+' KB' : (b/(1024*1024)).toFixed(1)+' MB'; }
+function toggleTheme(){
+  const h=document.documentElement;
+  h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';
+}
 
-  // ── 时钟 ─────────────────────────────────────────────────────
-  function updateClock() { document.getElementById('status-clock').textContent = new Date().toLocaleTimeString('zh-CN'); }
-  setInterval(updateClock, 1000); updateClock();
+// ============ DRAG & DROP ============
+const ibar=document.querySelector('.inputbar');
+ibar.addEventListener('dragover',e=>{e.preventDefault();ibar.classList.add('dragover');});
+ibar.addEventListener('dragleave',()=>ibar.classList.remove('dragover'));
+ibar.addEventListener('drop',e=>{
+  e.preventDefault();ibar.classList.remove('dragover');
+  for(const f of e.dataTransfer.files)uploadFile(f);
+});
+C('uploadLink').addEventListener('click',()=>C('fileInput').click());
 
-  // ── 初始化 ────────────────────────────────────────────────────
-  updateSidebar();
-  updateStatus('llm', 'offline');
-  updateStatus('turns', 0);
-  updateStatus('memory', '--');
-  console.log('[DataAgent] UI 初始化完成 — Phase 1 Step 8 (前后端联通)');
-  </script>
+// ============ HELPERS ============
+function escHtml(s){
+  if(s===null||s===undefined)return'';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
+// ============ INIT ============
+refreshSidebar();
+setInterval(async()=>{
+  try{
+    const d=await api('GET','/api/health');
+    C('ramMb').textContent=d.ram_mb||'--';
+    C('tokenUsed').textContent=d.token_used||0;
+    C('tokenLimit').textContent=Math.round((d.token_limit||64000)/1000)+'K';
+    C('llmName').textContent=d.llm_name||'--';
+  }catch(e){}
+},15000);
+</script>
 </body>
 </html>
