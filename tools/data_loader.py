@@ -43,6 +43,7 @@ class LoadResult:
     missing_required: list   # 字典中 required=True 但在 CSV 中未找到的字段
     warnings: list           # 加载过程中的警告信息
     table_type: str          # 表类型（holding/nav/rating_entity/rating_bond/unknown）
+    quality_report: Optional[object] = None  # ★R2: 数据质量诊断报告
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -139,6 +140,8 @@ DICT_TABLE_MAP = {
     "nav": "nav_dict.yaml",
     "rating_entity": "rating_entity_dict.yaml",
     "rating_bond": "rating_bond_dict.yaml",
+    "monitoring": "monitoring_dict.yaml",
+    "weekly_report": "weekly_report_dict.yaml",
 }
 
 
@@ -386,6 +389,21 @@ def load_file(
         warnings=warnings,
         table_type=table_type or 'unknown',
     )
+
+    # ── 8. 数据质量诊断 ──────────────────────────────────
+    if table_type and dict_data:
+        try:
+            from tools.quality import compute_quality_report
+            key_fields = [
+                f['semantic'] for f in dict_data.get('fields', [])
+                if f.get('required') or f.get('is_key')
+            ]
+            result.quality_report = compute_quality_report(
+                conn, safe_table, table_type, field_map,
+                key_fields=key_fields if key_fields else None,
+            )
+        except Exception as e:
+            result.warnings.append(f"质量诊断失败：{e}")
 
     _loaded_tables[safe_table] = result
     return result

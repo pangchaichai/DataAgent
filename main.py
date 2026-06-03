@@ -150,7 +150,7 @@ def create_flask_app() -> Flask:
         from tools.data_loader import load_file, init_duckdb_connection
         init_duckdb_connection()
         try:
-            load_file(file_path, table_name, date_tag=date_tag or None, table_type=table_type or None)
+            result = load_file(file_path, table_name, date_tag=date_tag or None, table_type=table_type or None)
         except Exception as e:
             return jsonify({"ok": False, "error": f"文件加载失败：{str(e)[:200]}"}), 500
 
@@ -160,7 +160,13 @@ def create_flask_app() -> Flask:
                 "date_tag": date_tag or "", "table_type": table_type,
             })
 
-        return jsonify({"ok": True, "table_name": table_name})
+        # ★R2：返回质量诊断报告
+        response_data = {"ok": True, "table_name": table_name}
+        if result.quality_report:
+            from dataclasses import asdict
+            response_data["quality_report"] = asdict(result.quality_report)
+
+        return jsonify(response_data)
 
     # ── POST /api/chat — 启动对话，返回 stream_id ────────────
     # 前端拿到 stream_id 后再用 EventSource 订阅 /api/stream/<sid>

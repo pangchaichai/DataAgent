@@ -39,9 +39,23 @@ def build_schema_context() -> str:
             field_map = loaded.field_map
             if field_map:
                 lines.append("")
-                lines.append("**语义字段映射（SQL 中必须用 → 右边的实际列名！）：**")
+                lines.append("**可用列名（SQL 只能用下面列出的列名，禁止编造或简化）：**")
+                # 只列出实际列名，不展示语义名（防止 LLM 误用）
+                physical_names = sorted(set(field_map.values()))
+                lines.append("  " + ", ".join(f'"{n}"' for n in physical_names[:20]))
+                if len(physical_names) > 20:
+                    lines.append(f"  ... 共 {len(physical_names)} 个可用列")
+
+                # 关键映射：明确列出语义名禁止使用
+                critical_mappings = []
                 for semantic, physical in field_map.items():
-                    lines.append(f"  - `{semantic}` → 实际列名 `{physical}`")
+                    if semantic != physical:  # 只列出不同的
+                        critical_mappings.append(f'禁止 "{semantic}"，必须用 "{physical}"')
+                if critical_mappings:
+                    lines.append("")
+                    lines.append("**⚠️ 禁止规则（常见错误）：**")
+                    for m in critical_mappings[:5]:
+                        lines.append(f"  - {m}")
 
             # 列出所有实际列名（帮助 LLM 了解完整表结构）
             conn = __import__('tools.data_loader', fromlist=['get_connection']).get_connection()
@@ -55,6 +69,20 @@ def build_schema_context() -> str:
                 lines.append(f"**完整列名列表：** {', '.join(display_cols)}")
             except Exception:
                 pass
+
+        # ★R2：质量诊断摘要
+        if loaded and loaded.quality_report:
+            qr = loaded.quality_report
+            critical = getattr(qr, 'critical_issues', []) or []
+            warnings = getattr(qr, 'warnings', []) or []
+            if critical:
+                lines.append("")
+                lines.append("**⚠️ 数据质量问题（可能影响计算正确性）：**")
+                for issue in critical:
+                    lines.append(f"  - 🔴 {issue}")
+            if warnings:
+                for w in warnings[:5]:
+                    lines.append(f"  - ⚠️ {w}")
 
         lines.append("")
 

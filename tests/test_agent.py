@@ -300,6 +300,7 @@ def _setup_test_holding_table():
         'missing_required': [],
         'warnings': [],
         'table_type': 'holding',
+        'quality_report': None,  # ★R2
     })()
     return conn
 

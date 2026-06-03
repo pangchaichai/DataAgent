@@ -21,13 +21,13 @@
 - [x] `tests/test_agent.py` 新增 5 项；82/82 旧+新单测全绿
 - [ ] 手动端到端 3 场景通过；内存 < 200MB（待 R3 UI 后就绪后联调）
 
-## Step R2 — 数据质量诊断（可与 R1 并行） ☐
+## Step R2 — 数据质量诊断（可与 R1 并行） ✅ 完成（2026-06-03）
 > 文档：`02-data-quality-diagnosis.md`
-- [ ] `tools/quality.py` + `QualityReport`
-- [ ] `data_loader.load_file` 末尾计算 + `LoadResult.quality_report`
-- [ ] `/api/upload` 返回 `quality_report`
-- [ ] loop 上下文注入 critical 摘要
-- [ ] 质量单测 3 项；旧测试绿
+- [x] `tools/quality.py` + `QualityReport` — 空值率/日期范围/主体覆盖率/JOIN 兼容性/关键问题
+- [x] `data_loader.load_file` 末尾计算 + `LoadResult.quality_report`
+- [x] `/api/upload` 返回 `quality_report`
+- [x] loop 上下文注入 critical 摘要（`agent/context.py`）
+- [x] 质量单测 3 项；旧测试绿 — 85/85 全过
 
 ## Step R3 — UI 重建（全本地资源） ☐
 > 文档：`03-ui-rebuild.md` + 权威设计 `ui-design.md`；参照 `index-preview.html` / `ui-mockup.svg`

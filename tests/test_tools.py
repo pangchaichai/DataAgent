@@ -332,3 +332,83 @@ def test_execute_query_requires_confirmation(duckdb_with_table):
     result = execute_query('SELECT * FROM test_holding LIMIT 100', duckdb_with_table)
     assert result.success
     assert result.requires_confirmation  # >50 行应要求确认
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Phase R2 新增：数据质量诊断测试
+# ═══════════════════════════════════════════════════════════════
+
+class TestQualityReport:
+    """compute_quality_report 功能测试"""
+
+    @pytest.fixture
+    def q_conn(self):
+        """创建含空值和不同质量特征的测试表"""
+        import duckdb
+        import tools.data_loader as dl
+        dl._global_conn = None
+        dl._loaded_tables.clear()
+        con = dl.init_duckdb_connection()
+        con.execute("""
+            CREATE TABLE test_quality AS SELECT * FROM (VALUES
+                ('2026-05-15', '象屿集团', 1234567.89, 'AAA'),
+                ('2026-05-16', '建发集团', NULL, 'AA+'),
+                ('2026-05-17', '未知主体X', 3456789.01, NULL),
+                (NULL, '象屿集团', 4567890.12, 'AAA'),
+                ('2026-05-19', NULL, 5678901.23, 'AA'),
+            ) AS t("统计日期", "限额占用主体", "穿透后市值", "外部评级")
+        """)
+        return con
+
+    def test_quality_null_rates(self, q_conn):
+        """空值率应正确计算并标注关键字段"""
+        from tools.quality import compute_quality_report
+        field_map = {
+            "统计日期": "统计日期",
+            "限额占用主体": "限额占用主体",
+            "穿透后市值": "穿透后市值",
+            "外部评级": "外部评级",
+        }
+        report = compute_quality_report(
+            q_conn, "test_quality", "holding", field_map,
+            key_fields=["限额占用主体", "穿透后市值"],
+        )
+        # 5行中，限额占用主体 1 行为 NULL → 20%
+        assert report.null_rates.get("限额占用主体") == 0.2
+        # 穿透后市值 1 行为 NULL → 20% > 5% 阈值 → critical
+        assert report.null_rates.get("穿透后市值") == 0.2
+        # 关键字段空值 > 5% → critical_issues 应有记录
+        assert len(report.critical_issues) >= 1
+        critical_text = " ".join(report.critical_issues)
+        assert "穿透后市值" in critical_text or "限额占用主体" in critical_text
+
+    def test_quality_entity_coverage(self, q_conn):
+        """部分主体不在 alias 中时应返回未匹配列表"""
+        from tools.quality import compute_quality_report
+        field_map = {
+            "限额占用主体": "限额占用主体",
+            "穿透后市值": "穿透后市值",
+        }
+        report = compute_quality_report(
+            q_conn, "test_quality", "holding", field_map,
+        )
+        ec = report.entity_coverage
+        assert ec["total"] > 0
+        # "未知主体X" 不在 entity_alias 中
+        assert len(ec.get("unmatched", [])) >= 1
+
+    def test_quality_date_range(self, q_conn):
+        """应检测日期列并给出范围"""
+        from tools.quality import compute_quality_report
+        field_map = {
+            "统计日期": "统计日期",
+            "限额占用主体": "限额占用主体",
+            "穿透后市值": "穿透后市值",
+        }
+        report = compute_quality_report(
+            q_conn, "test_quality", "holding", field_map,
+        )
+        assert report.date_range is not None
+        assert report.date_range.get("min") == "2026-05-15"
+        # max 应存在（5行中有4个非NULL日期）
+        assert report.date_range.get("max") is not None
