@@ -75,8 +75,15 @@ class LLMClient:
     """
 
     def __init__(self, config_path: str = 'config.yaml'):
-        with open(config_path, encoding='utf-8') as f:
-            config = yaml.safe_load(f)
+        from pathlib import Path
+        cfg_file = Path(config_path)
+        if not cfg_file.exists():
+            cfg_file = cfg_file.parent / 'config.example.yaml'
+        try:
+            with open(cfg_file, encoding='utf-8') as f:
+                config = yaml.safe_load(f) or {}
+        except FileNotFoundError:
+            config = {}
         self.cfg = config.get('llm', {})
         self.sql_gen_cfg = self.cfg.get('sql_gen', {})
         self.report_cfg = self.cfg.get('report_text', {})
@@ -196,12 +203,14 @@ class LLMClient:
         if not result.success:
             return None, result
 
-        name = result.text.strip().upper()
-        if name == 'NONE':
+        name = result.text.strip()
+        if name.upper() == 'NONE':
             return None, result
-        # 验证返回的技能名称在注册表中
-        valid_names = {s['name'] for s in skill_registry}
-        return name if name in valid_names else None, result
+        # 验证返回的技能名称在注册表中（大小写不敏感）
+        name_lower = name.lower()
+        valid_names = {s['name'].lower(): s['name'] for s in skill_registry}
+        matched = valid_names.get(name_lower)
+        return matched if matched else None, result
 
     # ── Tool-calling 接口 (chat) ───────────────────────────────
 
@@ -323,7 +332,7 @@ class LLMClient:
         full_prompt = f"{schema_context}\n\n用户问题：{prompt}" if schema_context else prompt
         primary = self.sql_gen_cfg.get('primary', 'enterprise_internal')
 
-        chunks, result = self._call_streaming(
+        chunks, result_ref = self._call_streaming(
             primary, full_prompt,
             system="你是一个 SQL 专家。只返回 SQL，不要解释。",
             timeout=self.sql_gen_cfg.get('timeout', 30),
@@ -338,19 +347,35 @@ class LLMClient:
         if not full_text and self.sql_gen_cfg.get('external_allowed', False):
             fallback = self.sql_gen_cfg.get('fallback')
             if fallback:
-                chunks2, result2 = self._call_streaming(
+                chunks2, result_ref2 = self._call_streaming(
                     fallback, full_prompt,
                     system="你是一个 SQL 专家。只返回 SQL，不要解释。",
                     timeout=self.sql_gen_cfg.get('timeout', 30),
                     max_tokens=self.sql_gen_cfg.get('max_tokens', 2000),
                 )
+                full_text2 = ""
                 for chunk in chunks2:
+                    full_text2 += chunk
                     yield chunk
-                return result2
+                return LLMResponse(
+                    success=bool(full_text2), text=full_text2,
+                    endpoint=result_ref2.endpoint, model=result_ref2.model,
+                    elapsed_ms=result_ref2.elapsed_ms,
+                    error=result_ref2.error if not full_text2 else "",
+                )
 
-        return result
+        # Reconstruct result with actual full_text (result_ref was created before streaming)
+        return LLMResponse(
+            success=bool(full_text), text=full_text,
+            endpoint=result_ref.endpoint, model=result_ref.model,
+            elapsed_ms=result_ref.elapsed_ms,
+            error=result_ref.error if not full_text else "",
+        )
 
     # ── 底层 HTTP 调用 ────────────────────────────────────────
+
+    # Placeholder values that must never be sent as real API keys
+    _PLACEHOLDER_KEYS = frozenset({'你的DeepSeek_API_Key', '${DEEPSEEK_API_KEY}', 'YOUR_API_KEY'})
 
     def _call(self, provider_name: str, prompt: str,
               system: str = "", timeout: int = 30, max_tokens: int = 2000) -> LLMResponse:
@@ -363,6 +388,8 @@ class LLMClient:
         url = provider.get('url', '')
         model = provider.get('model', '')
         api_key = os.environ.get(f"{provider_name.upper()}_API_KEY") or provider.get('api_key', '')
+        if api_key in self._PLACEHOLDER_KEYS:
+            api_key = ''
 
         if not url or url.startswith('http://['):
             return LLMResponse(success=False, endpoint=provider_name, model=model,
@@ -439,6 +466,8 @@ class LLMClient:
             os.environ.get(f"{provider_name.upper()}_API_KEY")
             or provider.get('api_key', '')
         )
+        if api_key in self._PLACEHOLDER_KEYS:
+            api_key = ''
 
         if not url or url.startswith('http://['):
             return ChatResult(success=False, error="LLM 服务地址未配置")
@@ -525,6 +554,8 @@ class LLMClient:
         url = provider.get('url', '')
         model = provider.get('model', '')
         api_key = os.environ.get(f"{provider_name.upper()}_API_KEY") or provider.get('api_key', '')
+        if api_key in self._PLACEHOLDER_KEYS:
+            api_key = ''
 
         if not url or url.startswith('http://['):
             return iter([]), LLMResponse(success=False, endpoint=provider_name, model=model,

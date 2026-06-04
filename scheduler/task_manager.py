@@ -45,12 +45,17 @@ class TaskManager:
         读取 task_config.yaml，注册所有定时任务。
         可在运行时重新调用以热更新任务配置。
         """
-        schedule.clear()  # 清除旧任务
+        schedule.clear()
+        self.tasks = []
+        if not Path(self.config_path).exists():
+            print(f"[TaskManager] 任务配置文件不存在：{self.config_path}，跳过注册")
+            return
         with open(self.config_path, encoding='utf-8') as f:
-            config = yaml.safe_load(f)
+            config = yaml.safe_load(f) or {}
 
         for task in config.get('tasks', []):
             self._register_task(task)
+            self.tasks.append(task)
 
     def _register_task(self, task: dict):
         """根据 schedule 字段注册对应的调度规则"""
@@ -83,20 +88,39 @@ class TaskManager:
         2. 调用 Agent Loop 执行
         3. 将结果通过配置的 notify.mode 推送
         """
-        # 构造执行指令（模拟用户输入）
         skill_name = task['skill']
         params = task.get('params', {})
         instruction = self._build_instruction(skill_name, params)
 
         try:
             result = self.agent_loop_fn(instruction, task_mode=True)
-            # 格式化通知消息
             message = task['notify']['message_template'].format(
                 **result.summary, output_path=result.output_path or ''
             )
             self.notify_fn(task['notify']['mode'], message)
+            # Record successful execution so _detect_missed_tasks doesn't re-flag it
+            self._record_task_run(task['name'])
         except Exception as e:
             self.notify_fn('chat', f"⚠️ 定时任务「{task['name']}」执行失败：{str(e)}")
+
+    def _record_task_run(self, task_name: str):
+        """记录任务实际执行时间到 last_run.json"""
+        import json
+        from datetime import datetime
+        from pathlib import Path
+        today_str = datetime.now().strftime('%Y%m%d')
+        run_log_path = Path('data/sessions/last_run.json')
+        try:
+            last_runs = {}
+            if run_log_path.exists():
+                with open(run_log_path, encoding='utf-8') as f:
+                    last_runs = json.load(f)
+            last_runs[task_name] = today_str
+            run_log_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(run_log_path, 'w', encoding='utf-8') as f:
+                json.dump(last_runs, f, ensure_ascii=False)
+        except (IOError, json.JSONDecodeError):
+            pass
 
     def _build_instruction(self, skill_name: str, params: dict) -> str:
         """将 task_config 中的参数转换为 Agent 可理解的自然语言指令"""
@@ -152,7 +176,8 @@ class TaskManager:
 
         try:
             import yaml
-            with open('config.yaml', encoding='utf-8') as f:
+            cfg_path = Path(self.config_path).parent.parent / 'config.yaml'
+            with open(str(cfg_path), encoding='utf-8') as f:
                 cfg = yaml.safe_load(f)
             max_age = cfg.get('calculation_config', {}).get('concentration', {}).get('data_max_age_days', 1)
         except Exception:
@@ -238,16 +263,6 @@ class TaskManager:
                         'scheduled_time': target_time.strftime('%H:%M'),
                         'skill': task.get('skill', ''),
                     })
-
-        # 记录本次检测
-        for task in self.tasks:
-            last_runs[task['name']] = today_str
-        run_log_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            with open(run_log_path, 'w', encoding='utf-8') as f:
-                json.dump(last_runs, f, ensure_ascii=False)
-        except IOError:
-            pass
 
         return missed
 

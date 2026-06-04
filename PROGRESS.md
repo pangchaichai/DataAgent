@@ -53,20 +53,20 @@
 - [x] tools/notify.py（超标告警/数据过期/报告完成/任务失败 业务通知）
 - [x] skills/concentration_monitor/（SKILL.md calc_type:fixed + fixed_calculator）
 - [x] skills/meeting_report/（SKILL.md + template.md.j2 就绪）
-- [ ] Phase 3 验收（等 Windows 3 项修复验证通过后一并验收）
+- [x] Phase 3 验收（等 Windows 3 项修复验证通过后一并验收）
 
 ## Phase 4 — 批量报告（进入条件：C-02/03/04 模板已确认）
 - [ ] skills/dept_weekly_report/ + template
 - [ ] skills/monthly_bond_summary/ + template
 - [ ] skills/partnership_summary/
-- [ ] 意图路由改 LLM 分类
+- [x]意图路由改 LLM 分类
 - [ ] Phase 4 验收
 
 ## Phase 5 — Windows + 打包（需切换到 Windows 环境）
-- [ ] 切换到 Windows，安装 requirements-prod.txt
-- [ ] 验证 PyWebView 原生窗口
-- [ ] 验证 Windows toast 通知
-- [ ] 记录 WebView2 内存基线（docs/memory_baseline.md）
+- [x] 切换到 Windows，安装 requirements-prod.txt
+- [x] 验证 PyWebView 原生窗口
+- [x] 验证 Windows toast 通知
+- [x] 记录 WebView2 内存基线（docs/memory_baseline.md）
 - [ ] PyInstaller 打包测试
 - [ ] 最终验收
 

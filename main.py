@@ -75,6 +75,7 @@ def wait_for_flask(port: int, timeout: float = 10.0):
 # ═══════════════════════════════════════════════════════════════
 
 _session_lock = threading.Lock()
+_config_file_lock = threading.Lock()
 _session = {
     "session_id": "",       # ★R3: 当前会话 ID（生成并持久化）
     "turn_count": 0,
@@ -141,12 +142,13 @@ def _save_session_messages():
 def reset_session():
     with _session_lock:
         old_id = _session.get("session_id", "")
+        had_messages = bool(_session.get("messages"))
         _session["turn_count"] = 0
         _session["messages"] = []
         _session["pending"] = None
         _session["session_id"] = _new_session_id()
-        # 删除空会话文件
-        if old_id:
+        # 仅删除从未发过消息的空会话（有消息的已由 _save_session_messages 持久化，应保留）
+        if old_id and not had_messages:
             old_file = BASE_DIR / 'data' / 'sessions' / f'{old_id}.jsonl'
             try:
                 old_file.unlink(missing_ok=True)
@@ -474,6 +476,178 @@ def create_flask_app() -> Flask:
             "tables": meta.get("tables", []),
             "messages": messages,
         })
+
+    # ── GET /api/config — 读取配置（安全版，API Key 不返回明文）
+    @app.route('/api/config')
+    def api_config_read():
+        import yaml
+        cfg_path = BASE_DIR / 'config.yaml'
+        src = cfg_path if cfg_path.exists() else BASE_DIR / 'config.example.yaml'
+        try:
+            with open(src, encoding='utf-8') as f:
+                cfg = yaml.safe_load(f) or {}
+        except Exception as e:
+            return jsonify({"error": f"读取配置失败：{e}"}), 500
+        raw_key = cfg.get('llm', {}).get('deepseek', {}).get('api_key', '')
+        api_key_set = bool(raw_key and raw_key not in ('', '你的DeepSeek_API_Key', '${DEEPSEEK_API_KEY}'))
+        return jsonify({
+            "user_profile": cfg.get('user_profile', {}),
+            "calculation_config": cfg.get('calculation_config', {}),
+            "memory": cfg.get('memory', {"enabled": False}),
+            "scheduler": cfg.get('scheduler', {"enabled": True}),
+            "app": cfg.get('app', {}),
+            "api_key_set": api_key_set,
+            "llm_model": cfg.get('llm', {}).get('deepseek', {}).get('model', 'deepseek-chat'),
+        })
+
+    # ── POST /api/config — 写入配置 ─────────────────────────
+    @app.route('/api/config', methods=['POST'])
+    def api_config_write():
+        import yaml
+        data = request.get_json(force=True) if request.is_json else {}
+        cfg_path = BASE_DIR / 'config.yaml'
+        with _config_file_lock:
+            src = cfg_path if cfg_path.exists() else BASE_DIR / 'config.example.yaml'
+            try:
+                with open(src, encoding='utf-8') as f:
+                    cfg = yaml.safe_load(f) or {}
+            except Exception:
+                cfg = {}
+            if 'user_profile' in data:
+                cfg.setdefault('user_profile', {})
+                for field in ('name', 'department', 'role', 'managed_products'):
+                    if field in data['user_profile']:
+                        cfg['user_profile'][field] = data['user_profile'][field]
+            if 'calculation_config' in data:
+                cfg.setdefault('calculation_config', {})
+                cc = data['calculation_config']
+                if 'concentration' in cc:
+                    cfg['calculation_config'].setdefault('concentration', {})
+                    for field in ('threshold_entity', 'threshold_single_bond',
+                                  'market_value_field', 'use_group_merge', 'data_max_age_days'):
+                        if field in cc['concentration']:
+                            cfg['calculation_config']['concentration'][field] = cc['concentration'][field]
+            if 'memory' in data and 'enabled' in data['memory']:
+                cfg.setdefault('memory', {})['enabled'] = bool(data['memory']['enabled'])
+            if 'scheduler' in data and 'enabled' in data['scheduler']:
+                cfg.setdefault('scheduler', {})['enabled'] = bool(data['scheduler']['enabled'])
+            if data.get('api_key'):
+                # Only write to deepseek block; never overwrite enterprise report_text config
+                cfg.setdefault('llm', {}).setdefault('deepseek', {})['api_key'] = data['api_key']
+            try:
+                tmp_path = cfg_path.with_suffix('.yaml.tmp')
+                with open(tmp_path, 'w', encoding='utf-8') as f:
+                    yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+                tmp_path.replace(cfg_path)
+            except Exception as e:
+                return jsonify({"ok": False, "error": f"写入配置失败：{e}"}), 500
+        return jsonify({"ok": True})
+
+    # ── POST /api/groups — 创建集团 ──────────────────────────
+    @app.route('/api/groups', methods=['POST'])
+    def api_create_group():
+        data = request.get_json(force=True) if request.is_json else {}
+        name = (data.get('name') or '').strip()
+        if not name:
+            return jsonify({"ok": False, "error": "集团名称不能为空"}), 400
+        from tools.entity_manager import EntityManager
+        mgr = EntityManager(str(BASE_DIR / 'groups.yaml'))
+        try:
+            mgr.create_group(name, data.get('members', []))
+        except ValueError as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+        return jsonify({"ok": True})
+
+    # ── POST /api/groups/<name>/members — 添加主体 ───────────
+    @app.route('/api/groups/<name>/members', methods=['POST'])
+    def api_add_member(name):
+        data = request.get_json(force=True) if request.is_json else {}
+        entity = (data.get('entity') or '').strip()
+        if not entity:
+            return jsonify({"ok": False, "error": "主体名称不能为空"}), 400
+        from tools.entity_manager import EntityManager
+        mgr = EntityManager(str(BASE_DIR / 'groups.yaml'))
+        try:
+            mgr.add_member(name, entity)
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+        return jsonify({"ok": True})
+
+    # ── DELETE /api/groups/<name>/members — 移除主体（entity 从请求体读取）
+    @app.route('/api/groups/<name>/members', methods=['DELETE'])
+    def api_remove_member(name):
+        data = request.get_json(force=True) if request.is_json else {}
+        entity_name = (data.get('entity') or '').strip()
+        if not entity_name:
+            return jsonify({"ok": False, "error": "主体名称不能为空"}), 400
+        from tools.entity_manager import EntityManager
+        mgr = EntityManager(str(BASE_DIR / 'groups.yaml'))
+        try:
+            mgr.remove_member(name, entity_name)
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+        return jsonify({"ok": True})
+
+    # ── DELETE /api/groups/<name> — 删除集团 ─────────────────
+    @app.route('/api/groups/<name>', methods=['DELETE'])
+    def api_delete_group(name):
+        from tools.entity_manager import EntityManager
+        mgr = EntityManager(str(BASE_DIR / 'groups.yaml'))
+        try:
+            mgr.delete_group(name)
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+        return jsonify({"ok": True})
+
+    # ── DELETE /api/sessions/<id> — 删除会话文件 ─────────────
+    @app.route('/api/sessions/<session_id>', methods=['DELETE'])
+    def api_delete_session(session_id):
+        import re
+        if not re.match(r'^[a-f0-9]{12}$', session_id):
+            return jsonify({"ok": False, "error": "无效会话ID"}), 400
+        session_file = BASE_DIR / 'data' / 'sessions' / f'{session_id}.jsonl'
+        try:
+            session_file.unlink(missing_ok=True)
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": True})
+
+    # ── DELETE /api/tables/<name> — 卸载数据表 ───────────────
+    @app.route('/api/tables/<table_name>', methods=['DELETE'])
+    def api_delete_table(table_name):
+        from tools.data_loader import drop_table
+        if not drop_table(table_name):
+            return jsonify({"ok": False, "error": "表不存在"}), 404
+        with _session_lock:
+            _session["loaded_files"] = [
+                f for f in _session.get("loaded_files", [])
+                if f.get("table_name") != table_name
+            ]
+        return jsonify({"ok": True})
+
+    # ── GET /api/tasks — 定时任务列表 ────────────────────────
+    @app.route('/api/tasks')
+    def api_tasks():
+        import yaml
+        tasks_path = BASE_DIR / 'tasks' / 'task_config.yaml'
+        if not tasks_path.exists():
+            return jsonify({"tasks": []})
+        try:
+            with open(tasks_path, encoding='utf-8') as f:
+                cfg = yaml.safe_load(f) or {}
+            return jsonify({"tasks": cfg.get('tasks', [])})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    # ── POST /api/memory/clear — 清空记忆库 ──────────────────
+    @app.route('/api/memory/clear', methods=['POST'])
+    def api_memory_clear():
+        from agent.memory import load_memory_from_config
+        mem = load_memory_from_config(str(BASE_DIR / 'config.yaml'))
+        if not mem.enabled:
+            return jsonify({"ok": False, "error": "记忆功能未启用，请先在设置中开启"}), 400
+        mem.clear()
+        return jsonify({"ok": True})
 
     return app
 
