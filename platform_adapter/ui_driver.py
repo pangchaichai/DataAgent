@@ -133,21 +133,9 @@ class PyWebViewDriver(UIDriver):
     def start(self, flask_app, port: int, title: str, width: int, height: int):
         import webview
 
-        # WebView2 Runtime 检测
-        if not self._check_webview2_runtime():
-            print("\n" + "="*60)
-            print("  ⚠️  未检测到 WebView2 Runtime")
-            print("  DataAgent 需要 Microsoft WebView2 Runtime 才能运行。")
-            print()
-            print("  请按以下步骤安装：")
-            print("  1. 访问 https://developer.microsoft.com/microsoft-edge/webview2/")
-            print("  2. 下载「常青独立安装程序」（Evergreen Standalone Installer）")
-            print("  3. 安装完成后重新启动 DataAgent")
-            print()
-            print("  注意：Windows 11 和大多数 Windows 10 已预装 WebView2，")
-            print("  若您看到此提示，请确认系统更新已完成。")
-            print("="*60 + "\n")
-            # 仍然尝试启动，让 PyWebView 显示自己的错误信息（可能有内置引导）
+        # 安全默认值：防止 None title 导致 .NET NullReferenceException
+        if not title:
+            title = 'DataAgent'
 
         flask_thread = threading.Thread(
             target=lambda: flask_app.run(
@@ -160,34 +148,28 @@ class PyWebViewDriver(UIDriver):
 
         # 健康检查：等 Flask 就绪后再创建窗口
         if not _wait_for_flask(port, timeout=15.0):
-            print(f"⚠️  Flask 服务未能在 15s 内就绪（端口 {port}），强制继续...")
+            print(f"[DataAgent] Flask not ready within 15s (port {port}), proceeding anyway...")
 
+        # ★ v2.3 修复: 不传 min_size 和 text_select 给 PyWebView 3.4
+        # 这两个参数在某些 Windows/WebView2 版本组合下会触发
+        # System.NullReferenceException (Control.set_Text → get_CacheTextInternal)
+        # 文字选择通过 CSS (user-select:text) 实现
         webview.create_window(
             title=title,
             url=f'http://127.0.0.1:{port}',
             width=width,
             height=height,
             resizable=True,
-            min_size=(800, 600),
-            text_select=True,
         )
 
-        # 强制指定 edgechromium（WebView2）后端，避免回退到 mshtml（IE11）
-        # mshtml 不支持 fetch API / EventSource / CSS 变量等现代特性
+        # 自动检测可用后端，不强制 edgechromium
+        # PyWebView 在 Windows 上优先使用 Edge Chromium (WebView2)
         try:
-            webview.start(gui='edgechromium')
+            webview.start()
         except Exception as e:
-            err = str(e).lower()
-            if 'edgechromium' in err or 'webview2' in err or 'not found' in err:
-                print("\n⚠️  WebView2 启动失败，尝试默认后端...")
-                print("   请安装 WebView2 Runtime 以获得最佳体验")
-                try:
-                    webview.start()
-                except Exception as e2:
-                    print(f"❌  PyWebView 启动失败：{e2}")
-                    print("   请检查 WebView2 Runtime 是否已安装。")
-            else:
-                raise
+            print(f"[DataAgent] PyWebView 启动失败：{e}")
+            print("请确认 WebView2 Runtime 已安装：")
+            print("https://developer.microsoft.com/microsoft-edge/webview2/")
 
 
 def get_driver() -> UIDriver:
