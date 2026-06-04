@@ -44,7 +44,7 @@
 - [x] `data_dictionary/drafts/` 目录
 - [x] 单测 3 项（脱敏/草稿/合并）；全 92 项通过
 
-## Step R5 — 收窄版记忆（增强，最后） ✅ 完成（2026-06-03）
+## Step R5 — 收窄版记忆（增强） ✅ 完成（2026-06-03）
 > 文档：`05-memory-scoped.md`
 - [x] `agent/memory.py`（仅 schema_correction，BM25+SQLite）
 - [x] **用户开关 `memory.enabled`（默认 OFF）+ no-op 短路**
@@ -52,10 +52,26 @@
 - [x] `requirements-*.txt` 加 `rank_bm25`
 - [x] 单测 4 项；92/92 全绿
 
+## Step R5-r - 测试优化 
+> 文档：`05-r-HANDOFF_v2.3.md`
+- [x] 本轮对 8 个文件进行了改动，主要目标：1. 完善前端 UI，让所有后端配置项均可通过界面操作。2. 新增 10 个后端 API 路由。3. 修复代码审查发现的全部 P0/P1 级缺陷
+
+**改动文件清单：**
+
+| 文件 | 改动类型 | 关键内容 |
+|------|---------|---------|
+| `ui/index.html` | 重大增强 | 设置面板、集团 CRUD、表/会话删除按钮、Toast 通知 |
+| `main.py` | 重大增强 | 10 条新 API 路由，配置读写锁，安全修复 |
+| `tools/data_loader.py` | 小修 | 新增 `drop_table()` 函数；修复 `dict_data` 变量未初始化 |
+| `agent/llm_client.py` | 中等修复 | 占位 Key 检测；`classify_intent` 大小写修复；流式 Result 修复 |
+| `scheduler/task_manager.py` | 中等修复 | 自身任务表 population；补跑记录机制；配置路径绝对化 |
+| `agent/loop.py` | 小修 | 会话暂停/恢复辅助 |
+| `platform_adapter/ui_driver.py` | 小修 | `text_select=True` 支持文字选择 |
+| `prompts/system_prompt.txt` | 小修 | 优化 Agent 指令 |
 ---
 
-## 收尾（R1–R3 完成即可让用户重新试用；全部完成后）
-- [ ] 把 Phase R 生效内容回灌为 `CLAUDE.md v1.5`（更新架构图：新增"Agent 工具编排"与"剖析/质量"层）
+## 收尾
+- [x] 把 Phase R 生效内容回灌为 `CLAUDE.md v1.5`（更新架构图：新增"Agent 工具编排"与"剖析/质量"层）
 - [ ] 更新主 `PROGRESS.md`，把 Phase R 标记完成
 - [ ] 在 Windows 环境跑 Phase 5（PyWebView/打包），验证 psutil/rank_bm25 打包正常
 

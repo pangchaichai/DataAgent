@@ -4,14 +4,16 @@
 
 ---
 
-## 当前阶段：Phase R 完成（92/92 单测）→ Phase 5（Windows 内测验证）
+## 当前阶段：Phase R 收尾完成 → Phase 5（Windows 验证）
 
-## Phase R — Agent 内核重构 ✅ 完成（2026-06-03）
+## Phase R — Agent 内核重构 ✅ 完成（2026-06-04）
 - [x] R1: Agent 内核重构为 tool-calling Agent（5 工具 + function-calling + 暂停续跑）
-- [x] R2: 数据质量诊断 — 上传即输出质量报告
+- [x] R2: 数据质量诊断 — 上传即输出质量报告 + 自适应编码
 - [x] R3: UI 重建 — 全本地资源 · 状态透明 · 确认不可忽略
-- [x] R4: 未知表内联推断（sanitize + 字典草稿）
+- [x] R4: 未知表内联推断（sanitize + 字典草稿→正式）
 - [x] R5: 收窄版跨会话记忆（BM25+SQLite，仅口径纠正，默认关闭）
+- [x] R5-r: 测试优化 + 内测反馈修复（10 新 API / 8 缺陷修复 / UI v2.3 / PyWebView 4.4.1）
+- [x] 收尾: CLAUDE.md v1.5 回灌 + 编码规范更新
 
 ## Phase 0 — 环境搭建 ✅ 已完成
 - [x] 虚拟环境创建 + 开发依赖安装
