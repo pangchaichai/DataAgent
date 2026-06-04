@@ -133,7 +133,7 @@ class PyWebViewDriver(UIDriver):
     def start(self, flask_app, port: int, title: str, width: int, height: int):
         import webview
 
-        # 安全默认值：防止 None title 导致 .NET NullReferenceException
+        # 安全默认值
         if not title:
             title = 'DataAgent'
 
@@ -148,28 +148,19 @@ class PyWebViewDriver(UIDriver):
 
         # 健康检查：等 Flask 就绪后再创建窗口
         if not _wait_for_flask(port, timeout=15.0):
-            print(f"[DataAgent] Flask not ready within 15s (port {port}), proceeding anyway...")
+            print(f"[DataAgent] WARNING: Flask not ready within 15s (port {port})")
 
-        # ★ v2.3 修复: 不传 min_size 和 text_select 给 PyWebView 3.4
-        # 这两个参数在某些 Windows/WebView2 版本组合下会触发
-        # System.NullReferenceException (Control.set_Text → get_CacheTextInternal)
-        # 文字选择通过 CSS (user-select:text) 实现
+        # PyWebView 4.4.1 + pythonnet 3.x — 稳定组合
         webview.create_window(
             title=title,
             url=f'http://127.0.0.1:{port}',
             width=width,
             height=height,
             resizable=True,
+            min_size=(800, 600),
+            text_select=True,
         )
-
-        # 自动检测可用后端，不强制 edgechromium
-        # PyWebView 在 Windows 上优先使用 Edge Chromium (WebView2)
-        try:
-            webview.start()
-        except Exception as e:
-            print(f"[DataAgent] PyWebView 启动失败：{e}")
-            print("请确认 WebView2 Runtime 已安装：")
-            print("https://developer.microsoft.com/microsoft-edge/webview2/")
+        webview.start()
 
 
 def get_driver() -> UIDriver:
