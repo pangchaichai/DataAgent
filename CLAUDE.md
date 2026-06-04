@@ -1,8 +1,8 @@
-# DataAgent — Claude Code 主引导文件 v1.3
+# DataAgent — Claude Code 主引导文件 v1.5
 
 > **每次开始新会话，必须先完整阅读本文件。**
 > 版本历史见文末"改进记录"表格。
-> v1.3 融入 op专家 P0/P1/P2 全部评审意见。
+> v1.5 融入 Phase R 重构（tool-calling Agent / 质量诊断 / UI 重建 / 自适应编码 / 跨会话记忆）。
 
 ---
 
@@ -67,24 +67,30 @@ DataAgent 是一个「**自然语言 → 确定性计算 → 受控叙述**」�
 
 ---
 
-## 二、架构总览（v1.3 新增语义层）
+## 二、架构总览（v1.5 新增 Agent 工具编排层 + 剖析/质量层）
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  交互层  PyWebView 窗口 / 对话 / @mention / 快捷按钮 / 告警横幅  │
+│  交互层  PyWebView 窗口 / 对话 / 设置面板 / 确认卡片 / 告警横幅  │
 ├──────────────────────────────────────────────────────────────┤
-│  Agent 编排层  意图识别（LLM分类）→ 任务路由 → 工具调用 → 人工确认  │
+│  ★Agent 工具编排层  LLM function-calling → 5 工具分发          │
+│    profile_table(剖析) / run_sql(探索) / run_calculator(固化)  │
+│    ask_user(澄清) / request_confirmation(确认)                 │
+│    暂停/续跑机制 + 会话 messages 持久化                         │
 ├──────────────────────────────────────────────────────────────┤
 │  业务能力层（两类，严格区分）                                   │
-│   A. 探索式分析：LLM 生成 SQL（允许灵活）                       │
+│   A. 探索式分析：LLM 生成 SQL（允许灵活，经 SQLGuard 校验）      │
 │   B. 合规/报告口径：calculators/ 固化计算（禁止 LLM 生成 SQL）   │
 ├──────────────────────────────────────────────────────────────┤
-│  ★语义层  data_dictionary/ 数据字典 / 字段映射 / 主体归一 / Join键│
-│            entity_normalizer 主体别名归一                       │
+│  ★剖析/质量层  tools/profiler.py(表结构剖析 + 自适应编码)        │
+│              tools/quality.py(空值率/覆盖率/JOIN兼容性)         │
 ├──────────────────────────────────────────────────────────────┤
-│  数据引擎层  DuckDB（只读 SELECT，参数化执行）max_memory=80MB     │
+│  语义层  data_dictionary/ 数据字典 / 字段映射 / 主体归一 / Join键│
+│          entity_normalizer 主体别名归一                         │
 ├──────────────────────────────────────────────────────────────┤
-│  数据接入层  chardet 编码识别 / 字典映射清洗 / 多期版本 / 时效校验  │
+│  数据引擎层  DuckDB（只读 SELECT，参数化执行）max_memory=200MB    │
+├──────────────────────────────────────────────────────────────┤
+│  数据接入层  多编码竞争评分 + 字典映射清洗 + 多期版本 + 时效校验   │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -99,30 +105,31 @@ DataAgent 是一个「**自然语言 → 确定性计算 → 受控叙述**」�
 
 ---
 
-## 三、技术栈（已锁定）
+## 三、技术栈（v1.5 更新）
 
 | 层级 | 选型 | 说明 |
 |------|------|------|
-| 桌面窗口 | pywebview 4.x | 原生窗口，非浏览器 |
+| 桌面窗口 | pywebview 4.4.x | 原生窗口，pythonnet 3.x 兼容 |
 | 后端 | Flask（最小化） | 随机端口，避免冲突 |
-| 实时通信 | Flask-SSE | LLM 流式输出 |
-| 数据引擎 | DuckDB（内嵌） | max_memory=80MB, threads=2 |
+| 实时通信 | SSE（Server-Sent Events） | LLM 流式输出 + tool_start/tool_end/thinking/ask/confirm 事件 |
+| 数据引擎 | DuckDB（内嵌） | max_memory=200MB, threads=2 |
 | 数据处理 | Pandas | 清洗辅助 |
-| 编码检测 | chardet | 自动识别 GB18030/UTF-8 |
-| SQL 解析 | **sqlglot** | 替代正则提取表名（P1-4改进） |
-| 定时调度 | schedule 库 | 轻量，无额外依赖 |
-| 前端 | 单 HTML 文件 | vanilla JS + Tailwind(CDN) + ECharts |
+| 编码检测 | **多编码竞争评分** | 自适应 UTF-8/GB18030/GBK/GB2312/Latin-1 |
+| SQL 解析 | sqlglot | CTE/子查询/别名感知的表名提取 |
+| 定时调度 | schedule 库 | 轻量，含补跑检测 + 数据时效校验 |
+| 前端 | 单 HTML 文件 | vanilla JS + 本地 CSS + 本地 ECharts（**零 CDN**） |
 | 报告模板 | Jinja2 | 渲染引擎 |
 | 系统通知 | winotify | Windows toast 通知 |
-| 配置 | PyYAML | config.yaml / task_config.yaml |
+| 配置 | PyYAML | config.yaml / task_config.yaml / groups.yaml |
 | 日志 | append-only JSONL | 会话日志 + 独立合规审计日志 |
-| LLM（SQL生成）| 内网 LLM（优先）/ DeepSeek V3（兜底）| 见 P0-3 说明 |
-| LLM（报告文字）| 企业内网 LLM | **禁止 fallback 到外部** |
+| LLM | DeepSeek / Qwen3-32B | OpenAI function-calling 原生支持（tool_mode: native） |
+| 记忆检索 | rank_bm25 + SQLite | 跨会话口径纠正（默认关闭，仅本机） |
+| 系统监控 | psutil | 内存/进程健康检查 |
 | 打包 | PyInstaller --onedir | 单目录绿色版 |
 
-新增依赖（相比v1.2）：`sqlglot`
+Phase R 新增依赖：`psutil` `rank_bm25`
 开发依赖文件：`requirements-dev.txt`（Linux）
-生产依赖文件：`requirements-prod.txt`（Windows，含 pywebview/winotify/pyinstaller）
+生产依赖文件：`requirements-prod.txt`（Windows，含 pywebview/winotify/pyinstaller/pythonnet）
 
 ---
 
@@ -136,10 +143,12 @@ DataAgent/
 ├── groups.yaml
 │
 ├── agent/
-│   ├── loop.py
-│   ├── context.py
+│   ├── loop.py                ← ★R1: tool-calling 循环
+│   ├── tools_spec.py          ← ★R1: 5 工具定义 + dispatch
+│   ├── llm_client.py          ← ★R1: ChatResult + chat() (function-calling)
+│   ├── context.py             ← ★R2: 注入质量诊断摘要
 │   ├── skill_loader.py
-│   └── llm_client.py          ← report_text 禁止 fallback（P1-3）
+│   └── memory.py              ← ★R5: BM25 + SQLite 收窄记忆
 │
 ├── calculators/               ← ★新增：固化计算模块（P0-1）
 │   ├── README.md
@@ -149,13 +158,16 @@ DataAgent/
 │   ├── credit_distribution.py ← 信用评级分布固化计算
 │   └── _base.py
 │
-├── data_dictionary/           ← ★新增：语义层（P0-2/P0-4）
+├── data_dictionary/           ← 语义层（P0-2/P0-4）
 │   ├── README.md
 │   ├── holding_dict.yaml
 │   ├── nav_dict.yaml
 │   ├── rating_entity_dict.yaml
 │   ├── rating_bond_dict.yaml
-│   └── entity_alias.yaml      ← 主体别名归一表
+│   ├── monitoring_dict.yaml
+│   ├── weekly_report_dict.yaml
+│   ├── entity_alias.yaml      ← 主体别名归一表
+│   └── drafts/                ← ★R4: 内联推断草稿目录
 │
 ├── scheduler/
 │   └── task_manager.py        ← 新增补跑机制（P1-1）
@@ -165,15 +177,17 @@ DataAgent/
 │
 ├── tools/
 │   ├── __init__.py
-│   ├── data_loader.py         ← 加载后自动字典映射 + 时效校验（P1-1/P0-2）
+│   ├── data_loader.py         ← ★R2-fix: 多编码竞争评分 + drop_table
 │   ├── query_runner.py        ← sqlglot 解析 + 增强 SQLGuard（P1-4）
+│   ├── profiler.py            ← ★R1: Agent 自行剖析表结构
+│   ├── quality.py             ← ★R2: 数据质量诊断报告
 │   ├── entity_manager.py
-│   ├── entity_normalizer.py   ← ★新增：主体归一（P0-4）
+│   ├── entity_normalizer.py   ← 主体归一（P0-4）
 │   ├── report_builder.py
 │   ├── chart_builder.py
 │   ├── notify.py
-│   ├── error_translator.py    ← ★新增：用户侧错误话术（P2-5）
-│   └── compliance_audit.py    ← ★新增：合规级审计日志（P1-6）
+│   ├── error_translator.py    ← 用户侧错误话术（P2-5）
+│   └── compliance_audit.py    ← 合规级审计日志（P1-6）
 │
 ├── skills/
 │   ├── concentration_monitor/ ← 已改：引用 calculators，不让 LLM 生成 SQL
@@ -196,8 +210,11 @@ DataAgent/
 │   └── compliance_audit/      ← ★新增：合规审计日志目录
 ├── docs/
 ├── tests/
-│   ├── test_tools.py
-│   └── test_calculators.py    ← ★新增：固化计算单测（P0-1要求）
+│   ├── test_agent.py          ← 含 R1 tool-calling / R4/R5 记忆 测试
+│   ├── test_tools.py           ← 含 R2 质量诊断 测试
+│   ├── test_calculators.py    ← 固化计算单测（P0-1要求）
+│   ├── test_profiler.py       ← ★R1: profiler 单测
+│   └── test_platform.py       ← 平台适配层单测
 └── requirements.txt
 ```
 
@@ -291,38 +308,56 @@ fixed_calculator: calculators.concentration.calc_entity_concentration
 
 ---
 
-## 七、Agent 核心循环（P1-5 改进）
+## 七、Agent 核心循环（v1.5 tool-calling 重构）
 
 MAX_TURNS = 15，MAX_TOOL_RETRY = 3。
 
-### 新增：意图路由改 LLM 分类（P2-2）
+### 7.1 架构变化（v1.0 → v1.5）
 
-```python
-# 不使用纯关键词子串匹配，改为轻量 LLM 分类
-# 8个 Skill 关键词高度重叠（报告/周报/月报/简报），子串匹配必误判
+```
+v1.0（直线流水线）：
+  关键词匹配 → 单条 SQL → 执行 → 表格
 
-def detect_relevant_skill(user_input, registry, llm_client):
-    """
-    使用 LLM（code_gen端点）对用户意图分类：
-    输入：用户问题 + 所有 Skill 的 name + description（已加载的注册表）
-    输出：最匹配的 Skill name（或 None 表示探索式查询）
-
-    若多个 Skill 评分接近，显示歧义确认：
-    「您的需求可能是 A（运作报告）或 B（部门周报），请选择」
-    """
+v1.5（tool-calling Agent）：
+  messages 驱动 → LLM 自主选择工具 → 工具分发 → 结果回流 → 下一轮
+                                            ↑
+                              暂停/续跑 ← ask_user / request_confirmation
 ```
 
-### 新增：错误类型区分自愈（P1-5）
+### 7.2 五个工具（`agent/tools_spec.py`）
+
+| 工具 | 类型 | 说明 |
+|------|------|------|
+| `profile_table` | 数据剖析 | 返回列名/类型/样本/空值率，Agent 自行读懂数据 |
+| `run_sql` | A 类探索 | 经 SQLGuard 校验的只读 SELECT，禁止用于合规 |
+| `run_calculator` | B 类固化 | 调用 calculators/，口径来自 config，**禁止 LLM 传值** |
+| `ask_user` | 人机交互 | 存在影响正确性的歧义时，提一个关键选择题 |
+| `request_confirmation` | 人机交互 | 合规/报告结论前确认，未决时输入框禁用 |
+
+### 7.3 LLM function-calling（`agent/llm_client.py`）
 
 ```python
-# 区分「语法类失败」和「结果异常」
+# chat() 方法：发送 messages + tools，解析 tool_calls
+result = llm_client.chat(messages, tools=TOOL_DEFINITIONS)
+# → ChatResult(text, tool_calls=[{id, name, arguments}], ...)
+
+# tool_mode: native — OpenAI function-calling（默认）
+#            react  — 文本 JSON 协议（仅作兜底，可后置）
+```
+
+### 7.4 暂停/续跑机制
+
+`ask_user` 或 `request_confirmation` 触发暂停 → `_session["pending"]` 保存状态 → `_session["messages"]` 持久化 → 用户回应后 `/api/chat` 带 pending 续跑。
+
+### 7.5 错误分类自愈（保留 v1.0）
+
+```python
 def categorize_tool_error(error: ToolError) -> str:
     """
-    返回：
-    'syntax'  → SQL 语法错误，可自动重试（LLM 修正语法）
-    'semantic' → 字段/语义错，浮现给用户确认而非自动改写
-    'empty'    → 结果为空，询问用户是否口径有误
-    'anomaly'  → 结果异常（集中度>100%、总市值=0），强制人工介入
+    'syntax'  → SQL 语法错，自动重试
+    'semantic' → 字段/语义错，浮现给用户
+    'empty'    → 结果为空，询问用户
+    'anomaly'  → 强制人工介入
     """
 ```
 
@@ -455,17 +490,18 @@ class TaskManager:
 
 ```yaml
 llm:
-  sql_gen:                          # SQL生成（原 code_gen，改名更准确）
-    primary: enterprise_internal    # 优先走内网（P0-3：问题文本含敏感信息）
+  sql_gen:
+    primary: enterprise_internal    # 优先走内网
     fallback: deepseek              # 兜底外部（需合规签字）
-    external_allowed: false         # true=已获合规签字，可外发问题文本
+    external_allowed: false
+    tool_mode: native               # ★R1: native = OpenAI function-calling
+    timeout: 30
+    max_tokens: 2000
 
   report_text:
     provider: enterprise
-    url: http://[内网LLM地址]/v1
-    model: [企业模型名称]
     fallback: none                  # ★ 显式禁止 fallback（P1-3）
-    degraded_mode: template_only    # 不可用时降级为纯模板输出
+    degraded_mode: template_only
 
   enterprise_internal:
     url: http://[内网LLM地址]/v1
@@ -475,17 +511,20 @@ llm:
     url: https://api.deepseek.com/v1
     model: deepseek-chat
     api_key: ${DEEPSEEK_API_KEY}
-    # 注意：发送的是字段语义名（非原始列名），不含真实数值
 
-calculation_config:                 # ★ 新增：固化计算口径配置（P0-1/C-01）
+calculation_config:                 # 固化计算口径配置
   concentration:
-    market_value_field: "穿透后市值"  # C-01 确认后修改此处
-    use_group_merge: true             # true=集团合并口径
-    exclude_asset_types: []           # 排除的资产大类
-    threshold_entity: 10.0            # 主体集中度阈值(%)
-    threshold_single_bond: 10.0       # 单券集中度阈值(%)
+    market_value_field: "穿透后市值"
+    use_group_merge: true
+    threshold_entity: 10.0
+    threshold_single_bond: 10.0
+    data_max_age_days: 1
   nav:
     return_annualization_days: 365
+
+memory:                             # ★R5: 跨会话记忆（默认关闭）
+  enabled: false
+  max_db_mb: 5
 ```
 
 ### 9.2 LLM 调用规则（P0-3 更新）
@@ -610,19 +649,22 @@ def main():
 
 ---
 
-## 十三、编码规范（v1.3 新增）
+## 十三、编码规范（v1.5 更新）
 
 ```python
 # ✅ 固化计算（合规/报告场景）
 from calculators.concentration import calc_entity_concentration
-results = calc_entity_concentration(conn, table_name, ...)  # 直接调用函数
+results = calc_entity_concentration(conn, table_name, ...)
 
 # ❌ 禁止在合规/报告场景让 LLM 生成 SQL
-sql = llm_client.generate_sql("计算象屿系集中度")  # 禁止用于合规计算
+sql = llm_client.generate_sql("计算象屿系集中度")  # 禁止
 
-# ✅ SQLGuard 使用 sqlglot 解析
-import sqlglot
-tables = {t.name for t in sqlglot.parse_one(sql).find_all(sqlglot.exp.Table)}
+# ✅ Tool-calling Agent 模式
+from agent.tools_spec import dispatch_tool, ToolContext
+result = dispatch_tool("run_calculator", args, ctx)
+
+# ✅ 编码自适应：多编码竞争评分
+encoding = detect_encoding(file_path)  # 自动选 UTF-8/GB18030/GBK 最优
 
 # ✅ report_text 端点无 fallback
 try:
@@ -631,16 +673,14 @@ except LLMUnavailable:
     text = ReportDegradedResult(...)  # 降级，不调用外部
 
 # ✅ 所有用户侧错误使用翻译层
-except Exception as e:
-    yield ErrorMessage(error_translator.translate(e))
+yield ErrorMessage(error_translator.translate(e))
 # ❌ 禁止把技术报错直接展示给用户
-yield ErrorMessage(str(e))  # 禁止
 
 # ✅ 合规/报告事件写审计日志
 compliance_audit.log_compliance_event(event_type='monitoring', ...)
 
-# ✅ 加载后验证用户档案产品名
-data_loader.validate_user_profile_products(loaded_products, config)
+# ✅ 每个 .py 文件 ≤ 300 行，超了就拆模块
+# ✅ 每个新函数配单测，旧单测全绿后再提交
 ```
 
 ---
@@ -657,6 +697,12 @@ data_loader.validate_user_profile_products(loaded_products, config)
 | 版本 | 改进内容 | 来源 |
 |------|---------|------|
 | v1.0 | 初始方案 | CC设计 |
+| v1.5 | Agent 内核重构为 tool-calling（5 工具 + function-calling + 暂停续跑） | Phase R1 |
+| v1.5 | 数据质量诊断（空值率/覆盖率/JOIN 兼容性 + 自适应编码） | Phase R2 |
+| v1.5 | UI 重建（全本地零 CDN / 设置面板 / 集团 CRUD / 确认卡片） | Phase R3 |
+| v1.5 | 未知表内联推断（sanitize + 字典草稿→正式） | Phase R4 |
+| v1.5 | 收窄版跨会话记忆（BM25+SQLite，仅口径纠正，默认关闭） | Phase R5 |
+| v1.5 | 内测反馈修复（PyWebView 4.4.1 / 一键启动 / 记忆开关即时保存） | 内测 |
 | v1.1 | 随机端口/DuckDB内存限制/动态SQLGuard/ECharts钩子/Skills共享 | GG审查 |
 | v1.2 | 定时任务/用户档案/数据源绑定/@mention/5个新Skill | 业务需求补充 |
 | v1.3 | 新增语义层/数据字典（P0-2） | op专家评审 |
