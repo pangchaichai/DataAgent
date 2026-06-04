@@ -201,6 +201,9 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 .bubble.agent .md-table th{text-align:left;font-weight:600;
   border-bottom:2px solid var(--border);padding:4px 8px;}
 .bubble.agent .md-table td{border-bottom:1px solid var(--border);padding:4px 8px;}
+/* ── Message type visual differentiation (v2.3-fix) ── */
+.bubble.user{border-left:3px solid var(--blue);}
+.bubble.agent{border-top:2px solid var(--green);}
 
 /* ── Process wrapper ── */
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -223,6 +226,9 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 .proc-line .p-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .proc-line .p-st{flex-shrink:0;font-size:11px;font-weight:500;}
 .p-st.running{color:var(--blue);}.p-st.ok{color:var(--green);}.p-st.warn{color:var(--text-3);}
+/* thinking vs tool background differentiation */
+.proc-line{background:var(--bg-s);margin:1px 0;border-left:2px solid var(--border);}
+.proc-line .p-icon{font-size:13px;}
 
 /* ── Data tables ── */
 .table-card{background:var(--bg-s);border:1px solid var(--border);border-radius:var(--radius);
@@ -551,7 +557,7 @@ select.sp-input{cursor:pointer;}
       <div class="sp-row">
         <label>启用记忆</label>
         <label class="toggle-sw">
-          <input type="checkbox" id="cfg-memory"/>
+          <input type="checkbox" id="cfg-memory" onchange="saveMemoryToggle()"/>
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
         </label>
       </div>
@@ -1323,6 +1329,18 @@ async function saveSettings(){
       closeSettings();
     }else toast('保存失败：'+(r.error||''),'error');
   }catch(e){toast('保存失败','error');}
+}
+async function saveMemoryToggle(){
+  try{
+    const r=await api('POST','/api/config',{memory:{enabled:$('cfg-memory').checked}});
+    if(r.ok){
+      toast('记忆功能已'+($('cfg-memory').checked?'开启':'关闭'),'success');
+      // Refresh stats
+      const ms=await api('GET','/api/memory/stats');
+      if(ms.enabled){$('memStats').textContent='已存 '+ms.count+' 条，'+ms.size_mb+'MB';}
+      else{$('memStats').textContent='记忆功能未启用';}
+    }else{toast('切换失败：'+(r.error||''),'error');}
+  }catch(e){toast('切换失败','error');}
 }
 async function clearMemory(){
   if(!confirm('确定要清空所有记忆记录吗？此操作不可恢复。'))return;

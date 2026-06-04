@@ -96,6 +96,40 @@ def get_loaded_tables() -> list[dict]:
 #  编码检测 + 列名清洗
 # ═══════════════════════════════════════════════════════════════
 
+def _contains_cjk(text: str) -> bool:
+    """检查字符串是否包含有效的中日韩统一表意文字"""
+    if not text:
+        return False
+    cjk_count = 0
+    for ch in text:
+        cp = ord(ch)
+        # CJK Unified Ideographs + Extensions
+        if (0x3400 <= cp <= 0x9FFF) or (0xF900 <= cp <= 0xFAFF) or \
+           (0x20000 <= cp <= 0x2FFFF):
+            cjk_count += 1
+    return cjk_count >= 1
+
+
+def _looks_like_cjk_text(text: str) -> bool:
+    """判断文本是否像正常的中文（非乱码）。
+    乱码通常表现为大量 Latin-1/Cyrillic 字符，而非 CJK 汉字。"""
+    if not text:
+        return False
+    cjk = latin = 0
+    for ch in text:
+        cp = ord(ch)
+        if (0x3400 <= cp <= 0x9FFF) or (0xF900 <= cp <= 0xFAFF) or \
+           (0x4E00 <= cp <= 0x9FFF) or (0x20000 <= cp <= 0x2FFFF):
+            cjk += 1
+        elif cp < 0x1000 and cp > 0x7F:
+            latin += 1
+    # 如果有中文，CJK 字符应该远多于 high Latin/Cyrillic 乱码字符
+    if cjk > 0:
+        return cjk >= latin * 0.5
+    # 纯 ASCII 也算"正常"
+    return latin == 0
+
+
 def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
     """使用 chardet 检测文件编码"""
     with open(file_path, 'rb') as f:
@@ -299,21 +333,45 @@ def load_file(
 
     if ext == '.csv':
         encoding = detect_encoding(file_path)
+
+        # ── 尝试加载 ──────────────────────────────────────
+        def _try_read_csv(enc):
+            return pd.read_csv(file_path, encoding=enc, dtype=str,
+                               keep_default_na=False, na_values=[''])
+
+        df = None
+        # ★ 编码验证：chardet 对 GB18030 中文文件常误报为 utf-8/ascii
+        # 读完后检查列名是否包含正常 CJK，否则回退 GB18030
         try:
-            df = pd.read_csv(
-                file_path, encoding=encoding, dtype=str,
-                keep_default_na=False, na_values=[''],
-            )
-        except Exception:
-            # 回退：可能编码检测不准，尝试 gb18030
+            df = _try_read_csv(encoding)
+            # 检查列名是否看起来像正常中文
+            col_sample = ''.join(str(c) for c in df.columns[:10])
+            if _contains_cjk(col_sample) and not _looks_like_cjk_text(col_sample):
+                # 列名中有 CJK 范围的码点但不像正常中文 → 乱码
+                print(f"[data_loader] ⚠️ {encoding} 解码的列名疑似乱码，回退 gb18030")
+                try:
+                    df = _try_read_csv('gb18030')
+                    encoding = 'gb18030'
+                except Exception:
+                    pass  # 保留 df（乱码版本），由后续逻辑处理
+        except UnicodeDecodeError:
+            # 明确的解码失败 → 回退 gb18030
             try:
-                df = pd.read_csv(file_path, encoding='gb18030', dtype=str)
+                df = _try_read_csv('gb18030')
+                encoding = 'gb18030'
+            except Exception:
+                pass
+
+        if df is None:
+            # 最终兜底
+            try:
+                df = _try_read_csv('gb18030')
                 encoding = 'gb18030'
             except Exception:
                 df = pd.read_csv(file_path, encoding='utf-8', dtype=str,
                                  errors='replace')
                 encoding = 'utf-8 (fallback)'
-                warnings.append(f"编码回退至 utf-8（errors=replace），可能存在乱码")
+                warnings.append("编码回退至 utf-8（errors=replace），可能存在乱码")
 
     elif ext in ('.xlsx', '.xls'):
         encoding = 'n/a'
@@ -325,6 +383,7 @@ def load_file(
     df.columns = [clean_column_name(c) for c in df.columns]
 
     # ── 3. 千分位数值清洗 + 类型转换 ───────────────────
+    dict_data = None
     if table_type:
         dict_data = load_dictionary(table_type)
         if dict_data:
@@ -407,3 +466,17 @@ def load_file(
 
     _loaded_tables[safe_table] = result
     return result
+
+
+def drop_table(table_name: str) -> bool:
+    """从 DuckDB 卸载表并从注册表移除，返回 True 表示成功"""
+    global _loaded_tables
+    if table_name not in _loaded_tables:
+        return False
+    conn = get_connection()
+    try:
+        conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+    except Exception:
+        pass
+    del _loaded_tables[table_name]
+    return True
