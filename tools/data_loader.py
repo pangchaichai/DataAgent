@@ -96,51 +96,125 @@ def get_loaded_tables() -> list[dict]:
 #  编码检测 + 列名清洗
 # ═══════════════════════════════════════════════════════════════
 
-def _contains_cjk(text: str) -> bool:
-    """检查字符串是否包含有效的中日韩统一表意文字"""
-    if not text:
-        return False
-    cjk_count = 0
-    for ch in text:
-        cp = ord(ch)
-        # CJK Unified Ideographs + Extensions
-        if (0x3400 <= cp <= 0x9FFF) or (0xF900 <= cp <= 0xFAFF) or \
-           (0x20000 <= cp <= 0x2FFFF):
-            cjk_count += 1
-    return cjk_count >= 1
+def _is_cjk_char(cp: int) -> bool:
+    """判断码点是否为 CJK 统一表意文字（含扩展区）"""
+    return (0x4E00 <= cp <= 0x9FFF) or (0x3400 <= cp <= 0x4DBF) or \
+           (0x20000 <= cp <= 0x2FFFF) or (0xF900 <= cp <= 0xFAFF)
 
 
-def _looks_like_cjk_text(text: str) -> bool:
-    """判断文本是否像正常的中文（非乱码）。
-    乱码通常表现为大量 Latin-1/Cyrillic 字符，而非 CJK 汉字。"""
-    if not text:
-        return False
-    cjk = latin = 0
-    for ch in text:
-        cp = ord(ch)
-        if (0x3400 <= cp <= 0x9FFF) or (0xF900 <= cp <= 0xFAFF) or \
-           (0x4E00 <= cp <= 0x9FFF) or (0x20000 <= cp <= 0x2FFFF):
-            cjk += 1
-        elif cp < 0x1000 and cp > 0x7F:
-            latin += 1
-    # 如果有中文，CJK 字符应该远多于 high Latin/Cyrillic 乱码字符
-    if cjk > 0:
-        return cjk >= latin * 0.5
-    # 纯 ASCII 也算"正常"
-    return latin == 0
+def _is_suspicious_char(cp: int) -> bool:
+    """判断码点是否为可疑的乱码特征字符（box-drawing、Cyrillic、Latin-Ext等）
+    这些字符出现在假定为中文的列名中通常意味着编码错误。"""
+    # Box Drawing (U+2500-U+257F), Cyrillic (U+0400-U+04FF),
+    # Latin Extended-A/B (U+0100-U+024F), IPA Extensions (U+0250-U+02AF)
+    return (0x2500 <= cp <= 0x257F) or (0x0400 <= cp <= 0x04FF) or \
+           (0x0100 <= cp <= 0x024F)
+
+
+def _score_encoding(file_path: str, encoding: str) -> tuple[int, str]:
+    """
+    尝试用指定编码读取 CSV，对解码质量综合评分。
+    返回 (score, reason)，分数越高越好。负分表示不可用。
+    """
+    import io
+    try:
+        # 读原始字节
+        with open(file_path, 'rb') as f:
+            raw = f.read(200000)  # 前 200KB 足够判断
+        text = raw.decode(encoding)
+        lines = text.split('\n')
+        if len(lines) < 2:
+            return (-1, "行数不足")
+
+        header = lines[0]
+        if not header.strip():
+            return (-1, "空表头")
+
+        score = 0
+        total = len(header)
+        cjk = suspicious = ascii_chars = 0
+
+        for ch in header:
+            cp = ord(ch)
+            if _is_cjk_char(cp):
+                cjk += 1
+            elif _is_suspicious_char(cp):
+                suspicious += 1
+            elif cp < 128:
+                ascii_chars += 1
+
+        # 评分逻辑：
+        # + CJK 字符：每个 +2 分（强信号，这是中文 CSV）
+        # + ASCII：每个 +0.1 分（正常，中文列名通常中英混合）
+        # - 可疑字符：每个 -3 分（强烈的编码错误信号）
+        # - 只有 ASCII 没有 CJK：中性，给低分（可能是英文 CSV，任何编码都能读）
+        score += cjk * 2
+        score += ascii_chars * 0.1
+        score -= suspicious * 3
+
+        # 如果 CJK + 可疑字符都很少 → 可能是纯英文文件，给基线分
+        if cjk == 0 and suspicious == 0:
+            score = 10  # 纯 ASCII/英文，编码无关紧要
+
+        # 解码成功率：用 pandas 试读验证
+        try:
+            df = pd.read_csv(io.StringIO(text), encoding='utf-8', dtype=str,
+                             nrows=5, keep_default_na=False, na_values=[''])
+            # pandas 能成功解析 → +5 分
+            score += 5
+        except Exception:
+            score -= 10
+
+        reason = (f"CJK={cjk} suspect={suspicious} ascii={ascii_chars} "
+                  f"→ score={score}")
+        return (score, reason)
+
+    except (UnicodeDecodeError, LookupError):
+        return (-100, f"无法用 {encoding} 解码")
 
 
 def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
-    """使用 chardet 检测文件编码"""
-    with open(file_path, 'rb') as f:
-        raw = f.read(sample_bytes)
-    result = chardet.detect(raw)
-    encoding = result.get('encoding', 'utf-8')
-    confidence = result.get('confidence', 0)
-    # 低置信度时打印警告但不阻断
-    if confidence < 0.7:
-        print(f"[data_loader] ⚠️ 编码检测置信度较低 ({confidence:.0%})：{encoding}，文件 {file_path}")
-    return encoding
+    """★ 自适应编码检测：多编码竞争评分，自动选最优 ★"""
+    # 候选编码列表（按常见程度排序，但最终由评分决定）
+    candidates = ['utf-8', 'gb18030', 'gbk', 'gb2312', 'latin-1']
+
+    # 先问 chardet 作为参考
+    try:
+        with open(file_path, 'rb') as f:
+            raw = f.read(sample_bytes)
+        chardet_result = chardet.detect(raw)
+        chardet_enc = chardet_result.get('encoding', 'utf-8')
+        # 把 chardet 的结果放在候选列表最前面
+        if chardet_enc and chardet_enc not in candidates:
+            candidates.insert(0, chardet_enc)
+        elif chardet_enc in candidates:
+            candidates.remove(chardet_enc)
+            candidates.insert(0, chardet_enc)
+    except Exception:
+        pass
+
+    # 对所有候选编码评分
+    best_score = -999
+    best_enc = 'utf-8'
+    results = []
+
+    for enc in candidates:
+        score, reason = _score_encoding(file_path, enc)
+        results.append((enc, score, reason))
+        if score > best_score:
+            best_score = score
+            best_enc = enc
+
+    # 日志输出评分详情
+    results.sort(key=lambda x: x[1], reverse=True)
+    for enc, score, reason in results[:4]:
+        marker = ' ★' if enc == best_enc else ''
+        print(f"[data_loader]   {enc}: {reason}{marker}")
+
+    if best_score < 0:
+        print(f"[data_loader] ⚠️ 所有编码评分均为负，退回 utf-8")
+
+    return best_enc
 
 
 def clean_column_name(name: str) -> str:
@@ -333,45 +407,15 @@ def load_file(
 
     if ext == '.csv':
         encoding = detect_encoding(file_path)
-
-        # ── 尝试加载 ──────────────────────────────────────
-        def _try_read_csv(enc):
-            return pd.read_csv(file_path, encoding=enc, dtype=str,
-                               keep_default_na=False, na_values=[''])
-
-        df = None
-        # ★ 编码验证：chardet 对 GB18030 中文文件常误报为 utf-8/ascii
-        # 读完后检查列名是否包含正常 CJK，否则回退 GB18030
         try:
-            df = _try_read_csv(encoding)
-            # 检查列名是否看起来像正常中文
-            col_sample = ''.join(str(c) for c in df.columns[:10])
-            if _contains_cjk(col_sample) and not _looks_like_cjk_text(col_sample):
-                # 列名中有 CJK 范围的码点但不像正常中文 → 乱码
-                print(f"[data_loader] ⚠️ {encoding} 解码的列名疑似乱码，回退 gb18030")
-                try:
-                    df = _try_read_csv('gb18030')
-                    encoding = 'gb18030'
-                except Exception:
-                    pass  # 保留 df（乱码版本），由后续逻辑处理
-        except UnicodeDecodeError:
-            # 明确的解码失败 → 回退 gb18030
-            try:
-                df = _try_read_csv('gb18030')
-                encoding = 'gb18030'
-            except Exception:
-                pass
-
-        if df is None:
-            # 最终兜底
-            try:
-                df = _try_read_csv('gb18030')
-                encoding = 'gb18030'
-            except Exception:
-                df = pd.read_csv(file_path, encoding='utf-8', dtype=str,
-                                 errors='replace')
-                encoding = 'utf-8 (fallback)'
-                warnings.append("编码回退至 utf-8（errors=replace），可能存在乱码")
+            df = pd.read_csv(file_path, encoding=encoding, dtype=str,
+                             keep_default_na=False, na_values=[''])
+        except (UnicodeDecodeError, LookupError):
+            # 兜底：UTF-8 + error replace
+            df = pd.read_csv(file_path, encoding='utf-8', dtype=str,
+                             errors='replace')
+            encoding = 'utf-8 (fallback)'
+            warnings.append("编码回退至 utf-8（errors=replace）")
 
     elif ext in ('.xlsx', '.xls'):
         encoding = 'n/a'
