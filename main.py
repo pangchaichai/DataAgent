@@ -225,8 +225,42 @@ def create_flask_app() -> Flask:
                                    result.row_count if hasattr(result, 'row_count') else 0,
                                    result.col_count if hasattr(result, 'col_count') else 0)
 
+        # ★v1.6.1：重复上传检测 — 检查是否与已有表结构高度相似
+        duplicate_warning = None
+        try:
+            from tools.data_loader import get_connection
+            conn = get_connection()
+            existing_tables = [f for f in _session.get("loaded_files", [])
+                               if f.get("table_name") != table_name]
+            if existing_tables:
+                # 获取新表的列名集合
+                new_cols = set(conn.execute(
+                    f"SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}'"
+                ).fetchdf()['column_name'].tolist())
+                for ft in existing_tables:
+                    tname = ft.get("table_name", "")
+                    try:
+                        old_cols = set(conn.execute(
+                            f"SELECT column_name FROM information_schema.columns WHERE table_name='{tname}'"
+                        ).fetchdf()['column_name'].tolist())
+                        if new_cols and old_cols:
+                            overlap = len(new_cols & old_cols) / max(len(new_cols), len(old_cols))
+                            if overlap >= 0.90:
+                                duplicate_warning = (
+                                    f"该表与已加载的「{tname}」列结构相似度 {overlap*100:.0f}%"
+                                    f"（{len(new_cols & old_cols)}/{max(len(new_cols),len(old_cols))} 列一致），"
+                                    f"可能是重复数据，请注意区分"
+                                )
+                                break
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
         # ★R2：返回质量诊断报告
         response_data = {"ok": True, "table_name": table_name}
+        if duplicate_warning:
+            response_data["warnings"] = [duplicate_warning]
         if result.quality_report:
             from dataclasses import asdict
             response_data["quality_report"] = asdict(result.quality_report)
@@ -619,8 +653,10 @@ def create_flask_app() -> Flask:
         if not re.match(r'^[a-f0-9]{12}$', session_id):
             return jsonify({"ok": False, "error": "无效会话ID"}), 400
         session_file = BASE_DIR / 'data' / 'sessions' / f'{session_id}.jsonl'
+        if not session_file.exists():
+            return jsonify({"ok": False, "error": "会话不存在"}), 404
         try:
-            session_file.unlink(missing_ok=True)
+            session_file.unlink()
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
         return jsonify({"ok": True})
@@ -706,7 +742,8 @@ def create_flask_app() -> Flask:
             return jsonify({
                 "ok": True,
                 "name": draft.name,
-                "content": content,
+                "skill_md": content,     # ★ v1.6.1: 统一字段名（前端 sbGenerate 读取此字段）
+                "content": content,       # 向后兼容旧调用方
                 "draft": {
                     "name": draft.name,
                     "description": draft.description,

@@ -397,11 +397,12 @@ def publish_skill(content: str, skills_dir: str = None) -> dict:
     skill_path = skill_dir / 'SKILL.md'
     skill_path.write_text(content, encoding='utf-8')
 
-    delete_draft(name)
+    draft_existed = delete_draft(name)
 
     return {
         "ok": True,
         "name": name,
         "path": str(skill_path),
         "validation": validation.to_dict(),
+        "draft_deleted": draft_existed,  # ★ v1.6.1: 前端据此清理草稿列表
     }
