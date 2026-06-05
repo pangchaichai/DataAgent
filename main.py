@@ -219,6 +219,12 @@ def create_flask_app() -> Flask:
                 "date_tag": date_tag or "", "table_type": table_type,
             })
 
+        # 记录文件上传日志
+        from tools.runtime_logger import get_logger as _get_log
+        _get_log().log_file_upload(file.filename, table_name,
+                                   result.row_count if hasattr(result, 'row_count') else 0,
+                                   result.col_count if hasattr(result, 'col_count') else 0)
+
         # ★R2：返回质量诊断报告
         response_data = {"ok": True, "table_name": table_name}
         if result.quality_report:
@@ -250,6 +256,10 @@ def create_flask_app() -> Flask:
             session_msgs = list(_session["messages"])
             pending = _session.get("pending")
             _session["pending"] = None
+
+        # 记录用户操作日志
+        from tools.runtime_logger import get_logger as _get_logger
+        _get_logger().log_chat_start(message)
 
         # 在后台线程运行 agent loop，事件写入队列
         def run_agent_bg():
@@ -287,6 +297,8 @@ def create_flask_app() -> Flask:
                     _session["turn_count"] += 1
                     _save_session_messages()  # ★R3: 持久化会话
             except Exception as e:
+                from tools.runtime_logger import get_logger as _get_log
+                _get_log().log_exception('agent', 'Agent 循环异常', e)
                 q.put({"type": "error", "data": f"Agent 处理异常：{str(e)}"})
             finally:
                 q.put(None)  # 哨兵：流结束
@@ -498,6 +510,7 @@ def create_flask_app() -> Flask:
             "app": cfg.get('app', {}),
             "api_key_set": api_key_set,
             "llm_model": cfg.get('llm', {}).get('deepseek', {}).get('model', 'deepseek-chat'),
+            "logging": cfg.get('logging', {"mode": "basic", "max_days": 30}),
         })
 
     # ── POST /api/config — 写入配置 ─────────────────────────
@@ -649,6 +662,182 @@ def create_flask_app() -> Flask:
         mem.clear()
         return jsonify({"ok": True})
 
+    # ══════════════════════════════════════════════════════════
+    #  Skill Builder API
+    # ══════════════════════════════════════════════════════════
+
+    # ── GET /api/skill-builder/drafts — 草稿列表 ──────────────
+    @app.route('/api/skill-builder/drafts')
+    def api_skill_drafts():
+        from tools.skill_builder import list_drafts
+        return jsonify({"drafts": list_drafts()})
+
+    # ── POST /api/skill-builder/generate — LLM 辅助生成 ───────
+    @app.route('/api/skill-builder/generate', methods=['POST'])
+    def api_skill_generate():
+        data = request.get_json(force=True) if request.is_json else {}
+        description = (data.get('description') or '').strip()
+        if not description:
+            return jsonify({"ok": False, "error": "请描述你想创建的 Skill 功能"}), 400
+
+        from tools.skill_builder import (
+            build_skill_generation_prompt, parse_llm_skill_response,
+            generate_skill_md, save_draft, SkillDraft,
+        )
+        from agent.llm_client import LLMClient
+
+        try:
+            llm = LLMClient(str(BASE_DIR / 'config.yaml'))
+            prompt = build_skill_generation_prompt(description)
+            result = llm.chat(
+                [{"role": "user", "content": prompt}],
+                tools=None,
+            )
+            if not result.success or not result.text:
+                return jsonify({"ok": False, "error": "AI 生成失败，请重试"}), 500
+
+            draft = parse_llm_skill_response(result.text)
+            if not draft:
+                return jsonify({"ok": False, "error": "AI 返回格式异常，请重新描述"}), 500
+
+            content = generate_skill_md(draft)
+            save_draft(draft.name, content)
+
+            return jsonify({
+                "ok": True,
+                "name": draft.name,
+                "content": content,
+                "draft": {
+                    "name": draft.name,
+                    "description": draft.description,
+                    "trigger_words": draft.trigger_words,
+                    "calc_type": draft.calc_type,
+                },
+            })
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"生成异常：{str(e)[:200]}"}), 500
+
+    # ── POST /api/skill-builder/validate — 校验 ──────────────
+    @app.route('/api/skill-builder/validate', methods=['POST'])
+    def api_skill_validate():
+        data = request.get_json(force=True) if request.is_json else {}
+        content = (data.get('content') or '').strip()
+        if not content:
+            return jsonify({"ok": False, "error": "内容为空"}), 400
+
+        from tools.skill_builder import validate_skill_md
+        result = validate_skill_md(content, str(BASE_DIR / 'skills'))
+        return jsonify(result.to_dict())
+
+    # ── POST /api/skill-builder/save-draft — 保存草稿 ────────
+    @app.route('/api/skill-builder/save-draft', methods=['POST'])
+    def api_skill_save_draft():
+        data = request.get_json(force=True) if request.is_json else {}
+        name = (data.get('name') or '').strip()
+        content = (data.get('content') or '').strip()
+        if not name or not content:
+            return jsonify({"ok": False, "error": "名称或内容为空"}), 400
+
+        from tools.skill_builder import save_draft
+        return jsonify(save_draft(name, content))
+
+    # ── GET /api/skill-builder/draft/<name> — 加载草稿 ────────
+    @app.route('/api/skill-builder/draft/<name>')
+    def api_skill_load_draft(name):
+        from tools.skill_builder import load_draft
+        content = load_draft(name)
+        if content is None:
+            return jsonify({"error": "草稿不存在"}), 404
+        return jsonify({"ok": True, "name": name, "content": content})
+
+    # ── DELETE /api/skill-builder/draft/<name> — 删除草稿 ─────
+    @app.route('/api/skill-builder/draft/<name>', methods=['DELETE'])
+    def api_skill_delete_draft(name):
+        from tools.skill_builder import delete_draft
+        if not delete_draft(name):
+            return jsonify({"ok": False, "error": "草稿不存在"}), 404
+        return jsonify({"ok": True})
+
+    # ── POST /api/skill-builder/publish — 发布 ───────────────
+    @app.route('/api/skill-builder/publish', methods=['POST'])
+    def api_skill_publish():
+        data = request.get_json(force=True) if request.is_json else {}
+        content = (data.get('content') or '').strip()
+        if not content:
+            return jsonify({"ok": False, "error": "内容为空"}), 400
+
+        from tools.skill_builder import publish_skill
+        result = publish_skill(content, str(BASE_DIR / 'skills'))
+        status = 200 if result['ok'] else 400
+        return jsonify(result), status
+
+    # ══════════════════════════════════════════════════════════
+    #  Runtime Logger API
+    # ══════════════════════════════════════════════════════════
+
+    # ── GET /api/logs — 查看日志 ──────────────────────────────
+    @app.route('/api/logs')
+    def api_logs():
+        from tools.runtime_logger import get_logger
+        logger = get_logger()
+        date_str = request.args.get('date', '')
+        level = request.args.get('level', '')
+        category = request.args.get('category', '')
+        limit = min(int(request.args.get('limit', 200)), 1000)
+        return jsonify({
+            "entries": logger.read_logs(date_str, level, category, limit),
+        })
+
+    # ── GET /api/logs/files — 日志文件列表 ────────────────────
+    @app.route('/api/logs/files')
+    def api_log_files():
+        from tools.runtime_logger import get_logger
+        return jsonify({"files": get_logger().get_log_files()})
+
+    # ── GET /api/logs/stats — 日志统计 ────────────────────────
+    @app.route('/api/logs/stats')
+    def api_log_stats():
+        from tools.runtime_logger import get_logger
+        return jsonify(get_logger().get_stats())
+
+    # ── POST /api/logs/mode — 切换日志模式 ────────────────────
+    @app.route('/api/logs/mode', methods=['POST'])
+    def api_log_mode():
+        data = request.get_json(force=True) if request.is_json else {}
+        mode = data.get('mode', '')
+        if mode not in ('basic', 'detailed'):
+            return jsonify({"ok": False, "error": "模式必须为 basic 或 detailed"}), 400
+
+        from tools.runtime_logger import get_logger
+        import yaml
+        logger = get_logger()
+        logger.mode = mode
+
+        # 同步写入 config.yaml
+        with _config_file_lock:
+            cfg_path = BASE_DIR / 'config.yaml'
+            src = cfg_path if cfg_path.exists() else BASE_DIR / 'config.example.yaml'
+            try:
+                with open(src, encoding='utf-8') as f:
+                    cfg = yaml.safe_load(f) or {}
+                cfg.setdefault('logging', {})['mode'] = mode
+                tmp = cfg_path.with_suffix('.yaml.tmp')
+                with open(tmp, 'w', encoding='utf-8') as f:
+                    yaml.dump(cfg, f, allow_unicode=True,
+                              default_flow_style=False, sort_keys=False)
+                tmp.replace(cfg_path)
+            except Exception:
+                pass
+
+        return jsonify({"ok": True, "mode": mode})
+
+    # ── POST /api/logs/cleanup — 手动清理旧日志 ──────────────
+    @app.route('/api/logs/cleanup', methods=['POST'])
+    def api_log_cleanup():
+        from tools.runtime_logger import get_logger
+        get_logger().cleanup_old_logs()
+        return jsonify({"ok": True})
+
     return app
 
 
@@ -662,6 +851,13 @@ def main():
 
     config = load_config()
     port = find_free_port()
+
+    # 初始化运行时日志
+    from tools.runtime_logger import init_logger
+    log_mode = config.get('logging', {}).get('mode', 'basic')
+    log_max_days = config.get('logging', {}).get('max_days', 30)
+    logger = init_logger(mode=log_mode, max_days=log_max_days)
+    logger.cleanup_old_logs()
 
     notify = get_notify_driver()
     notify.push(f"DataAgent 启动中... 端口：{port}", level="info")
@@ -680,7 +876,9 @@ def main():
     app = create_flask_app()
 
     driver = get_driver()
-    print(f"运行模式：{type(driver).__name__}")
+    run_mode = type(driver).__name__
+    print(f"运行模式：{run_mode}")
+    logger.log_app_start(port=port, mode=run_mode, log_mode=log_mode)
 
     driver.start(
         flask_app=app,

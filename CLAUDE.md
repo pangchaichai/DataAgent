@@ -3,6 +3,8 @@
 > **每次开始新会话，必须先完整阅读本文件。**
 > 版本历史见文末"改进记录"表格。
 > v1.5 融入 Phase R 重构（tool-calling Agent / 质量诊断 / UI 重建 / 自适应编码 / 跨会话记忆）。
+>
+> **测试指南**：完整测试策略见 `TESTING.md`。每次迭代后须按该文件第四章流程执行测试。
 
 ---
 
@@ -187,7 +189,9 @@ DataAgent/
 │   ├── chart_builder.py
 │   ├── notify.py
 │   ├── error_translator.py    ← 用户侧错误话术（P2-5）
-│   └── compliance_audit.py    ← 合规级审计日志（P1-6）
+│   ├── compliance_audit.py    ← 合规级审计日志（P1-6）
+│   ├── skill_builder.py       ← ★v1.6: Skill 自助创建/校验/发布
+│   └── runtime_logger.py      ← ★v1.6: 两级运行日志系统
 │
 ├── skills/
 │   ├── concentration_monitor/ ← 已改：引用 calculators，不让 LLM 生成 SQL
@@ -207,7 +211,9 @@ DataAgent/
 │   ├── uploads/
 │   ├── outputs/
 │   ├── sessions/              ← 会话日志
-│   └── compliance_audit/      ← ★新增：合规审计日志目录
+│   ├── compliance_audit/      ← ★新增：合规审计日志目录
+│   ├── logs/                  ← ★v1.6: 运行日志（JSONL按日滚动）
+│   └── skill_drafts/          ← ★v1.6: Skill 草稿暂存
 ├── docs/
 ├── tests/
 │   ├── test_agent.py          ← 含 R1 tool-calling / R4/R5 记忆 测试
@@ -681,7 +687,138 @@ compliance_audit.log_compliance_event(event_type='monitoring', ...)
 
 # ✅ 每个 .py 文件 ≤ 300 行，超了就拆模块
 # ✅ 每个新函数配单测，旧单测全绿后再提交
+# ✅ 提交前运行 pytest tests/ -x，全绿才提交
+# ✅ 迭代后按 TESTING.md 第四章流程执行变更分析→测试→记录
 ```
+
+---
+
+## 十三-A、Skill 自助创建与发布（v1.6 新增）
+
+### 功能定位
+让非技术业务人员通过对话描述或模板化表单创建自定义 Skill，无需编写代码。
+发布前自动执行质量和安全校验。
+
+### 核心模块
+`tools/skill_builder.py`，不修改 `agent/skill_loader.py`（职责分离）。
+
+### 创建流程
+
+```
+用户描述场景 → POST /api/skill-builder/generate → LLM 生成结构化 SkillDraft
+  → generate_skill_md() 渲染为 SKILL.md → save_draft() 存入 data/skill_drafts/
+  → 用户预览 + 编辑 → POST /api/skill-builder/validate → 校验反馈
+  → POST /api/skill-builder/publish → validate + 写入 skills/{name}/SKILL.md
+```
+
+### 校验维度（`validate_skill_md()`）
+
+| 维度 | 规则 |
+|------|------|
+| 格式 | YAML frontmatter 可解析，name + description 必填 |
+| 命名 | 3-40 位小写字母/数字/下划线，字母开头，不与已有 Skill 冲突 |
+| 安全 | SQL 示例中禁止 DROP/DELETE/INSERT/CREATE 等危险操作 |
+| 质量 | 建议含触发词、执行步骤、输出格式、LIMIT 子句 |
+| 大小 | SKILL.md ≤ 10000 字符 |
+
+### 安全约束
+- 用户创建的 Skill 只能是 `calc_type: exploratory`（不能创建固化计算类）
+- SQL 示例仅供 LLM 参考，实际执行仍经 SQLGuard 拦截
+- 草稿存在 `data/skill_drafts/`，未发布前对 Agent 不可见
+
+### API 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/skill-builder/drafts` | 草稿列表 |
+| POST | `/api/skill-builder/generate` | LLM 辅助从自然语言生成 Skill |
+| POST | `/api/skill-builder/validate` | 校验 SKILL.md 内容 |
+| POST | `/api/skill-builder/save-draft` | 保存草稿 |
+| GET | `/api/skill-builder/draft/<name>` | 加载草稿 |
+| DELETE | `/api/skill-builder/draft/<name>` | 删除草稿 |
+| POST | `/api/skill-builder/publish` | 校验并发布到 skills/ |
+
+---
+
+## 十三-B、运行时日志系统（v1.6 新增）
+
+### 功能定位
+结构化运行日志，用于 Windows 生产环境中异常排查和问题定位。
+两种模式，默认仅开启基本记录。
+
+### 两种模式
+
+| 模式 | 记录内容 | 默认 |
+|------|---------|------|
+| **basic** | ERROR/WARNING + 生命周期事件（启动/关闭/异常） | ✅ 是 |
+| **detailed** | 上述 + 用户操作 + Agent 轮次 + 工具调用 + LLM 请求 + 内存快照 | 否 |
+
+### 核心模块
+`tools/runtime_logger.py`（全局单例 `RuntimeLogger`，线程安全）。
+
+### 日志存储
+- 路径：`data/logs/dataagent_YYYYMMDD.jsonl`
+- 按日滚动，追加写入
+- 超过 `max_days`（默认 30 天）自动清理
+- 单文件超过 50MB 自动截断保留尾部
+
+### 日志条目格式
+```json
+{"timestamp":"2026-06-04T10:23:45.123","level":"ERROR","category":"error",
+ "event":"DuckDB 查询失败","detail":{"sql_preview":"SELECT...","error":"..."},
+ "duration_ms":null,"session_id":"abc123"}
+```
+
+### 隐私安全
+- 不记录用户数据内容，仅记录元信息（表名、行数、耗时）
+- 用户消息仅记录前 50 字符预览
+- SQL 仅记录前 100 字符
+
+### config.yaml 配置
+
+```yaml
+logging:
+  mode: basic         # basic | detailed
+  max_days: 30        # 日志保留天数
+```
+
+### API 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/logs` | 查看日志（支持 ?date=&level=&category= 过滤） |
+| GET | `/api/logs/files` | 日志文件列表 |
+| GET | `/api/logs/stats` | 日志统计（模式、文件数、总大小） |
+| POST | `/api/logs/mode` | 切换日志模式（即时生效，同步写入 config.yaml） |
+| POST | `/api/logs/cleanup` | 手动清理旧日志 |
+
+### 已埋点位置
+- `main.py`：应用启动、文件上传、发送消息、Agent 异常
+- `agent/loop.py`：LLM 调用（含耗时）、工具调用（含耗时和成败）
+
+### 编码规范
+```python
+# ✅ 记录运行日志
+from tools.runtime_logger import get_logger
+logger = get_logger()
+logger.error('error', 'DuckDB 连接失败', {'detail': str(e)[:200]})
+logger.log_tool_call('run_sql', args, ok=True, duration_ms=120)
+
+# ✅ 记录异常（始终记录，含 traceback）
+logger.log_exception('agent', 'Agent 循环异常', e)
+```
+---
+
+## 十三-C、测试策略（v1.6 新增）
+
+完整测试策略见 **`TESTING.md`**。此处列出必须遵守的硬性规则：
+
+1. **合规计算（calculators/）变更**：必须先改测试再改代码，覆盖率 ≥ 95%
+2. **每次迭代后**：运行全量 `pytest tests/`，生成覆盖率报告
+3. **测试记录留存**：每次迭代在 `data/test_reports/` 生成迭代测试记录
+4. **PreCommit Hook**：`.claude/settings.json` 配置了 PreCommit 钩子，提交前自动运行测试
+5. **失败阻断**：安全关键测试（SQLGuard / calculators）失败时不得继续开发
+
 
 ---
 
@@ -721,3 +858,6 @@ compliance_audit.log_compliance_event(event_type='monitoring', ...)
 | v1.3 | 加载时校验用户档案产品名（P2-4） | op专家评审 |
 | v1.3 | 用户侧错误话术层error_translator（P2-5） | op专家评审 |
 | v1.3 | @mention边界规则定义（P2-6） | op专家评审 |
+| v1.6 | Skill 自助创建与发布（LLM辅助生成+校验+草稿+发布） | 用户体验需求 |
+| v1.6 | 运行时两级日志系统（basic/detailed + 自动清理 + API 查询） | 用户体验需求 |
+| v1.6 | claude测试策略新增 | 用户体验需求 |

@@ -15,11 +15,13 @@ agent/loop.py — Agent 核心循环（Phase R1：重构为真正 tool-calling A
 """
 
 import json
+import time
 from typing import Generator, Optional
 
 from tools.data_loader import get_connection, get_loaded_tables
 from tools.query_runner import execute_query, QueryResult
 from tools.error_translator import translate as translate_error
+from tools.runtime_logger import get_logger as _get_logger
 from agent.llm_client import LLMClient
 from agent.skill_loader import SkillLoader
 from agent.context import build_schema_context
@@ -214,15 +216,22 @@ def run_agent_loop(
         session_messages.append({"role": "user", "content": user_message})
 
     # ── Tool-calling 循环 ──────────────────────────────────
+    _logger = _get_logger()
     for turn in range(MAX_TURNS):
+        _llm_t0 = time.perf_counter()
         try:
             result = llm_client.chat(session_messages, tools=TOOL_DEFINITIONS)
         except Exception as e:
+            _logger.log_exception('llm', 'LLM 调用异常', e)
             yield _error(f"LLM 调用失败：{str(e)}")
             yield _stream_end()
             return
+        _llm_ms = (time.perf_counter() - _llm_t0) * 1000
+        _logger.log_llm_call('chat', getattr(llm_client, '_model', 'unknown'),
+                             result.success, duration_ms=_llm_ms)
 
         if not result.success:
+            _logger.warning('llm', 'LLM 返回失败', {'error': result.error[:200]})
             yield _error(result.error)
             yield _stream_end()
             return
@@ -267,10 +276,18 @@ def run_agent_loop(
             yield _tool_start(tool_name, label, tool_id)
 
             # 执行工具
+            _tool_t0 = time.perf_counter()
             if tool_name == "run_sql":
                 tool_result = _execute_with_retry(tool_args, tool_ctx, tool_id)
             else:
                 tool_result = dispatch_tool(tool_name, tool_args, tool_ctx)
+            _tool_ms = (time.perf_counter() - _tool_t0) * 1000
+            _logger.log_tool_call(
+                tool_name, tool_args,
+                ok=tool_result.get("ok", False),
+                duration_ms=_tool_ms,
+                error=tool_result.get("error", ""),
+            )
 
             # 检查暂停信号
             if tool_result.get("__pause__"):

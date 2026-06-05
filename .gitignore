@@ -20,3 +20,17 @@ data/uploads/**/*.csv
 data/uploads/**/*.xlsx
 !data/uploads/**/.gitkeep
 data/uploads/*/.gitkeep
+
+# v1.6 additions
+.coverage
+data/logs/*
+!data/logs/.gitkeep
+data/skill_drafts/*
+!data/skill_drafts/.gitkeep
+
+# Test reports - keep summaries, ignore bulky artifacts
+data/test_reports/coverage_html/
+data/test_reports/junit.xml
+data/test_reports/coverage.json
+!data/test_reports/latest_summary.json
+!data/test_reports/iteration_*.md

@@ -81,3 +81,8 @@ scheduler:
 memory:
   enabled: false                      # 默认关闭；用户在 UI 开启
   max_db_mb: 5                        # 体积告警阈值
+
+# ── 运行日志 ───────────────────────────────────────────────
+logging:
+  mode: basic                         # basic=仅错误和关键事件 | detailed=全量记录
+  max_days: 30                        # 日志保留天数，超期自动清理
