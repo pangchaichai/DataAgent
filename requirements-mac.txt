@@ -1,0 +1,18 @@
+# DataAgent macOS 生产环境依赖
+# 安装命令（在 macOS 上执行）：pip install -r requirements-mac.txt
+#
+# PyWebView 在 macOS 使用原生 WKWebView（Safari 内核），无需额外 Runtime
+# 通知通过 osascript 实现（零依赖），无需 winotify
+
+# 包含 Linux 开发依赖的全部内容
+-r requirements-dev.txt
+
+# ── macOS 专属库 ────────────────────────────────────────
+pywebview==4.4.1       # 原生窗口（macOS: Cocoa + WKWebView）
+pyinstaller==6.6.0     # 打包为 .app 应用包
+psutil>=5.9.0
+rank_bm25>=0.2.2
+
+# ── 本地 LLM（可选）─────────────────────────────────────
+# ollama          # pip install ollama（Python 客户端，可选）
+#                   # 或直接 brew install ollama 启动服务

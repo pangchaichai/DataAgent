@@ -4,6 +4,7 @@ platform/notify_driver.py
 通知驱动适配层 — 跨平台通知推送
 
 ┌── WindowsToastDriver  → Windows 生产（winotify toast 弹窗）
+├── MacDesktopDriver    → macOS 桌面（osascript 原生通知，零依赖）
 ├── LinuxDesktopDriver  → Linux 桌面（notify-send，开发调试用）
 └── ConsoleFallback     → 无桌面环境（Claude Code SSH等，打印到终端）
 """
@@ -46,6 +47,22 @@ class WindowsToastDriver(NotifyDriver):
             toast.show()
         except Exception as e:
             # 降级到控制台
+            ConsoleFallback().push(message, title, level)
+
+
+class MacDesktopDriver(NotifyDriver):
+    """macOS 原生通知（osascript，零依赖，所有 Mac 均内置）"""
+
+    def push(self, message: str, title: str = "DataAgent", level: str = "info"):
+        # 转义 message 中的双引号和反斜杠
+        escaped_msg = message.replace('\\', '\\\\').replace('"', '\\"')
+        try:
+            subprocess.run([
+                "osascript", "-e",
+                f'display notification "{escaped_msg}" with title "{title}"'
+            ], timeout=5, capture_output=True)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            # osascript 不可用（极罕见），降级到控制台
             ConsoleFallback().push(message, title, level)
 
 
@@ -102,6 +119,9 @@ def get_notify_driver() -> NotifyDriver:
             return WindowsToastDriver()
         except ImportError:
             return ConsoleFallback()
+
+    if sys.platform == 'darwin':
+        return MacDesktopDriver()
 
     if sys.platform.startswith('linux'):
         return LinuxDesktopDriver()

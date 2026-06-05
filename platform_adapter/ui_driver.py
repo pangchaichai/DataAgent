@@ -73,7 +73,9 @@ class BrowserDevDriver(UIDriver):
 
         url = f'http://127.0.0.1:{port}'
         print(f"\n{'='*50}")
-        print(f"  DataAgent 开发模式（Linux/Browser）")
+        # 平台识别展示
+        platform_label = 'macOS' if sys.platform == 'darwin' else 'Linux'
+        print(f"  DataAgent 开发模式（{platform_label}/Browser）")
         print(f"  访问地址：{url}")
         print(f"  关闭方式：Ctrl+C")
         print(f"{'='*50}\n")
@@ -101,7 +103,8 @@ class PyWebViewDriver(UIDriver):
     """
 
     def is_available(self) -> bool:
-        if sys.platform != 'win32':
+        # PyWebView 支持 Windows (WebView2) 和 macOS (WKWebView)
+        if sys.platform not in ('win32', 'darwin'):
             return False
         try:
             import webview  # noqa
@@ -111,7 +114,10 @@ class PyWebViewDriver(UIDriver):
 
     @staticmethod
     def _check_webview2_runtime() -> bool:
-        """检测 WebView2 Runtime 是否已安装（Windows Only）"""
+        """检测 WebView2 Runtime 是否已安装（Windows Only）。
+        macOS 的 WKWebView 是系统内核组件，无需检测。"""
+        if sys.platform != 'win32':
+            return True  # macOS/Linux: WKWebView/WebKit 无需额外 Runtime
         try:
             import winreg
             # WebView2 Runtime 注册表路径（64位和32位）
@@ -180,6 +186,9 @@ def get_driver() -> UIDriver:
         return driver
 
     # auto：平台自动检测
+    # - Windows (win32): PyWebView + WebView2
+    # - macOS (darwin):  PyWebView + WKWebView
+    # - Linux:           回退到 BrowserDevDriver（浏览器开发模式）
     pywebview_driver = PyWebViewDriver()
     if pywebview_driver.is_available():
         return pywebview_driver

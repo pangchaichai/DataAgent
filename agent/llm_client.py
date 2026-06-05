@@ -90,6 +90,7 @@ class LLMClient:
         self.providers = {
             'enterprise_internal': self.cfg.get('enterprise_internal', {}),
             'deepseek': self.cfg.get('deepseek', {}),
+            'local_llm': self.cfg.get('local_llm', {}),  # ★ macOS 本地 LLM（Ollama/LM Studio）
         }
 
     # ── 公开接口 ──────────────────────────────────────────────

@@ -4,9 +4,9 @@
 # ★ 测试阶段：统一使用 DeepSeek（内网 LLM 不可用时临时配置）★
 llm:
   sql_gen:                             # SQL生成 / 意图分类 / Tool-calling
-    primary: deepseek                  # ★测试：直连 DeepSeek
-    fallback: deepseek
-    external_allowed: true             # ★测试：允许外发
+    primary: deepseek                  # ★可选: deepseek | enterprise_internal | local_llm
+    fallback: deepseek                 # 可选: deepseek | local_llm | enterprise_internal
+    external_allowed: true             # ★测试：允许外发（local_llm 时无需关注）
     tool_mode: native                  # native = OpenAI function-calling（默认）
                                        # react  = 文本 JSON 协议（仅作兜底，可后置）
     timeout: 30
@@ -30,6 +30,13 @@ llm:
     url: https://api.deepseek.com/v1
     model: deepseek-chat
     api_key: 你的DeepSeek_API_Key
+
+  # ★ macOS 本地 LLM — 支持 Ollama / LM Studio / llama.cpp server
+  # Ollama 默认地址 http://localhost:11434/v1，LM Studio 默认 http://localhost:1234/v1
+  local_llm:
+    url: http://localhost:11434/v1
+    model: qwen3                        # 改为你本地拉取的模型名，如 qwen3:32b / llama3 / mistral
+    api_key: ""                         # 本地 LLM 无需 api_key
 
 # ── 固化计算口径配置（C-01确认后修改此处）──────────────────
 # 注意：修改此处会影响所有合规计算结果，修改前须经合规确认
