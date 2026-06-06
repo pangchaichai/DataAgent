@@ -32,6 +32,7 @@ class AuditEvent:
     result_summary: dict      # 结果摘要（不含完整数据行）
     confirmed_by: str         # 用户名
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    prev_hash: str = ""       # 上一条记录的 SHA256（hash chain，I-5b）
 
 
 @dataclass
@@ -72,6 +73,62 @@ def _file_fingerprint(file_path: str) -> str:
         return h.hexdigest()
     except Exception:
         return 'ERROR'
+
+
+# ─── Hash chain ──────────────────────────────────────────────
+
+_CHAIN_SEED = "dataagent-audit-chain-seed-v1"
+
+
+def _get_last_hash() -> str:
+    """
+    返回今日审计日志最后一行的 SHA256（hash chain 前置哈希）。
+    无记录时返回种子哈希。
+    """
+    log_path = _log_file()
+    if not log_path.exists():
+        return hashlib.sha256(_CHAIN_SEED.encode()).hexdigest()
+    last_line = b""
+    try:
+        with open(log_path, 'rb') as f:
+            for line in f:
+                if line.strip():
+                    last_line = line.strip()
+    except Exception:
+        pass
+    if not last_line:
+        return hashlib.sha256(_CHAIN_SEED.encode()).hexdigest()
+    return hashlib.sha256(last_line).hexdigest()
+
+
+def verify_chain(date_str: str = "") -> tuple[bool, str]:
+    """
+    验证指定日期审计日志的 hash chain 完整性。
+    返回 (ok, message)。
+    """
+    events = read_audit_log(date_str)
+    if not events:
+        return True, "无日志记录"
+
+    seed_hash = hashlib.sha256(_CHAIN_SEED.encode()).hexdigest()
+    prev = seed_hash
+
+    log_lines = []
+    if not date_str:
+        date_str = datetime.now().strftime('%Y%m%d')
+    log_path = _audit_dir() / f'audit_{date_str}.jsonl'
+    if log_path.exists():
+        with open(log_path, 'rb') as f:
+            log_lines = [l.strip() for l in f if l.strip()]
+
+    for i, (event, raw) in enumerate(zip(events, log_lines)):
+        expected_prev = prev
+        actual_prev = event.get('prev_hash', '')
+        if actual_prev != expected_prev:
+            return False, f"第 {i+1} 条记录 prev_hash 不匹配（链断裂）"
+        prev = hashlib.sha256(raw).hexdigest()
+
+    return True, f"链完整，共 {len(events)} 条记录"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -118,6 +175,9 @@ def log_compliance_event(
             'fingerprint': fp,
         })
 
+    # ── Hash chain: prev_hash = SHA256 of last line in today's log ──
+    prev_hash = _get_last_hash()
+
     event = AuditEvent(
         event_type=event_type,
         skill_name=skill_name,
@@ -126,6 +186,7 @@ def log_compliance_event(
         thresholds=thresholds,
         result_summary=result_summary,
         confirmed_by=confirmed_by,
+        prev_hash=prev_hash,
     )
 
     try:

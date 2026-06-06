@@ -625,6 +625,19 @@ def load_file(
 
     _loaded_tables[safe_table] = result
     _save_table_metadata()
+
+    # Emit on_data_load hook (I-5b)
+    try:
+        from agent.hooks import get_hook_manager
+        get_hook_manager().emit("on_data_load", {
+            "table_name": safe_table,
+            "table_type": result.table_type,
+            "row_count": result.row_count,
+            "date_tag": result.date_tag,
+        })
+    except Exception:
+        pass
+
     return result
 
 

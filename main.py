@@ -141,9 +141,12 @@ def _save_session_messages():
 
 
 def reset_session():
+    from agent.hooks import get_hook_manager
     with _session_lock:
         old_id = _session.get("session_id", "")
         had_messages = bool(_session.get("messages"))
+        if old_id:
+            get_hook_manager().emit("on_session_end", {"session_id": old_id})
         _session["turn_count"] = 0
         _session["messages"] = []
         _session["pending"] = None
@@ -155,6 +158,7 @@ def reset_session():
                 old_file.unlink(missing_ok=True)
             except Exception:
                 pass
+    get_hook_manager().emit("on_session_start", {"session_id": _session["session_id"]})
 
 
 # ═══════════════════════════════════════════════════════════════

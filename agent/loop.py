@@ -19,6 +19,7 @@ import time
 from collections.abc import Generator
 
 from agent.context import build_schema_context
+from agent.hooks import get_hook_manager
 from agent.llm_client import LLMClient
 from agent.skill_loader import SkillLoader
 from tools.data_loader import get_loaded_tables
@@ -307,12 +308,19 @@ def run_agent_loop(
             yield _tool_start(tool_name, label, tool_id)
 
             # 执行工具
+            _hooks = get_hook_manager()
+            _hooks.emit("pre_tool_use", {"tool": tool_name, "args": tool_args, "id": tool_id})
             _tool_t0 = time.perf_counter()
             if tool_name == "run_sql":
                 tool_result = _execute_with_retry(tool_args, tool_ctx, tool_id)
             else:
                 tool_result = dispatch_tool(tool_name, tool_args, tool_ctx)
             _tool_ms = (time.perf_counter() - _tool_t0) * 1000
+            _hooks.emit("post_tool_use", {
+                "tool": tool_name, "args": tool_args, "id": tool_id,
+                "ok": tool_result.get("ok", False),
+                "duration_ms": _tool_ms,
+            })
             _logger.log_tool_call(
                 tool_name, tool_args,
                 ok=tool_result.get("ok", False),
