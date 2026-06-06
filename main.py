@@ -494,6 +494,56 @@ def create_flask_app() -> Flask:
             "turn_count": turn,
         })
 
+    # ── GET /api/status — 系统状态（I-5）────────────────────
+    @app.route('/api/status')
+    def api_status():
+        from tools.data_loader import get_loaded_tables
+        tables = get_loaded_tables()
+        llm_ok = True
+        try:
+            from agent.llm_client import LLMClient
+            client = LLMClient(str(BASE_DIR / 'config.yaml'))
+            key = client.sql_gen_cfg.get('api_key', '')
+            llm_ok = bool(key and not key.startswith('sk-placeholder'))
+        except Exception:
+            llm_ok = False
+        from datetime import date
+        today = date.today().strftime("%Y%m%d")
+        data_fresh = all(
+            t.get('date_tag', '') == today
+            for t in tables if t.get('date_tag')
+        ) if tables else None
+        return jsonify({
+            "llm_ok": llm_ok,
+            "tables_count": len(tables),
+            "tables": tables,
+            "data_fresh": data_fresh,
+        })
+
+    # ── GET /api/suggestions — 推荐查询（I-5）────────────────
+    @app.route('/api/suggestions')
+    def api_suggestions():
+        from tools.data_loader import get_loaded_tables
+        tables = get_loaded_tables()
+        types = {t['type'] for t in tables}
+        suggestions = []
+        if 'holding' in types:
+            suggestions.append("查询各产品的主要持仓情况，按市值降序排列")
+            suggestions.append("统计不同资产类别的持仓比例")
+        if 'holding' in types:
+            suggestions.append("检查主体集中度是否有超标情况，阈值10%")
+        if 'nav' in types:
+            suggestions.append("分析近期净值走势，计算区间收益率")
+        if 'holding' in types and 'rating_entity' in types:
+            suggestions.append("结合评级数据分析持仓信用分布")
+        if not types:
+            suggestions = [
+                "上传持仓CSV文件开始分析",
+                "查询持仓情况",
+                "合规监控：主体集中度检查",
+            ]
+        return jsonify({"suggestions": suggestions[:5]})
+
     # ── GET /api/skills — Skills 注册表 ──────────────────────
     @app.route('/api/skills')
     def api_skills():

@@ -448,6 +448,7 @@ select.sp-input{cursor:pointer;}
     <button class="iconbtn" onclick="toggleSidebar()" title="切换侧栏">☰</button>
     <span class="logo"><span class="logo-icon">DA</span> DataAgent</span>
     <span class="chip"><span class="dot on" id="llmDot"></span> <span id="llmName">--</span></span>
+    <span class="chip" id="tablesChip" title="已加载数据表" style="cursor:pointer" onclick="openSec('tables')">表 <span id="tablesCount">0</span></span>
     <span class="chip">RAM <span id="ramMb">--</span>MB</span>
     <span class="chip">Tok <span id="tokenUsed">0</span>/<span id="tokenLimit">64K</span></span>
     <button class="iconbtn" onclick="openSettings()" title="设置">⚙</button>
@@ -499,6 +500,20 @@ select.sp-input{cursor:pointer;}
           <div id="groupList"><div class="s-item" style="color:var(--text-3)">加载中…</div></div>
         </div>
       </div>
+
+      <div class="sec open" id="sec-quick">
+        <div class="sec-h" onclick="toggleSec('quick')">
+          <span class="sec-arr">▸</span>快捷操作
+        </div>
+        <div class="sec-bd">
+          <div style="padding:4px 4px 4px 8px;display:flex;flex-direction:column;gap:4px;">
+            <button class="wq-btn" onclick="sendQuick('合规监控：检查主体集中度是否超标')" style="text-align:left">✅ 合规集中度检查</button>
+            <button class="wq-btn" onclick="sendQuick('生成产品运作报告，包括净值、持仓分布和信用评级分析')" style="text-align:left">📄 运作报告</button>
+            <button class="wq-btn" onclick="sendQuick('查询今日持仓情况，展示各产品持仓汇总')" style="text-align:left">📊 持仓汇总</button>
+            <button class="wq-btn" onclick="sendQuick('生成持仓分布图表')" style="text-align:left">📈 持仓图表</button>
+          </div>
+        </div>
+      </div>
     </aside>
 
     <!-- MAIN -->
@@ -510,7 +525,7 @@ select.sp-input{cursor:pointer;}
 
       <div class="chat-outer">
         <div class="chat" id="chat">
-          <div class="welcome">
+          <div class="welcome" id="welcomePanel">
             <h2>DataAgent</h2>
             <p>上传资管数据文件，用中文提问即可分析</p>
             <p class="sub">合规/报告数字使用固化口径计算，需要您确认后输出</p>
@@ -520,17 +535,20 @@ select.sp-input{cursor:pointer;}
               <button class="wq-btn" onclick="sendQuick('/skills')">/skills</button>
               <button class="wq-btn" onclick="sendQuick('/health')">/health</button>
             </div>
+            <div id="welcomeExamples" style="margin-top:16px;"></div>
           </div>
+          <div id="suggestionsBar" style="display:none;padding:8px 16px 0;"></div>
         </div>
         <button class="scroll-btn" id="scrollBtn" onclick="scrollBottom()">↓ 最新消息</button>
       </div>
 
       <div class="inputbar" id="inputbar">
         <div class="hintbar" id="hint">请先在上方完成确认或选择后再继续</div>
-        <div class="quick">
-          <button class="q-btn" onclick="sendQuick('/tables')">/tables</button>
-          <button class="q-btn" onclick="sendQuick('/skills')">/skills</button>
-          <button class="q-btn" onclick="sendQuick('/health')">/health</button>
+        <div class="quick" id="quickBtns">
+          <button class="q-btn" onclick="fillExample('数据分析')" title="点击填入示例">📊 数据分析</button>
+          <button class="q-btn" onclick="fillExample('合规检查')" title="点击填入示例">✅ 合规检查</button>
+          <button class="q-btn" onclick="fillExample('报告生成')" title="点击填入示例">📄 报告生成</button>
+          <button class="q-btn" onclick="fillExample('图表')" title="点击填入示例">📈 图表</button>
           <button class="q-btn" onclick="resetChat()">新对话</button>
         </div>
         <div class="inrow" id="inrow">
@@ -1274,7 +1292,10 @@ function renderTable(d){
   if(d.sql)h+='<span class="tc-link" onclick="toggleSql(this)">查看SQL</span>'
     +'<pre style="display:none;margin-top:4px;font-size:12px;background:var(--bg-code);'
     +'padding:6px 8px;border-radius:4px">'+esc(d.sql)+'</pre>';
-  h+='<span class="tc-link" onclick="exportCSV(this)">导出CSV</span></div></div>';
+  h+='<span class="tc-link" onclick="exportCSV(this)">导出CSV</span>'
+    +'<span class="tc-link" onclick="copyTable(this)">复制</span>'
+    +'<span class="tc-link" onclick="chartFromTable(this)">生成图表</span>'
+    +'</div></div>';
   return el(h);
 }
 function toggleSql(el){
@@ -1419,12 +1440,80 @@ function exportCSV(btn){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='export_'+Date.now()+'.csv';a.click();
 }
+function copyTable(btn){
+  const table=btn.closest('.table-card')?.querySelector('table');
+  if(!table)return;
+  let text='';
+  table.querySelectorAll('tr').forEach(r=>{
+    const cells=[];r.querySelectorAll('th,td').forEach(c=>cells.push(c.textContent.trim()));
+    text+=cells.join('\t')+'\n';
+  });
+  navigator.clipboard.writeText(text).then(()=>{
+    const orig=btn.textContent;btn.textContent='已复制✓';
+    setTimeout(()=>{btn.textContent=orig;},1500);
+  });
+}
+function chartFromTable(btn){
+  const card=btn.closest('.table-card');
+  const title=card?.querySelector('.tc-title')?.textContent||'';
+  const table=card?.querySelector('table');if(!table)return;
+  const ths=[...table.querySelectorAll('thead th')].map(t=>t.textContent.trim());
+  const rows=[...table.querySelectorAll('tbody tr')].map(r=>
+    [...r.querySelectorAll('td')].map(c=>c.textContent.trim()));
+  if(ths.length<2||rows.length===0){addSysMsg('数据列数不足，无法自动生成图表','orange');return;}
+  // Try bar chart: x=col0, y=col1
+  const cats=rows.map(r=>r[0]);
+  const vals=rows.map(r=>Number(r[1].replace(/,/g,''))||0);
+  const opt={title:{text:title,left:'center',textStyle:{fontSize:13}},
+    tooltip:{},xAxis:{type:'category',data:cats,axisLabel:{rotate:30,fontSize:11}},
+    yAxis:{type:'value'},series:[{type:'bar',data:vals,barMaxWidth:40}]};
+  const ev=new CustomEvent('renderInlineChart',{detail:opt});
+  card.dispatchEvent(ev);
+  add(renderChart(opt));scrollBottom();
+}
+// Ability tag examples
+const _EXAMPLES={
+  '数据分析':'查询各产品的主要持仓情况，按市值降序排列',
+  '合规检查':'检查主体集中度是否有超标情况，阈值10%',
+  '报告生成':'生成产品运作报告，包括净值分析和持仓分布',
+  '图表':'生成持仓资产类型分布饼图',
+};
+function fillExample(cap){
+  const inp=$('input');if(!inp)return;
+  inp.value=_EXAMPLES[cap]||cap;
+  autoResize(inp);inp.focus();
+}
+async function loadSuggestions(){
+  try{
+    const d=await api('GET','/api/suggestions');
+    const sug=d.suggestions||[];
+    const bar=$('suggestionsBar');
+    if(!sug.length||!bar){return;}
+    bar.style.display='block';
+    bar.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:8px;">'
+      +'<span style="font-size:11.5px;color:var(--text-3);align-self:center">推荐：</span>'
+      +sug.map(s=>'<button class="q-btn" onclick="fillAndSend(\''+esc(s)+'\')" style="font-size:11.5px">'+esc(s)+'</button>').join('')
+      +'</div>';
+  }catch(e){}
+}
+function fillAndSend(text){
+  const inp=$('input');if(!inp)return;
+  inp.value=text;autoResize(inp);sendMessage();
+}
+async function updateStatus(){
+  try{
+    const d=await api('GET','/api/status');
+    const cnt=$('tablesCount');if(cnt)cnt.textContent=d.tables_count||0;
+    const dot=$('llmDot');
+    if(dot){dot.className='dot '+(d.llm_ok?'on':'off');}
+  }catch(e){}
+}
 
 // ═══════════════════════════════════════════════
 //  Sidebar
 // ═══════════════════════════════════════════════
 function toggleSidebar(){$('bodyWrap').classList.toggle('collapsed');}
-async function refreshSidebar(){loadSessions();loadTables();loadSkills();loadGroups();}
+async function refreshSidebar(){loadSessions();loadTables();loadSkills();loadGroups();updateStatus();loadSuggestions();}
 function toggleSec(name){const sec=$('sec-'+name);if(sec)sec.classList.toggle('open');}
 function openSec(name){const sec=$('sec-'+name);if(sec&&!sec.classList.contains('open'))sec.classList.add('open');}
 
@@ -1432,6 +1521,7 @@ async function loadTables(){
   try{
     const d=await api('GET','/api/tables');
     const tables=d.tables||[];
+    const cnt=$('tablesCount');if(cnt)cnt.textContent=tables.length;
     const list=$('tableList');
     if(!tables.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无数据</div>';return;}
     list.innerHTML=tables.map(t=>{
