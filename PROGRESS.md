@@ -4,7 +4,13 @@
 
 ---
 
-## 当前阶段：Phase R 收尾完成 → Phase 5（Windows 验证）
+## 当前阶段：演进迭代 I-10 完成 → 下一步 I-11（待规划）
+
+## Evolution Master Plan 迭代记录
+- [x] I-7 (2026-06-06): main.py 拆分为 Flask Blueprint 模块 + session_store.py 共享状态
+- [x] I-8 (2026-06-06): Agent 规划层 — planner.py + executor.py + plan/plan_step SSE 事件
+- [x] I-9 (2026-06-06): calculators 补齐 — position_diff / leverage / liquidity（含单测）
+- [x] I-10 (2026-06-06): 前端 JS 模块化 — 单体 index.html 拆成 9 个独立 js 文件
 
 ## Phase R — Agent 内核重构 ✅ 完成（2026-06-04）
 - [x] R1: Agent 内核重构为 tool-calling Agent（5 工具 + function-calling + 暂停续跑）
