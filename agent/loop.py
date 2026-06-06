@@ -178,7 +178,9 @@ def run_agent_loop(
         return
 
     # ── 构建 schema + skills 上下文 ──────────────────────────
-    schema_ctx = build_schema_context()
+    from agent.context import extract_mention_tables
+    relevant = extract_mention_tables(user_message) if not pending else None
+    schema_ctx = build_schema_context(relevant_tables=relevant)
     registry = skill_loader.load_registry()
     skills_desc = _build_skills_registry_text(registry)
 
@@ -228,11 +230,14 @@ def run_agent_loop(
     active_tools = _filter_tools_for_context(TOOL_DEFINITIONS, matched_skill_info)
 
     # ── Tool-calling 循环 ──────────────────────────────────
+    from agent.context import compress_messages
     _logger = _get_logger()
     for turn in range(MAX_TURNS):
+        # C 层：历史消息压缩（超过 8 条非系统消息时启用）
+        messages_to_send = compress_messages(session_messages)
         _llm_t0 = time.perf_counter()
         try:
-            result = llm_client.chat(session_messages, tools=active_tools)
+            result = llm_client.chat(messages_to_send, tools=active_tools)
         except Exception as e:
             _logger.log_exception('llm', 'LLM 调用异常', e)
             yield _error(f"LLM 调用失败：{str(e)}")
@@ -241,6 +246,20 @@ def run_agent_loop(
         _llm_ms = (time.perf_counter() - _llm_t0) * 1000
         _logger.log_llm_call('chat', getattr(llm_client, '_model', 'unknown'),
                              result.success, duration_ms=_llm_ms)
+
+        # O 层：成本追踪
+        if result.success and result.token_count:
+            try:
+                from tools.cost_tracker import get_cost_tracker
+                _provider = getattr(llm_client, 'sql_gen_cfg', {}).get('primary', 'unknown')
+                get_cost_tracker().record(
+                    provider=_provider,
+                    input_tokens=result.token_count,
+                    output_tokens=0,
+                    duration_ms=_llm_ms,
+                )
+            except Exception:
+                pass
 
         if not result.success:
             _logger.warning('llm', 'LLM 返回失败', {'error': result.error[:200]})

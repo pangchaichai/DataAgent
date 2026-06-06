@@ -880,6 +880,12 @@ def create_flask_app() -> Flask:
         from tools.report_builder import list_templates
         return jsonify({"templates": list_templates()})
 
+    # ── GET /api/cost — 当前会话 LLM 成本统计（I-3b）─────────
+    @app.route('/api/cost')
+    def api_cost():
+        from tools.cost_tracker import get_cost_tracker
+        return jsonify(get_cost_tracker().to_dict())
+
     return app
 
 
