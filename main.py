@@ -206,18 +206,36 @@ def create_flask_app() -> Flask:
         file_path = str(pending_dir / file.filename)
         file.save(file_path)
 
-        # 智能检测：读取列名 + 前3行 + 行数估算
+        ext = Path(file.filename).suffix.lower()
+
+        # ── 文档类型（Word/PDF）→ 直接返回解析预览 ───────────────
+        if ext in ('.docx', '.pdf', '.txt'):
+            from tools.file_reader import read_document
+            doc_result = read_document(file_path, max_chars=2000)
+            if not doc_result.ok:
+                return jsonify({"ok": False, "error": doc_result.error}), 400
+            return jsonify({
+                "ok": True,
+                "file_path": file_path,
+                "filename": file.filename,
+                "file_kind": "document",
+                "file_type": doc_result.file_type,
+                "text_preview": doc_result.text[:500],
+                "word_count": doc_result.word_count,
+                "page_count": doc_result.page_count,
+                "table_count": len(doc_result.tables),
+            })
+
+        # ── 结构化数据（CSV/Excel）→ 智能检测 + 预览 ──────────────
         from tools.data_loader import (
             auto_detect_table_type, detect_encoding, extract_date_from_filename,
         )
         import pandas as pd
-        ext = Path(file.filename).suffix.lower()
         try:
             if ext == '.csv':
                 enc = detect_encoding(file_path)
                 df_preview = pd.read_csv(file_path, encoding=enc, dtype=str,
                                          keep_default_na=False, nrows=3)
-                # 估算总行数（快速）
                 with open(file_path, 'rb') as _f:
                     row_estimate = sum(1 for _ in _f) - 1
             else:
@@ -233,6 +251,7 @@ def create_flask_app() -> Flask:
             "ok": True,
             "file_path": file_path,
             "filename": file.filename,
+            "file_kind": "data",
             "detected_type": detected_type,
             "detected_date": detected_date or "",
             "columns": list(df_preview.columns),

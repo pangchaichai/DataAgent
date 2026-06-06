@@ -262,6 +262,62 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    # ── read_document（I-6）──
+    {
+        "type": "function",
+        "function": {
+            "name": "read_document",
+            "description": (
+                "读取已上传的 Word/PDF/TXT 文档，提取文本内容和表格。"
+                "用于理解参谈材料、政策文件等非结构化文档。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "文件路径（来自上传后的 file_path）",
+                    },
+                    "max_chars": {
+                        "type": "integer",
+                        "description": "最大提取字符数，默认 10000",
+                    },
+                },
+                "required": ["file_path"],
+            },
+        },
+    },
+    # ── web_search（I-6）──
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": (
+                "联网搜索公开信息（新闻/政策/一般查询）。"
+                "仅用于定性背景查询，不得用于获取实际数值或内部口径。"
+                "合规约束：搜索词不得包含产品名称、持仓金额等敏感信息。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "搜索关键词（不含敏感数据）",
+                    },
+                    "search_type": {
+                        "type": "string",
+                        "enum": ["news", "general", "policy"],
+                        "description": "搜索类型：news=最近新闻，general=通用，policy=政策法规",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "返回条数（1-10，默认5）",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]
 
 
@@ -335,6 +391,8 @@ _TOOL_TIMEOUTS: dict[str, int] = {
     "confirm_dict": 10,
     "generate_report": 30,
     "render_chart": 10,
+    "read_document": 30,
+    "web_search": 20,
 }
 
 
@@ -408,6 +466,8 @@ def dispatch_tool(name: str, args: dict, ctx: ToolContext) -> dict:
         "confirm_dict": _tool_confirm_dict,
         "generate_report": _tool_generate_report,
         "render_chart": _tool_render_chart,
+        "read_document": _tool_read_document,
+        "web_search": _tool_web_search,
     }
     handler = dispatch_map.get(name)
     if handler is None:
@@ -841,6 +901,51 @@ def _tool_generate_report(args: dict, ctx: ToolContext) -> dict:
             result["word_export_error"] = word_result.error
 
     return result
+
+
+def _tool_read_document(args: dict, ctx: ToolContext) -> dict:
+    """读取 Word/PDF/TXT 文档（I-6）"""
+    from tools.file_reader import read_document
+    file_path = args.get("file_path", "")
+    max_chars = int(args.get("max_chars") or 10000)
+    result = read_document(file_path, max_chars=max_chars)
+    if not result.ok:
+        return {"ok": False, "error": result.error}
+    return {
+        "ok": True,
+        "file_type": result.file_type,
+        "text": result.text,
+        "tables": [{"headers": t.headers, "rows": t.rows} for t in result.tables],
+        "page_count": result.page_count,
+        "word_count": result.word_count,
+        "warnings": result.warnings,
+    }
+
+
+def _tool_web_search(args: dict, ctx: ToolContext) -> dict:
+    """联网搜索公开信息（I-6）"""
+    from tools.web_search import search
+    query = args.get("query", "")
+    search_type = args.get("search_type", "general")
+    max_results = int(args.get("max_results") or 5)
+    resp = search(query, search_type=search_type, max_results=max_results)
+    if not resp.ok:
+        return {"ok": False, "error": resp.error}
+    return {
+        "ok": True,
+        "query": resp.query,
+        "search_type": resp.search_type,
+        "total": resp.total,
+        "results": [
+            {
+                "title": r.title,
+                "url": r.url,
+                "snippet": r.snippet,
+                "published": r.published,
+            }
+            for r in resp.results
+        ],
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
