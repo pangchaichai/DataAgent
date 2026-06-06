@@ -47,10 +47,12 @@ def api_chat():
     _get_logger().log_chat_start(message)
 
     def run_agent_bg():
+        from agent.executor import run_with_plan
         from agent.llm_client import LLMClient
         from agent.loop import run_agent_loop
+        from agent.planner import build_plan, should_plan
         from agent.skill_loader import SkillLoader
-        from tools.data_loader import init_duckdb_connection
+        from tools.data_loader import get_loaded_tables, init_duckdb_connection
 
         init_duckdb_connection()
         cfg_path = str(BASE_DIR / 'config.yaml')
@@ -58,13 +60,30 @@ def api_chat():
         llm_client = LLMClient(cfg_path)
         skill_loader = SkillLoader(local_dir=skills_dir)
 
+        # 判断是否需要规划（仅对新请求，续跑时跳过）
+        loop_kwargs = dict(
+            turn_count=current_turn,
+            session_messages=session_msgs,
+            pending=pending,
+        )
+        if not pending and should_plan(message) and get_loaded_tables():
+            plan = build_plan(
+                message, llm_client,
+                schema_ctx="",
+                skills_ctx="",
+            )
+            if plan:
+                loop_iter = run_with_plan(plan, message, llm_client, skill_loader,
+                                          **loop_kwargs)
+            else:
+                loop_iter = run_agent_loop(message, llm_client, skill_loader,
+                                           **loop_kwargs)
+        else:
+            loop_iter = run_agent_loop(message, llm_client, skill_loader,
+                                       **loop_kwargs)
+
         try:
-            for event in run_agent_loop(
-                message, llm_client, skill_loader,
-                turn_count=current_turn,
-                session_messages=session_msgs,
-                pending=pending,
-            ):
+            for event in loop_iter:
                 if event.get("type") == "__pending__":
                     with _session_lock:
                         _session["pending"] = event["data"]
