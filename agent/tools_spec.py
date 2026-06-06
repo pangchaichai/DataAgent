@@ -14,7 +14,7 @@ import json
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -198,6 +198,95 @@ TOOL_DEFINITIONS = [
 
 
 # ═══════════════════════════════════════════════════════════════
+#  ToolResult — 标准化工具返回格式
+# ═══════════════════════════════════════════════════════════════
+
+@dataclass
+class ToolResult:
+    """标准化工具返回格式（ETCLOVG V 层）"""
+    ok: bool
+    data: Any = None
+    error: str = ""
+    warnings: list[str] = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  参数校验（ETCLOVG T 层）
+# ═══════════════════════════════════════════════════════════════
+
+def _get_tool_schema(name: str) -> dict:
+    """从 TOOL_DEFINITIONS 中取出指定工具的 parameters schema"""
+    for t in TOOL_DEFINITIONS:
+        if t["function"]["name"] == name:
+            return t["function"].get("parameters", {})
+    return {}
+
+
+def _validate_tool_args(name: str, args: dict) -> tuple[bool, str]:
+    """
+    校验工具入参是否满足 schema 要求。
+    返回 (ok, error_message)。
+    """
+    schema = _get_tool_schema(name)
+    if not schema:
+        return True, ""  # 无 schema 可校验，放行
+
+    required = schema.get("required", [])
+    for field_name in required:
+        if field_name not in args or args[field_name] is None:
+            return False, f"缺少必填参数：{field_name}"
+
+    # 枚举值校验
+    props = schema.get("properties", {})
+    for field_name, prop_schema in props.items():
+        if field_name not in args:
+            continue
+        if "enum" in prop_schema:
+            if args[field_name] not in prop_schema["enum"]:
+                allowed = ", ".join(prop_schema["enum"])
+                return False, (
+                    f"参数 {field_name}={args[field_name]!r} 不在允许值中"
+                    f"（允许：{allowed}）"
+                )
+
+    return True, ""
+
+
+# ═══════════════════════════════════════════════════════════════
+#  执行超时保护（ETCLOVG E 层）
+# ═══════════════════════════════════════════════════════════════
+
+_TOOL_TIMEOUTS: dict[str, int] = {
+    "profile_table": 30,
+    "run_sql": 30,
+    "run_calculator": 60,
+    "ask_user": 5,
+    "request_confirmation": 5,
+    "propose_dict_entry": 10,
+    "confirm_dict": 10,
+}
+
+
+def _with_timeout(
+    handler, args: dict, ctx: "ToolContext", timeout_sec: int
+) -> dict:
+    """在线程池中执行 handler，超时时返回错误 dict（不杀死线程）"""
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(handler, args, ctx)
+        try:
+            return future.result(timeout=timeout_sec)
+        except concurrent.futures.TimeoutError:
+            return {
+                "ok": False,
+                "error": f"工具执行超时（>{timeout_sec}s），请稍后重试",
+            }
+        except Exception as e:
+            return {"ok": False, "error": f"工具执行异常：{str(e)}"}
+
+
+# ═══════════════════════════════════════════════════════════════
 #  ToolContext
 # ═══════════════════════════════════════════════════════════════
 
@@ -234,6 +323,11 @@ def dispatch_tool(name: str, args: dict, ctx: ToolContext) -> dict:
       - run_calculator 口径字段只能来自 ctx.calculation_config，拒绝 LLM 传值
       - run_sql 经过 query_runner.SQLGuard 校验
     """
+    # T 层：入参校验
+    ok, err = _validate_tool_args(name, args)
+    if not ok:
+        return {"ok": False, "error": f"参数错误：{err}"}
+
     dispatch_map = {
         "profile_table": _tool_profile_table,
         "run_sql": _tool_run_sql,
@@ -246,10 +340,14 @@ def dispatch_tool(name: str, args: dict, ctx: ToolContext) -> dict:
     handler = dispatch_map.get(name)
     if handler is None:
         return {"ok": False, "error": f"未知工具：{name}"}
-    try:
+
+    # 暂停工具直接调用（不走超时保护，它们只返回 pause 信号）
+    if name in ("ask_user", "request_confirmation"):
         return handler(args, ctx)
-    except Exception as e:
-        return {"ok": False, "error": f"工具执行异常：{str(e)}"}
+
+    # E 层：执行超时保护
+    timeout_sec = _TOOL_TIMEOUTS.get(name, 30)
+    return _with_timeout(handler, args, ctx, timeout_sec)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -308,15 +406,24 @@ def _tool_run_calculator(args: dict, ctx: ToolContext) -> dict:
         holding_table = _auto_select_table("holding")
 
     if calc_name == "entity_concentration":
-        return _run_entity_concentration(args, cfg, conn, holding_table)
+        result = _run_entity_concentration(args, cfg, conn, holding_table)
     elif calc_name == "nav_metrics":
-        return _run_nav_metrics(args, cfg, conn)
+        result = _run_nav_metrics(args, cfg, conn)
     elif calc_name == "asset_structure":
-        return _run_asset_structure(args, cfg, conn, holding_table)
+        result = _run_asset_structure(args, cfg, conn, holding_table)
     elif calc_name == "credit_distribution":
-        return _run_credit_distribution(args, cfg, conn, holding_table)
+        result = _run_credit_distribution(args, cfg, conn, holding_table)
     else:
         return {"ok": False, "error": f"未知计算器：{calc_name}"}
+
+    # V 层：数值合理性自检
+    if result.get("ok"):
+        from agent.self_check import SelfChecker
+        warnings = SelfChecker().check(calc_name, result)
+        if warnings:
+            result["warnings"] = warnings
+
+    return result
 
 
 def _run_entity_concentration(args, cfg, conn, holding_table):

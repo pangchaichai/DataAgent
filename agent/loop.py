@@ -215,12 +215,23 @@ def run_agent_loop(
         # 普通新消息
         session_messages.append({"role": "user", "content": user_message})
 
+    # ── 场景化工具过滤（ETCLOVG T 层）────────────────────────
+    # 在新消息上检测匹配的 Skill；续跑时沿用 pending 的上下文
+    if not pending:
+        matched_skill_name = skill_loader.detect_relevant_skill(user_message, registry)
+        matched_skill_info = next(
+            (s for s in registry if s.name == matched_skill_name), None
+        ) if matched_skill_name else None
+    else:
+        matched_skill_info = None  # 续跑阶段不重新过滤
+    active_tools = _filter_tools_for_context(TOOL_DEFINITIONS, matched_skill_info)
+
     # ── Tool-calling 循环 ──────────────────────────────────
     _logger = _get_logger()
     for turn in range(MAX_TURNS):
         _llm_t0 = time.perf_counter()
         try:
-            result = llm_client.chat(session_messages, tools=TOOL_DEFINITIONS)
+            result = llm_client.chat(session_messages, tools=active_tools)
         except Exception as e:
             _logger.log_exception('llm', 'LLM 调用异常', e)
             yield _error(f"LLM 调用失败：{str(e)}")
@@ -490,3 +501,14 @@ def _result_summary(tool_name: str, result: dict) -> str:
             return f"{result.get('breach_count', 0)} 项超标"
         return f"计算完成，{result.get('count', 0)} 条记录"
     return "OK"
+
+
+def _filter_tools_for_context(tools: list, matched_skill) -> list:
+    """
+    场景化工具过滤（ETCLOVG T 层）：
+    当匹配到 calc_type=fixed 的 Skill 时，从工具列表中移除 run_sql，
+    防止 LLM 在合规场景下绕过固化计算器直接生成 SQL。
+    """
+    if matched_skill and getattr(matched_skill, 'calc_type', '') == "fixed":
+        return [t for t in tools if t["function"]["name"] != "run_sql"]
+    return tools
