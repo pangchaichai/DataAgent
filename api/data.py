@@ -81,7 +81,11 @@ def api_upload():
     except Exception as e:
         return jsonify({"ok": False, "error": f"文件读取失败：{str(e)[:200]}"}), 400
 
-    detected_type = auto_detect_table_type(df_preview, file.filename)
+    auto_type = auto_detect_table_type(df_preview, file.filename)
+    # honour an explicit table_type sent by the client (e.g. from tests or
+    # direct API calls); fall back to auto-detection when absent or 'unknown'
+    requested_type = request.form.get('table_type', '').strip()
+    detected_type = requested_type if requested_type and requested_type != 'unknown' else auto_type
     detected_date = extract_date_from_filename(file.filename)
 
     return jsonify({

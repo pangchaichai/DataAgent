@@ -106,7 +106,7 @@ async function sbValidate(){
   if(!content){toast('内容不能为空','error');return;}
   try{
     const d=await api('POST','/api/skill-builder/validate',{content:content});
-    const v=d.validation||{};
+    const v=d;  // backend returns flat {ok, issues, error_count, warning_count}
     const issues=v.issues||[];
     let html='';
     if(v.ok){

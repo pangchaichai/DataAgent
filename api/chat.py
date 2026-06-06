@@ -228,8 +228,10 @@ def api_delete_session(session_id):
     if not _re.match(r'^[a-f0-9]{12}$', session_id):
         return jsonify({"ok": False, "error": "无效会话ID"}), 400
     session_file = BASE_DIR / 'data' / 'sessions' / f'{session_id}.jsonl'
+    if not session_file.exists():
+        return jsonify({"ok": False, "error": "会话不存在"}), 404
     try:
-        session_file.unlink(missing_ok=True)
+        session_file.unlink()
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
     return jsonify({"ok": True})

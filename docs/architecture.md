@@ -1,7 +1,8 @@
-# DataAgent 架构设计文档 v1.1
+# DataAgent 架构设计文档 v2.0
 
 > 本文档记录关键架构决策及其背后的理由。
 > v1.1 融入 GG 架构审查改进意见。
+> v2.0 融入 Evolution I-1~I-10 架构演进。
 
 ---
 
@@ -188,6 +189,87 @@ SSE 推送前端 → stream_end → ECharts 图表渲染
 | DuckDB | ≤ 80 MB | 硬性上限，max_memory=80MB |
 | PyWebView WebView | ~40 MB | Chromium 内核 |
 | **合计预估** | **~165 MB** | **< 200MB 约束 ✅** |
+
+---
+
+---
+
+### 决策8：Flask Blueprint 拆分（I-7）
+
+**问题**：随着功能增加，`main.py` 承载了所有路由（数据上传、聊天、配置、报告、Skills、系统），单文件超过 500 行，维护困难且无法独立测试各模块。
+
+**解决方案**：将路由拆分为 6 个 Blueprint 模块：
+
+```
+api/
+├── chat.py      → /api/chat, /api/stream, /api/sessions, /api/confirm, /api/reset
+├── data.py      → /api/upload, /api/upload/confirm, /api/tables
+├── config_api.py → /api/config, /api/status, /api/suggestions, /api/llm/*
+├── skill_api.py → /api/skills, /api/skill-builder/*
+├── report_api.py → /api/report/*
+└── system.py    → /api/health, /api/groups, /api/tasks, /api/memory/stats, /api/logs/*
+```
+
+**共享状态**：`session_store.py` 集中管理 `_session`、`_stream_queues`、`BASE_DIR`，所有 Blueprint 从这里导入。
+
+**权衡**：DuckDB 持久化文件锁——当应用运行中时，诊断脚本不能重复调用 `create_flask_app()`。这是已知限制，不影响用户功能。
+
+---
+
+### 决策9：Plan-Execute 两阶段 Agent（I-8）
+
+**问题**：单步 Agent Loop 对「多步骤分析任务」效果差——用户问「帮我分析持仓集中度并生成报告」时，Agent 一次只考虑一个工具调用，缺乏全局规划。
+
+**解决方案**：在 Agent Loop 之上增加可选的 Plan-Execute 层：
+
+```
+用户消息
+  ↓ should_plan() 判断（含多步骤、数据分析、报告等关键词）
+  ↓ build_plan() → LLM 生成 Plan（步骤列表）
+  ↓ run_with_plan() → 按步骤顺序调用 run_agent_loop()
+  ↓ SSE 事件：plan / plan_step / plan_done（前端显示进度）
+```
+
+**降级策略**：`should_plan()` 返回 False 或 `build_plan()` 失败时，直接走单步 Agent Loop，不影响基本功能。
+
+---
+
+### 决策10：Skill Builder 自助发布（v1.6）
+
+**问题**：非技术用户无法自己创建 Skills，每次新业务场景都需要开发人员介入修改文件。
+
+**解决方案**：`tools/skill_builder.py` + API + 前端向导，让用户通过对话描述创建 Skill：
+
+```
+用户描述场景 → LLM 生成 SkillDraft → generate_skill_md() 渲染
+  → save_draft() 草稿暂存 → validate_skill_md() 多维校验
+  → publish_skill() 写入 skills/{name}/SKILL.md
+```
+
+**安全约束**：用户只能创建 `calc_type: exploratory` 类型（禁止创建固化计算 Skill）；SQL 示例经安全正则过滤；草稿未发布前对 Agent 不可见。
+
+---
+
+### 决策11：前端 JS 模块化（I-10）
+
+**问题**：`ui/index.html` 内联 JavaScript 从 0 增长到 1280 行，单文件难以维护、无法复用，代码审查困难。
+
+**解决方案**：将内联脚本拆分为 9 个独立文件，通过 Flask 的 `/static/` 路由提供：
+
+```
+ui/js/
+├── state.js        → 全局状态（_upl, mentions 等）
+├── dom.js          → DOM 工具（$, esc, toast）
+├── render.js       → 消息渲染（Markdown, ECharts, 确认卡片）
+├── chat.js         → 发送消息, SSE 流式接收
+├── upload.js       → 两阶段上传（预览→确认）
+├── sidebar.js      → 侧边栏（会话列表, 表列表, @mention）
+├── settings.js     → 设置面板（配置, 集团管理, 任务, 记忆）
+├── skill_builder.js → Skill 创建向导
+└── main.js         → 入口（键盘事件, 初始化, 轮询健康检查）
+```
+
+**权衡**：纯浏览器原生 ES module（无 bundler），加载顺序由 `<script>` 标签顺序保证，全局函数挂在 `window` 上供 HTML `onclick` 调用。这保持了零构建工具的简洁性。
 
 ---
 

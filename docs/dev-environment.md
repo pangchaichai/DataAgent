@@ -2,11 +2,11 @@
 
 ---
 
-## 两套环境，一套代码
+## 三套环境，一套代码
 
 ```
-Linux（Claude Code）                 Windows 11（生产目标）
-─────────────────                    ─────────────────────
+Linux / macOS（开发）                Windows 11（生产目标）
+──────────────────────               ─────────────────────
 ✅ 业务逻辑开发测试                   ✅ 最终运行环境
 ✅ Flask 后端                         ✅ Flask 后端（同代码）
 ✅ Agent Loop                        ✅ Agent Loop（同代码）
@@ -15,15 +15,25 @@ Linux（Claude Code）                 Windows 11（生产目标）
 ✅ data_dictionary/ 字典映射          ✅ data_dictionary/（同代码）
 ✅ Skills 系统                       ✅ Skills 系统（同代码）
 ✅ LLM 调用（DeepSeek/内网）         ✅ LLM 调用（同代码）
-✅ 浏览器访问 UI（Chrome/Firefox）    ✅ PyWebView 原生窗口
+✅ 浏览器访问 UI（Chrome/Firefox/Safari） ✅ PyWebView 原生窗口
 ✅ 终端/notify-send 通知              ✅ Windows toast 通知
-❌ PyWebView 窗口                    ✅ PyWebView 窗口
+❌ PyWebView 窗口（设计如此）         ✅ PyWebView 窗口
 ❌ winotify toast                    ✅ winotify toast
 ❌ PyInstaller .exe 打包             ✅ PyInstaller .exe 打包
 ❌ WebView2 内存测试                 ✅ WebView2 内存测试
 ```
 
-**结论：除 UI 窗口形态不同，所有业务逻辑完全一致，Linux 开发 = Windows 运行。**
+**结论：除 UI 窗口形态不同，所有业务逻辑完全一致，Linux/macOS 开发 = Windows 运行。**
+
+### macOS / Linux 显示浏览器是正常行为
+
+`python main.py` 在 macOS/Linux 上会打开系统默认浏览器，而非弹出原生窗口——这是**设计行为，不是 bug**。
+
+原因：`platform_adapter/ui_driver.py` 根据操作系统选择驱动：
+- `sys.platform == 'win32'` → `PyWebViewDriver`（原生窗口）
+- 其他（Linux/macOS） → `BrowserDevDriver`（打开系统浏览器）
+
+PyWebView 需要 Windows + `requirements-prod.txt`，macOS/Linux 的浏览器模式是开发阶段的替代方案，交互体验与 PyWebView 完全一致。
 
 ---
 

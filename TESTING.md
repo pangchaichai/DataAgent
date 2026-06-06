@@ -64,17 +64,31 @@
 | **calculators/nav_metrics** | test_calculators.py | 净值计算、年化收益、产品过滤 | 95% |
 | **calculators/asset_structure** | test_calculators.py | 资产结构、Top-N、产品维度/全局 | 95% |
 | **calculators/credit_distribution** | test_calculators.py | 评级分布、评级迁移、产品过滤 | 95% |
+| **calculators/position_diff** | test_calculators.py | 持仓差异计算、新增/减少/变化明细 | 95% |
+| **calculators/leverage** | test_calculators.py | 杠杆率计算、产品维度 | 95% |
+| **calculators/liquidity** | test_calculators.py | 流动性指标、分级计算 | 95% |
 | **tools/data_loader** | test_tools.py | GB18030/UTF-8/GBK 编码、千分位、字段映射、时效校验 | 85% |
 | **tools/query_runner** | test_tools.py | SQLGuard 全规则、超时、表名校验、CTE/子查询 | 90% |
 | **tools/profiler** | test_profiler.py | 空值率、样本去重、数值范围、列级剖析 | 80% |
 | **tools/quality** | test_tools.py | 空值诊断、覆盖率、JOIN 兼容性、日期范围 | 80% |
 | **tools/entity_normalizer** | test_tools.py | 别名归一、未知主体处理、JOIN 键校验 | 85% |
 | **tools/compliance_audit** | test_tools.py | 事件写入、字段完整性、JSONL 格式 | 80% |
+| **tools/report_builder** | test_report_builder.py | Jinja2 渲染、Word 导出、模板列表、标题/表格格式 | 80% |
+| **tools/chart_builder** | test_chart_builder.py | 5 种图表类型、自动选型、ECharts 配置生成 | 80% |
+| **tools/file_reader** | test_file_reader.py | Word/PDF 解析、文本提取、字数统计 | 75% |
+| **tools/web_search** | test_web_search.py | DuckDuckGo 搜索、结果截断、异常处理 | 75% |
+| **tools/cost_tracker** | test_hooks.py | Token 计费、会话累计、用量报告 | 75% |
+| **tools/skill_builder** | (集成测试) | SKILL.md 生成、校验（格式/安全/质量）、草稿管理 | 75% |
 | **agent/llm_client** | test_agent.py | 配置加载、SQL 提取、function-calling 解析、降级处理 | 75% |
 | **agent/loop** | test_agent.py | 工具调度、暂停续跑、最大轮次、错误分类自愈 | 80% |
 | **agent/tools_spec** | test_agent.py | 5 工具分发、参数校验、结果格式 | 80% |
 | **agent/skill_loader** | test_agent.py | 注册表加载、calc_type 校验、Skill 检测 | 75% |
 | **agent/memory** | test_agent.py | 存取纠正、BM25 检索、开关控制 | 80% |
+| **agent/hooks** | test_hooks.py | 事件钩子、SHA-256 hash chain、审计完整性 | 80% |
+| **agent/self_check** | test_self_check.py | 结果自检、异常检测、置信度评分 | 75% |
+| **agent/context** | test_context.py | 三级压缩、Token 预算、历史截断 | 80% |
+| **agent/planner** | test_planner.py | 规划触发条件、Plan 生成、步骤分解 | 80% |
+| **agent/executor** | test_executor.py | 按步骤执行、步骤追踪、失败处理 | 80% |
 | **platform_adapter/** | test_platform.py | 浏览器驱动选择、控制台通知回退 | 70% |
 
 ### 3.2 安全关键测试（必须 100% 通过）
@@ -123,17 +137,30 @@ tests/test_agent.py::TestToolCallingLoop::*     # Agent 工具调度安全
 | `calculators/*.py` | test_calculators.py | test_agent.py（run_calculator 路径） |
 | `tools/data_loader.py` | test_tools.py::数据加载相关 | test_profiler.py, test_agent.py |
 | `tools/query_runner.py` | test_tools.py::SQLGuard相关 | test_agent.py（run_sql 路径） |
+| `tools/report_builder.py` | test_report_builder.py | test_agent.py |
+| `tools/chart_builder.py` | test_chart_builder.py | 无 |
+| `tools/file_reader.py` | test_file_reader.py | 无 |
+| `tools/web_search.py` | test_web_search.py | 无 |
+| `tools/skill_builder.py` | 集成测试（/api/skill-builder/*） | 无 |
+| `tools/cost_tracker.py` | test_hooks.py | 无 |
 | `agent/loop.py` | test_agent.py::TestAgentLoop* | 全量 |
 | `agent/llm_client.py` | test_agent.py::TestLLMClient | test_agent.py::TestToolCallingLoop |
 | `agent/tools_spec.py` | test_agent.py::TestToolCallingLoop | 全量 |
+| `agent/hooks.py` | test_hooks.py | test_agent.py |
+| `agent/self_check.py` | test_self_check.py | test_agent.py |
+| `agent/context.py` | test_context.py | test_agent.py |
+| `agent/planner.py` | test_planner.py | test_executor.py |
+| `agent/executor.py` | test_executor.py | test_agent.py |
 | `tools/profiler.py` | test_profiler.py | test_agent.py（profile_table 路径） |
 | `tools/quality.py` | test_tools.py::TestQuality* | test_agent.py |
 | `agent/memory.py` | test_agent.py::TestAgentMemory | 无 |
 | `agent/skill_loader.py` | test_agent.py::TestSkillLoader | test_agent.py::TestAgentLoop* |
 | `platform_adapter/*.py` | test_platform.py | 无 |
+| `api/*.py` | 集成测试（手动/UAT） | 全量 |
 | `config.yaml` | 全量 | 全量 |
 | `data_dictionary/*.yaml` | test_tools.py::字段映射 | test_calculators.py |
 | `ui/index.html` | 冒烟测试（手动） | 无 |
+| `ui/js/*.js` | 冒烟测试（手动） | 无 |
 | `skills/*/SKILL.md` | test_agent.py::TestSkillLoader | 无 |
 
 ### 4.3 新模块测试要求
@@ -344,9 +371,10 @@ class TestEntityConcentration:
 
 | 模块 | 缺口描述 | 优先级 | 状态 |
 |------|---------|-------|------|
-| tools/report_builder | 模块为占位符，无测试 | P3 | 待实现 |
-| tools/chart_builder | 模块为占位符，无测试 | P3 | 待实现 |
+| api/*.py (Blueprint 路由) | 路由端点无自动化测试，0% 覆盖率 | P1 | 待补充 |
+| tools/skill_builder | validate/publish 流程无独立单测 | P2 | 待补充 |
 | tools/entity_manager | 集团 CRUD 测试不完整 | P2 | 待补充 |
+| ui/js/*.js | 前端 JS 无测试（需引入 JS 测试框架） | P3 | 待设计 |
 | 端到端流程 | 上传→查询→结果全链路 | P2 | 待设计 |
 | 内存回归 | Python 进程 <200MB 验证 | P2 | 待 Windows 环境 |
 

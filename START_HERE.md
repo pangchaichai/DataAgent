@@ -1,15 +1,41 @@
 # DataAgent — Claude Code 项目启动指引
 
 > 首次打开此项目的 Claude Code 必读。
-> 本文件说明如何启动项目、当前状态和第一步任务。
+> 本文件说明项目当前状态和重要入口文件。
 
 ---
 
 ## 项目当前状态
 
-**阶段**：准备开发，尚未写任何业务代码
-**设计文档**：已完备（见下方文件清单）
-**开发环境**：Linux（Claude Code），目标运行环境 Windows 11
+**阶段**：Evolution I-1 ~ I-10 全部完成（2026-06-06）
+**分支**：`claude/trusting-goodall-O4ezp`
+**测试**：311/327 通过（15 个失败均为可选依赖缺失，核心模块全绿）
+
+### 已完成阶段
+
+| 阶段 | 状态 | 说明 |
+|------|------|------|
+| Phase 0 — 环境搭建 | ✅ 完成 | 虚拟环境 + 数据目录 + 冒烟测试通过 |
+| Phase R — Agent 内核重构 | ✅ 完成 | Tool-calling Agent / 质量诊断 / UI重建 / 自适应编码 / 跨会话记忆 |
+| Phase 1 — 核心数据链路 | ✅ 完成 | 上传→查询→表格展示，57/57 单测通过 |
+| Phase 2 — 语义层+报告生成 | ✅ 完成 | 5个计算器 + 4张数据字典 + 合规审计日志 |
+| Phase 3 — 合规监控+参谈要点 | ✅ 代码完成 | 待 Windows 联试验收 |
+| Evolution I-1~I-10 | ✅ 完成 | 见下方列表 |
+
+### Evolution I-1~I-10 完成内容
+
+| 迭代 | 核心交付物 |
+|------|----------|
+| I-1/I-1b | pyproject.toml + PreCommit Hook + cost_tracker + hooks系统 + self_check + 场景化工具过滤 |
+| I-2 | report_builder（Jinja2+Word导出）+ 3个报告模板 |
+| I-3/I-3b | chart_builder（5种图表+自动选型）+ agent/context 三级压缩 |
+| I-4 | 上传两阶段确认弹窗（预解析→确认→入库） |
+| I-5/I-5b | /api/status + /api/suggestions + LLM providers API + hooks 审计 hash chain |
+| I-6 | file_reader（Word/PDF解析）+ web_search（DuckDuckGo） |
+| I-7 | main.py 拆分为 Blueprint（api/ 6个模块）+ session_store.py |
+| I-8 | agent/planner + agent/executor + plan/plan_step/plan_done SSE 事件 |
+| I-9 | calculators: position_diff + leverage + liquidity |
+| I-10 | 前端 JS 模块化：内联 1280 行 → 9个独立 ui/js/*.js 文件 |
 
 ---
 
@@ -17,56 +43,38 @@
 
 | 文件 | 重要性 | 用途 |
 |------|--------|------|
-| `CLAUDE.md` | ⭐⭐⭐⭐⭐ 必读 | 项目完整规格：技术栈、架构、工具规格、开发计划 |
-| `docs/dev-environment.md` | ⭐⭐⭐⭐⭐ 必读 | Linux/Windows 双环境策略，启动方式 |
-| `docs/dev-quickstart.md` | ⭐⭐⭐⭐ 开发时读 | 每个 Phase 的逐步操作手册和验收标准 |
-| `docs/data-schemas.md` | ⭐⭐⭐⭐ 开发工具层时读 | 数据表字段定义和关联关系 |
+| `CLAUDE.md` | ⭐⭐⭐⭐⭐ 必读 | 项目完整规格：技术栈、架构、工具规格、编码规范 |
+| `PROGRESS.md` | ⭐⭐⭐⭐⭐ 必读 | 每次迭代的进度记录，下次会话从这里了解上次做到哪 |
+| `TESTING.md` | ⭐⭐⭐⭐ 测试时读 | 测试策略、覆盖矩阵、迭代测试流程 |
+| `docs/dev-environment.md` | ⭐⭐⭐⭐ 必读 | Linux/macOS/Windows 环境策略，UI 窗口形态说明 |
+| `docs/architecture.md` | ⭐⭐⭐ 理解设计时读 | 架构决策说明（含 Blueprint/Planner/Skill Builder） |
+| `docs/dev-quickstart.md` | ⭐⭐⭐ 开发时读 | 各 Phase 操作手册和验收标准 |
 | `docs/skills-guide.md` | ⭐⭐⭐ 开发 Skills 时读 | Skills 编写规范 |
-| `docs/architecture.md` | ⭐⭐⭐ 理解设计时读 | 架构决策说明 |
 | `config.yaml` | ⭐⭐⭐ | 运行时配置（需填写 API Key） |
-| `data_dictionary/` | ⭐⭐⭐⭐ 开发语义层时读 | 字段映射、主体归一定义 |
-| `skills/` | ⭐⭐⭐ | 现有业务技能定义（可直接使用） |
 
 ---
 
-## 第一步：确认理解
-
-请在开始写代码前，先回答以下问题（用于验证你已正确理解项目）：
-
-1. 本项目的运行模式是什么？（Linux开发 vs Windows生产，如何切换）
-2. 业务能力层分为哪两类？区别是什么？
-3. `calculators/` 和 LLM 生成 SQL 各负责什么场景？
-4. Phase 1 的验收标准是什么？
-
----
-
-## 第一步任务（Phase 0）
-
-确认理解后，执行以下操作：
+## 启动方式
 
 ```bash
-# 1. 创建并激活虚拟环境
-python3 -m venv venv
-source venv/bin/activate
-
-# 2. 安装开发依赖
+# Linux / macOS 开发模式（自动走浏览器模式）
 pip install -r requirements-dev.txt
+python main.py
+# 启动后自动打开系统浏览器访问 http://127.0.0.1:{随机端口}
+# 注意：macOS/Linux 显示浏览器是正常行为，非 bug
+#       PyWebView 原生窗口仅在 Windows + requirements-prod.txt 下可用
 
-# 3. 验证依赖
-python -c "import duckdb,pandas,flask,chardet,sqlglot,schedule; print('✅ 全部依赖就绪')"
-
-# 4. 创建必要的运行时目录
-mkdir -p data/uploads/holding data/uploads/rating_entity \
-         data/uploads/rating_bond data/uploads/nav \
-         data/outputs data/sessions data/compliance_audit
+# 运行测试
+cp config.example.yaml config.yaml  # 首次需要复制配置
+pytest tests/ -v
 ```
-
-验证通过后，按 `docs/dev-quickstart.md` 的 Phase 1 Step 1 开始编码。
 
 ---
 
-## 重要约束提醒
+## 下一步任务
 
-- **不写 Windows 专属代码**（pywebview/winotify）：这些在 Linux 无法运行，统一在 Phase 5 切到 Windows 时处理
-- **平台差异已封装**：`platform_adapter/ui_driver.py` 和 `platform_adapter/notify_driver.py` 处理了所有差异，业务代码调用接口即可
-- **每次会话开始**：先读 `CLAUDE.md`，再读本次任务相关的具体文档
+当前待办：
+- Phase 4：dept_weekly_report / monthly_bond_summary（进入条件：C-02/03/04 模板确认后）
+- Phase 5：切换 Windows 环境，验收 PyWebView 窗口 + toast 通知 + PyInstaller 打包
+
+每次会话开始，请先阅读 `CLAUDE.md` 和 `PROGRESS.md`。
