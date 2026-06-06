@@ -193,6 +193,41 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    # ── render_chart（I-3）──
+    {
+        "type": "function",
+        "function": {
+            "name": "render_chart",
+            "description": (
+                "将固化计算结果可视化为 ECharts 图表。"
+                "支持饼图（资产结构/评级分布）、柱状图（集中度对比）、"
+                "折线图（净值走势）、瀑布图（规模变动）。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "chart_type": {
+                        "type": "string",
+                        "enum": ["pie", "bar", "line", "waterfall"],
+                        "description": "图表类型",
+                    },
+                    "data": {
+                        "type": "object",
+                        "description": "图表数据（来自 run_calculator 结果，如 structure/distribution/breaches）",
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "图表标题",
+                    },
+                    "options": {
+                        "type": "object",
+                        "description": "可选，局部覆盖 ECharts option 配置",
+                    },
+                },
+                "required": ["chart_type", "data"],
+            },
+        },
+    },
     # ── generate_report（I-2）──
     {
         "type": "function",
@@ -299,6 +334,7 @@ _TOOL_TIMEOUTS: dict[str, int] = {
     "propose_dict_entry": 10,
     "confirm_dict": 10,
     "generate_report": 30,
+    "render_chart": 10,
 }
 
 
@@ -371,6 +407,7 @@ def dispatch_tool(name: str, args: dict, ctx: ToolContext) -> dict:
         "propose_dict_entry": _tool_propose_dict_entry,
         "confirm_dict": _tool_confirm_dict,
         "generate_report": _tool_generate_report,
+        "render_chart": _tool_render_chart,
     }
     handler = dispatch_map.get(name)
     if handler is None:
@@ -717,6 +754,28 @@ def _tool_confirm_dict(args: dict, ctx: ToolContext) -> dict:
         "table_type": table_type,
         "merged_count": len(draft_entries.get("fields", [])),
         "dict_file": str(dict_file),
+    }
+
+
+def _tool_render_chart(args: dict, ctx: ToolContext) -> dict:
+    """生成 ECharts option dict，由前端渲染为图表（I-3）"""
+    from tools.chart_builder import build_chart
+
+    result = build_chart(
+        chart_type=args.get("chart_type", ""),
+        data=args.get("data") or {},
+        title=args.get("title", ""),
+        options=args.get("options"),
+    )
+
+    if not result.ok:
+        return {"ok": False, "error": result.error}
+
+    return {
+        "ok": True,
+        "chart_type": result.chart_type,
+        "title": result.title,
+        "option": result.option,
     }
 
 

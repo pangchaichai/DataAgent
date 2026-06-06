@@ -348,6 +348,13 @@ def run_agent_loop(
                     "sql": sql_display,
                 })
 
+            if tool_name == "render_chart" and ok and tool_result.get("option"):
+                yield _sse_event("chart", {
+                    "title": tool_result.get("title", ""),
+                    "option": tool_result["option"],
+                    "chart_type": tool_result.get("chart_type", ""),
+                })
+
             if tool_name == "generate_report" and ok and tool_result.get("markdown"):
                 yield _sse_event("report", {
                     "markdown": tool_result["markdown"],
