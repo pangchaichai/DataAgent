@@ -3,20 +3,25 @@ tests/test_skill_builder.py — Skill Builder 单元测试
 """
 
 import os
+import shutil
 import sys
 import tempfile
-import shutil
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.skill_builder import (
-    validate_skill_md, generate_skill_md, SkillDraft,
-    save_draft, load_draft, list_drafts, delete_draft,
-    publish_skill, parse_llm_skill_response,
     DRAFTS_DIR,
+    SkillDraft,
+    delete_draft,
+    generate_skill_md,
+    list_drafts,
+    load_draft,
+    parse_llm_skill_response,
+    publish_skill,
+    save_draft,
+    validate_skill_md,
 )
-
 
 # ═══════════════════════════════════════════════════════════════
 #  测试用的 SKILL.md 内容

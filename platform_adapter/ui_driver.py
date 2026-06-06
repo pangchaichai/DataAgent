@@ -18,9 +18,9 @@ UI 驱动适配层 — 平台差异在此隔离，业务代码感知不到平台
 
 import os
 import sys
-import webbrowser
 import threading
 import time
+import webbrowser
 from abc import ABC, abstractmethod
 
 
@@ -72,10 +72,12 @@ class BrowserDevDriver(UIDriver):
         flask_thread.start()
 
         url = f'http://127.0.0.1:{port}'
+        platform_name = "macOS" if sys.platform == 'darwin' else "Linux"
+        stop_key = "Cmd+C" if sys.platform == 'darwin' else "Ctrl+C"
         print(f"\n{'='*50}")
-        print(f"  DataAgent 开发模式（Linux/Browser）")
+        print(f"  DataAgent 开发模式（{platform_name}/Browser）")
         print(f"  访问地址：{url}")
-        print(f"  关闭方式：Ctrl+C")
+        print(f"  关闭方式：{stop_key}")
         print(f"{'='*50}\n")
 
         if _wait_for_flask(port):

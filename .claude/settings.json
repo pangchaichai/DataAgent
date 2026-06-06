@@ -1,0 +1,8 @@
+{
+  "hooks": {
+    "PreCommit": {
+      "command": "pytest tests/ -x -q --timeout=60",
+      "description": "运行快速测试套件，全绿才允许提交"
+    }
+  }
+}

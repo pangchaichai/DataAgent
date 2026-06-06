@@ -11,6 +11,7 @@ calculators/concentration.py
 """
 
 from dataclasses import dataclass
+
 import duckdb
 
 

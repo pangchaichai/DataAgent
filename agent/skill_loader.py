@@ -15,11 +15,10 @@ agent/skill_loader.py — Skill 加载器（渐进式披露）
 
 import os
 import re
-import yaml
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional
+from pathlib import Path
 
+import yaml
 
 # ═══════════════════════════════════════════════════════════════
 #  Dataclass
@@ -115,7 +114,7 @@ class SkillLoader:
 
         return registry
 
-    def load_full(self, skill_name: str) -> Optional[str]:
+    def load_full(self, skill_name: str) -> str | None:
         """
         按需加载：返回指定 Skill 的完整 SKILL.md 内容。
 
@@ -141,7 +140,7 @@ class SkillLoader:
 
     def detect_relevant_skill(
         self, user_message: str, registry: list[SkillInfo]
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         基于关键词匹配判断用户意图匹配的 Skill（Phase 1 简单实现）。
 
@@ -238,7 +237,7 @@ def load_registry(local_dir: str = 'skills/', shared_dir: str = '') -> list[Skil
     return loader.load_registry()
 
 
-def load_full(skill_name: str, local_dir: str = 'skills/', shared_dir: str = '') -> Optional[str]:
+def load_full(skill_name: str, local_dir: str = 'skills/', shared_dir: str = '') -> str | None:
     """便捷函数：加载完整 SKILL.md"""
     loader = SkillLoader(local_dir, shared_dir)
     return loader.load_full(skill_name)

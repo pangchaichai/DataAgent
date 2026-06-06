@@ -25,11 +25,11 @@ import time
 import uuid
 from pathlib import Path
 
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, Response, jsonify, request, stream_with_context
 from flask_cors import CORS
-from platform_adapter.ui_driver import get_driver
-from platform_adapter.notify_driver import get_notify_driver
 
+from platform_adapter.notify_driver import get_notify_driver
+from platform_adapter.ui_driver import get_driver
 
 # ═══════════════════════════════════════════════════════════════
 #  基础路径（绝对路径，兼容 PyInstaller 打包 + 任意 CWD）
@@ -206,7 +206,7 @@ def create_flask_app() -> Flask:
             stem = Path(file.filename).stem
             table_name = f"{table_type}_{stem}"
 
-        from tools.data_loader import load_file, init_duckdb_connection
+        from tools.data_loader import init_duckdb_connection, load_file
         init_duckdb_connection()
         try:
             result = load_file(file_path, table_name, date_tag=date_tag or None, table_type=table_type or None)
@@ -263,8 +263,8 @@ def create_flask_app() -> Flask:
 
         # 在后台线程运行 agent loop，事件写入队列
         def run_agent_bg():
-            from agent.loop import run_agent_loop
             from agent.llm_client import LLMClient
+            from agent.loop import run_agent_loop
             from agent.skill_loader import SkillLoader
             from tools.data_loader import init_duckdb_connection
 
@@ -378,6 +378,25 @@ def create_flask_app() -> Flask:
     def api_reset():
         reset_session()
         return jsonify({"ok": True})
+
+    # ── GET /api/llm/providers — LLM Provider 列表 ────────
+    @app.route('/api/llm/providers', methods=['GET'])
+    def api_llm_providers():
+        """返回已配置的 LLM provider 列表及当前选择"""
+        providers = llm_client.list_providers()
+        return jsonify({
+            "providers": providers,
+            "current": llm_client.sql_gen_cfg.get('primary', 'enterprise_internal'),
+        })
+
+    # ── POST /api/llm/test — 测试 Provider 连通性 ─────────
+    @app.route('/api/llm/test', methods=['POST'])
+    def api_llm_test():
+        """测试指定 provider 的连通性（用于 UI 状态灯）"""
+        data = request.get_json(silent=True) or {}
+        provider = data.get('provider')
+        result = llm_client.test_connection(provider)
+        return jsonify(result)
 
     # ── GET /api/health — 系统健康状态 ─────────────────────
     @app.route('/api/health')
@@ -680,11 +699,13 @@ def create_flask_app() -> Flask:
         if not description:
             return jsonify({"ok": False, "error": "请描述你想创建的 Skill 功能"}), 400
 
-        from tools.skill_builder import (
-            build_skill_generation_prompt, parse_llm_skill_response,
-            generate_skill_md, save_draft, SkillDraft,
-        )
         from agent.llm_client import LLMClient
+        from tools.skill_builder import (
+            build_skill_generation_prompt,
+            generate_skill_md,
+            parse_llm_skill_response,
+            save_draft,
+        )
 
         try:
             llm = LLMClient(str(BASE_DIR / 'config.yaml'))
@@ -808,8 +829,9 @@ def create_flask_app() -> Flask:
         if mode not in ('basic', 'detailed'):
             return jsonify({"ok": False, "error": "模式必须为 basic 或 detailed"}), 400
 
-        from tools.runtime_logger import get_logger
         import yaml
+
+        from tools.runtime_logger import get_logger
         logger = get_logger()
         logger.mode = mode
 

@@ -10,7 +10,6 @@ tools/notify.py — 业务通知层
 
 from platform_adapter.notify_driver import get_notify_driver
 
-
 # ═══════════════════════════════════════════════════════════════
 #  单例
 # ═══════════════════════════════════════════════════════════════
@@ -47,7 +46,7 @@ def notify_compliance_breach(
       当前集中度：12.5%（监控阈值：10%）
       建议：请在 3 个交易日内核查并调整至合规范围
     """
-    title = f"⚠️ 集中度超标提醒"
+    title = "⚠️ 集中度超标提醒"
     message = (
         f"产品：{product_name}  负责经理：{manager_name}\n"
         f"超标主体：{entity_name}\n"

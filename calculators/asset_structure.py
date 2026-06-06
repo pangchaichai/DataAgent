@@ -5,6 +5,7 @@ calculators/asset_structure.py — 资产结构固化计算
 """
 
 from dataclasses import dataclass
+
 import duckdb
 
 

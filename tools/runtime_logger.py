@@ -20,13 +20,10 @@ tools/runtime_logger.py — 运行时日志系统（两级模式）
 import json
 import os
 import threading
-import time
 import traceback
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from dataclasses import dataclass, asdict
-from typing import Optional
-
 
 # ═══════════════════════════════════════════════════════════════
 #  常量
@@ -70,8 +67,8 @@ class LogEntry:
     level: str
     category: str
     event: str
-    detail: Optional[dict] = None
-    duration_ms: Optional[float] = None
+    detail: dict | None = None
+    duration_ms: float | None = None
     session_id: str = ""
 
 
@@ -99,7 +96,7 @@ class RuntimeLogger:
         self._max_file_mb = max_file_mb
         self._lock = threading.Lock()
         self._session_id = ""
-        self._current_file: Optional[str] = None
+        self._current_file: str | None = None
         self._current_date: str = ""
         LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -354,7 +351,7 @@ class RuntimeLogger:
             size_mb = os.path.getsize(self._current_file) / (1024 * 1024)
             if size_mb > self._max_file_mb:
                 # 保留最后 1/3
-                with open(self._current_file, 'r', encoding='utf-8') as f:
+                with open(self._current_file, encoding='utf-8') as f:
                     lines = f.readlines()
                 keep = lines[len(lines) * 2 // 3:]
                 with open(self._current_file, 'w', encoding='utf-8') as f:
@@ -375,7 +372,7 @@ def _now() -> str:
 #  全局单例
 # ═══════════════════════════════════════════════════════════════
 
-_logger_instance: Optional[RuntimeLogger] = None
+_logger_instance: RuntimeLogger | None = None
 _logger_lock = threading.Lock()
 
 

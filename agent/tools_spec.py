@@ -10,12 +10,10 @@ agent/tools_spec.py — Agent 工具定义与分发表
 - ask_user / request_confirmation 产出暂停信号，由 loop 处理
 """
 
-import json
-import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
+import yaml
 
 # ═══════════════════════════════════════════════════════════════
 #  Tool Definitions (OpenAI function-calling format)
@@ -206,7 +204,7 @@ class ToolContext:
     """工具分发所需的上下文"""
     config: dict = field(default_factory=dict)
     calculation_config: dict = field(default_factory=dict)
-    _conn: Optional[object] = None
+    _conn: object | None = None
 
     @property
     def duckdb_conn(self):

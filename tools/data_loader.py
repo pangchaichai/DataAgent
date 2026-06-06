@@ -13,17 +13,14 @@ tools/data_loader.py — 数据文件加载器
   - 所有列名清洗后应不含首尾空格、不含不可见字符
 """
 
-import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import chardet
 import duckdb
 import pandas as pd
 import yaml
-
 
 # ═══════════════════════════════════════════════════════════════
 #  Dataclass
@@ -37,20 +34,20 @@ class LoadResult:
     row_count: int           # 行数
     col_count: int           # 列数
     encoding: str            # 检测到的编码
-    date_tag: Optional[str]  # 数据日期（用户指定或从文件名推断）
+    date_tag: str | None  # 数据日期（用户指定或从文件名推断）
     field_map: dict          # 语义名 → 实际列名 的映射
     unmatched_cols: list     # CSV 中存在但字典中未定义的列名
     missing_required: list   # 字典中 required=True 但在 CSV 中未找到的字段
     warnings: list           # 加载过程中的警告信息
     table_type: str          # 表类型（holding/nav/rating_entity/rating_bond/unknown）
-    quality_report: Optional[object] = None  # ★R2: 数据质量诊断报告
+    quality_report: object | None = None  # ★R2: 数据质量诊断报告
 
 
 # ═══════════════════════════════════════════════════════════════
 #  DuckDB 连接（全局单例）
 # ═══════════════════════════════════════════════════════════════
 
-_global_conn: Optional[duckdb.DuckDBPyConnection] = None
+_global_conn: duckdb.DuckDBPyConnection | None = None
 
 # 已加载表注册表：{table_name: LoadResult}
 _loaded_tables: dict[str, LoadResult] = {}
@@ -212,7 +209,7 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
         print(f"[data_loader]   {enc}: {reason}{marker}")
 
     if best_score < 0:
-        print(f"[data_loader] ⚠️ 所有编码评分均为负，退回 utf-8")
+        print("[data_loader] ⚠️ 所有编码评分均为负，退回 utf-8")
 
     return best_enc
 
@@ -253,7 +250,7 @@ DICT_TABLE_MAP = {
 }
 
 
-def load_dictionary(table_type: str) -> Optional[dict]:
+def load_dictionary(table_type: str) -> dict | None:
     """加载对应类型的数据字典，文件不存在则返回 None"""
     filename = DICT_TABLE_MAP.get(table_type)
     if not filename:
@@ -314,7 +311,7 @@ def apply_dictionary_mapping(df: pd.DataFrame, table_type: str) -> tuple[dict, l
 #  主体归一（委托给 entity_normalizer）
 # ═══════════════════════════════════════════════════════════════
 
-def normalize_entity_column(df: pd.DataFrame, field_map: dict, table_type: str) -> Optional[str]:
+def normalize_entity_column(df: pd.DataFrame, field_map: dict, table_type: str) -> str | None:
     """
     对「限额占用主体」字段进行归一化处理。
     在 DataFrame 中新增「限额占用主体_标准」列。
@@ -377,8 +374,8 @@ def validate_user_profile_products(
 def load_file(
     file_path: str,
     table_name: str,
-    date_tag: Optional[str] = None,
-    table_type: Optional[str] = None,
+    date_tag: str | None = None,
+    table_type: str | None = None,
 ) -> LoadResult:
     """
     加载 CSV/Excel 文件到 DuckDB。

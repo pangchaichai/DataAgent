@@ -4,12 +4,15 @@ tests/test_calculators.py — 固化计算模块单元测试
 覆盖：concentration.py（主体/单券集中度）
 """
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
 import duckdb
-from calculators.concentration import calc_entity_concentration, ConcentrationResult
+import pytest
+
+from calculators.concentration import ConcentrationResult, calc_entity_concentration
 
 
 @pytest.fixture

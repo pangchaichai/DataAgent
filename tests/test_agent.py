@@ -7,6 +7,7 @@ tests/test_agent.py — Agent 层单元测试
 import os
 import sys
 import tempfile
+
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -50,17 +51,31 @@ class TestLLMClient:
         """首尾空白应被去除"""
         assert client._extract_sql('  SELECT 1  ') == 'SELECT 1'
 
-    def test_report_text_with_deepseek(self, client):
-        """测试环境：DeepSeek 配置正确时 generate_report_text 应成功"""
+    def test_report_text_degraded_when_no_api_key(self, client):
+        """API key 为占位符时，report_text 应降级返回 ReportDegradedResult，不调用外部 LLM"""
+        from agent.llm_client import ReportDegradedResult
         text, resp = client.generate_report_text(
             '生成报告摘要', {'净值': 1.05}
         )
-        assert resp.success, f"DeepSeek 应可用: {resp.error}"
+        # 占位符 key → 应走降级路径，不抛异常
+        assert isinstance(resp, ReportDegradedResult) or not resp.success, \
+            "占位符 key 应触发降级或返回 success=False，不应成功调用外部 LLM"
 
-    def test_sql_gen_with_deepseek(self, client):
-        """测试环境：DeepSeek 配置正确时 generate_sql 应返回 SQL"""
+    def test_sql_gen_placeholder_key_returns_error(self, client):
+        """API key 为占位符时，generate_sql 应返回 success=False，error='api_key'"""
         sql, resp = client.generate_sql('查询持仓表所有记录')
         assert resp is not None
+        # 占位符 key → 被拒，不调用外部
+        assert not resp.success
+        assert resp.error == 'api_key'
+
+    @pytest.mark.skipif(
+        not os.environ.get('DEEPSEEK_API_KEY'),
+        reason="需要真实 DEEPSEEK_API_KEY 环境变量"
+    )
+    def test_sql_gen_with_real_api(self, client):
+        """实际 API key 时 generate_sql 应返回 SQL（CI 环境跳过）"""
+        sql, resp = client.generate_sql('查询持仓表所有记录')
         assert resp.success, f"SQL 生成应成功: {resp.error}"
 
     def test_classify_intent_no_skills(self, client):
@@ -197,8 +212,8 @@ class TestAgentLoopBasic:
         return LLMClient('config.yaml'), SkillLoader(local_dir='skills/')
 
     def test_loop_no_tables_yields_help(self):
-        from agent.loop import run_agent_loop
         import tools.data_loader as dl
+        from agent.loop import run_agent_loop
         dl._global_conn = None
         dl._loaded_tables.clear()
         dl.init_duckdb_connection()
@@ -216,8 +231,8 @@ class TestAgentLoopBasic:
         assert events[0]['type'] == 'error'
 
     def test_loop_yields_stream_end(self):
-        from agent.loop import run_agent_loop
         import tools.data_loader as dl
+        from agent.loop import run_agent_loop
         dl._global_conn = None
         dl._loaded_tables.clear()
         dl.init_duckdb_connection()
@@ -273,6 +288,7 @@ def _make_tool_call(name, args, tc_id=""):
 def _setup_test_holding_table():
     """创建一张最小持仓测试表"""
     import duckdb
+
     import tools.data_loader as dl
     dl._global_conn = None
     dl._loaded_tables.clear()
@@ -510,9 +526,11 @@ class TestSchemaInference:
 
     def test_propose_dict_is_draft_only(self):
         """propose_dict_entry 只写 drafts/，不改正式字典"""
-        import yaml
         from pathlib import Path
-        from agent.tools_spec import _tool_propose_dict_entry, ToolContext
+
+        import yaml
+
+        from agent.tools_spec import ToolContext, _tool_propose_dict_entry
 
         ctx = ToolContext()
         # 写入测试草稿
@@ -533,9 +551,11 @@ class TestSchemaInference:
 
     def test_confirm_dict_merges_draft(self):
         """confirm_dict 应合并草稿到正式字典"""
-        import yaml
         from pathlib import Path
-        from agent.tools_spec import _tool_propose_dict_entry, _tool_confirm_dict, ToolContext
+
+        import yaml
+
+        from agent.tools_spec import ToolContext, _tool_confirm_dict, _tool_propose_dict_entry
 
         ctx = ToolContext()
         # 先写草稿

@@ -568,6 +568,18 @@ select.sp-input{cursor:pointer;}
     <div class="sp-section">
       <div class="sp-title">LLM 配置</div>
       <div class="sp-row">
+        <label>LLM 来源</label>
+        <div style="display:flex;gap:6px;flex:1;min-width:0;">
+          <select id="cfg-llm-provider" class="sp-input" style="flex:1;"
+            onchange="onLLMProviderChange()">
+            <!-- 动态填充，来自 /api/llm/providers -->
+          </select>
+          <button class="sp-btn" onclick="testLLMConnection()" title="测试连接">测试</button>
+          <span id="llm-status-dot" style="font-size:16px;align-self:center;">⚪</span>
+        </div>
+      </div>
+      <div id="llm-provider-hint" class="sp-hint"></div>
+      <div class="sp-row">
         <label>API Key</label>
         <input type="password" id="cfg-apikey" class="sp-input" placeholder="sk-…（留空不修改）"/>
       </div>
@@ -1420,9 +1432,69 @@ async function loadSettings(){
       :'<div style="font-size:12px;color:var(--text-3)">暂无定时任务</div>';
   }catch(e){}
 
+  // LLM providers
+  loadLLMProviders();
+
   // Log settings
   loadLogSettings();
 }
+
+async function loadLLMProviders(){
+  try{
+    const d=await api('GET','/api/llm/providers');
+    const sel=$('cfg-llm-provider');
+    const providerNames={'lmstudio':'本地 LM Studio','deepseek':'DeepSeek（远程）','enterprise_internal':'企业内网 LLM'};
+    sel.innerHTML='';
+    (d.providers||[]).forEach(p=>{
+      const opt=document.createElement('option');
+      opt.value=p.name;
+      opt.textContent=(providerNames[p.name]||p.name)+(p.is_local?' 🖥':'');
+      if(p.name===d.current)opt.selected=true;
+      sel.appendChild(opt);
+    });
+    if(!d.providers||d.providers.length===0){
+      sel.innerHTML='<option value="">（未配置 provider）</option>';
+    }
+    updateLLMProviderHint(d.current, d.providers||[]);
+  }catch(e){}
+}
+
+function onLLMProviderChange(){
+  const sel=$('cfg-llm-provider');
+  const provider=sel.value;
+  const hintEl=$('llm-status-dot');
+  hintEl.textContent='⚪';
+  const hints={'lmstudio':'本地推理，数据不出本机；请先在 LM Studio 中启动 Local Server','deepseek':'远程 API，问题文本将外发（须合规确认）','enterprise_internal':'企业内网 LLM（生产环境推荐）'};
+  $('llm-provider-hint').textContent=hints[provider]||'';
+}
+
+function updateLLMProviderHint(current, providers){
+  const p=providers.find(x=>x.name===current);
+  if(!p)return;
+  const hints={'lmstudio':'本地推理，数据不出本机；请先在 LM Studio 中启动 Local Server','deepseek':'远程 API，问题文本将外发（须合规确认）','enterprise_internal':'企业内网 LLM（生产环境推荐）'};
+  $('llm-provider-hint').textContent=hints[current]||'';
+}
+
+async function testLLMConnection(){
+  const provider=$('cfg-llm-provider').value;
+  const dot=$('llm-status-dot');
+  dot.textContent='🔄';
+  try{
+    const d=await api('POST','/api/llm/test',{provider});
+    if(d.ok){
+      dot.textContent='🟢';
+      const modelTip=d.configured_model?(' | 模型: '+d.configured_model):'';
+      $('llm-provider-hint').textContent='✓ 连接成功'+modelTip+(d.models&&d.models.length?' | 可用模型: '+d.models.slice(0,3).join(', '):'');
+    }else{
+      dot.textContent='🔴';
+      $('llm-provider-hint').textContent='✗ 连接失败: '+(d.error||'未知错误');
+    }
+  }catch(e){
+    dot.textContent='🔴';
+    $('llm-provider-hint').textContent='✗ 请求失败';
+  }
+}
+
 function renderProductTags(){
   $('productTags').innerHTML=_products.map((p,i)=>
     '<span class="ptag">'+esc(p)

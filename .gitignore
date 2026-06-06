@@ -13,7 +13,9 @@ data/compliance_audit/*
 *.zip
 *.DS_Store
 config.yaml
-.claude/
+.env
+data/*.duckdb
+data/memory.db
 .pytest_cache/
 *.tmp
 data/uploads/**/*.csv

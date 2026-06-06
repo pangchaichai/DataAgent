@@ -7,14 +7,11 @@ agent/memory.py — 收窄版跨会话记忆（R5）
 存储：SQLite + BM25 全文检索，纯 Python，PyInstaller 友好。
 """
 
-import json
 import os
 import sqlite3
-import yaml
 from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Optional
 
+import yaml
 
 # ═══════════════════════════════════════════════════════════════
 #  Constants
@@ -34,7 +31,7 @@ class AgentMemory:
     def __init__(self, db_path: str = None, enabled: bool = False):
         self.db_path = db_path or DB_PATH
         self.enabled = enabled
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
 
     # ── 公开接口 ──────────────────────────────────────────────
 

@@ -5,6 +5,7 @@ calculators/credit_distribution.py — 信用评级分布固化计算
 """
 
 from dataclasses import dataclass
+
 import duckdb
 
 

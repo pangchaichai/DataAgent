@@ -17,12 +17,10 @@ tools/query_runner.py — SQL 执行器 + 安全守卫
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 import duckdb
 import sqlglot
 from sqlglot import exp
-
 
 # ═══════════════════════════════════════════════════════════════
 #  危险函数 / 命令黑名单
@@ -30,7 +28,7 @@ from sqlglot import exp
 
 BLOCKED_FUNCTIONS = {
     'read_csv_auto', 'read_csv', 'read_parquet', 'read_json',
-    'read_csv_auto', 'read_json_auto',
+    'read_json_auto',
 }
 
 BLOCKED_COMMANDS = [

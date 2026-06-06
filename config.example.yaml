@@ -4,12 +4,12 @@
 # ★ 测试阶段：统一使用 DeepSeek（内网 LLM 不可用时临时配置）★
 llm:
   sql_gen:                             # SQL生成 / 意图分类 / Tool-calling
-    primary: deepseek                  # ★测试：直连 DeepSeek
+    primary: lmstudio                  # ★本地测试：使用 LM Studio（改为 deepseek 或 enterprise_internal 切换）
     fallback: deepseek
     external_allowed: true             # ★测试：允许外发
     tool_mode: native                  # native = OpenAI function-calling（默认）
                                        # react  = 文本 JSON 协议（仅作兜底，可后置）
-    timeout: 30
+    timeout: 60                        # 本地模型推理较慢，放宽超时
     max_tokens: 2000
 
   report_text:                         # 报告文字生成
@@ -30,6 +30,17 @@ llm:
     url: https://api.deepseek.com/v1
     model: deepseek-chat
     api_key: 你的DeepSeek_API_Key
+
+  lmstudio:                            # ★ 本地 LLM（LM Studio）
+    url: http://localhost:1234/v1       # LM Studio 默认端口
+    model: qwen/qwen3-8b               # 当前测试模型（在 LM Studio 中加载）
+    api_key: lm-studio                 # 占位符（LM Studio 不校验 key）
+    timeout: 120                       # 本地推理耗时较长，超时设宽
+    # ★ 使用说明：
+    # 1. 下载 LM Studio: https://lmstudio.ai
+    # 2. 搜索并下载 qwen/qwen3-8b 模型
+    # 3. 点击 "Local Server" → Start Server（默认端口 1234）
+    # 4. 本文件 sql_gen.primary 已设为 lmstudio，直接 python main.py 即可
 
 # ── 固化计算口径配置（C-01确认后修改此处）──────────────────
 # 注意：修改此处会影响所有合规计算结果，修改前须经合规确认

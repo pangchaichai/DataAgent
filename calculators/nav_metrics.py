@@ -6,6 +6,7 @@ calculators/nav_metrics.py — 净值指标固化计算
 """
 
 from dataclasses import dataclass
+
 import duckdb
 
 
