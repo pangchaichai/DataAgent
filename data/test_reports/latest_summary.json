@@ -1,56 +1,11 @@
 {
-  "timestamp": "2026-06-05T23:15:19.164060",
-  "total": 125,
-  "passed": 114,
-  "failed": 11,
+  "timestamp": "2026-06-06T02:20:36.601470",
+  "total": 144,
+  "passed": 143,
+  "failed": 0,
   "skipped": 0,
   "errors": 0,
-  "exit_status": 1,
-  "duration_seconds": 3.53,
-  "failed_tests": [
-    {
-      "nodeid": "tests/test_agent.py::TestLLMClient::test_report_text_with_deepseek",
-      "message": "<ExceptionInfo AttributeError(\"'ReportDegradedResult' object has no attribute 'success'\") tblen=24>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestLLMClient::test_sql_gen_with_deepseek",
-      "message": "<ExceptionInfo AssertionError(\"SQL 生成应成功: api_key\\nassert False\\n +  where False = LLMResponse(success=False, text='', endpoint='deepseek', model='deepseek-chat', token_count=0, elapsed_ms=0, error='api_key').success\") tblen=24>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestAgentLoopBasic::test_loop_no_tables_yields_help",
-      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestAgentLoopBasic::test_loop_max_turns",
-      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestAgentLoopBasic::test_loop_yields_stream_end",
-      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_loop_multistep_runs_tools",
-      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_loop_calculator_path",
-      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_loop_ask_user_pause_resume",
-      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_no_llm_sql_for_compliance",
-      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_multiturn_memory",
-      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestAgentMemory::test_memory_enabled_save_recall",
-      "message": "<ExceptionInfo AssertionError('assert 0 >= 1\\n +  where 0 = len([])') tblen=24>"
-    }
-  ]
+  "exit_status": 0,
+  "duration_seconds": 4.04,
+  "failed_tests": []
 }
