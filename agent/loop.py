@@ -348,6 +348,14 @@ def run_agent_loop(
                     "sql": sql_display,
                 })
 
+            if tool_name == "generate_report" and ok and tool_result.get("markdown"):
+                yield _sse_event("report", {
+                    "markdown": tool_result["markdown"],
+                    "word_path": tool_result.get("word_path", ""),
+                    "word_filename": tool_result.get("word_filename", ""),
+                    "report_type": tool_result.get("report_type", ""),
+                })
+
             session_messages.append({
                 "role": "tool",
                 "tool_call_id": tool_id,

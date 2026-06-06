@@ -257,6 +257,12 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 .action-card .summary-table td{padding:4px 8px;font-size:13px;}
 .action-card .summary-table td:last-child{text-align:right;font-weight:600;
   font-variant-numeric:tabular-nums;}
+.report-card{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:8px 0;max-width:100%;}
+.report-header{padding:8px 12px;background:var(--bg-s);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
+.report-body{padding:12px 16px;font-size:13px;max-height:400px;overflow-y:auto;}
+.report-body table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0;}
+.report-body th,.report-body td{border:1px solid var(--border);padding:4px 8px;}
+.report-body th{background:var(--bg-s);font-weight:600;}
 .btn{border:none;border-radius:6px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;}
 .btn.primary{background:var(--blue);color:#fff;}.btn.primary:hover{opacity:.9;}
 .btn.ghost{background:var(--bg-s);border:1px solid var(--border);
@@ -1022,6 +1028,7 @@ function handleChunk(chunk){
     }
   }
   else if(t==='table'){breakStream();add(renderTable(d));}
+  else if(t==='report'){breakStream();add(renderReport(d));}
   else if(t==='confirm'){
     finPW();breakStream();ST.locked=true;lockInput(true);
     const card=renderConfirm(d);add(card);
@@ -1158,6 +1165,20 @@ function renderTable(d){
 function toggleSql(el){
   const pre=el.nextElementSibling;
   if(pre)pre.style.display=pre.style.display==='none'?'block':'none';
+}
+function renderReport(d){
+  const md=d.markdown||'';
+  const wf=d.word_filename||'';
+  let dlBtn='';
+  if(wf)dlBtn='<a href="/api/report/download/'+encodeURIComponent(wf)+'" download class="btn ghost" style="margin-left:8px">下载 Word</a>';
+  const preview=renderMd(md);
+  const h='<div class="report-card">'
+    +'<div class="report-header">'
+    +'<span style="font-weight:600">📄 报告已生成</span>'+dlBtn
+    +'</div>'
+    +'<div class="report-body">'+preview+'</div>'
+    +'</div>';
+  return el(h);
 }
 function renderConfirm(d){
   let tbl='';

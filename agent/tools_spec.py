@@ -193,6 +193,40 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    # ── generate_report（I-2）──
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_report",
+            "description": (
+                "根据固化计算结果生成结构化报告（Markdown + Word 导出）。"
+                "数字来自 run_calculator，不经 LLM 生成。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "report_type": {
+                        "type": "string",
+                        "enum": ["concentration", "nav", "asset_structure", "custom"],
+                        "description": "报告类型",
+                    },
+                    "data": {
+                        "type": "object",
+                        "description": "传入模板的数据字典（来自 run_calculator 结果）",
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "报告标题",
+                    },
+                    "export_word": {
+                        "type": "boolean",
+                        "description": "是否同时导出 Word 文件（默认 true）",
+                    },
+                },
+                "required": ["report_type", "data"],
+            },
+        },
+    },
 ]
 
 
@@ -264,6 +298,7 @@ _TOOL_TIMEOUTS: dict[str, int] = {
     "request_confirmation": 5,
     "propose_dict_entry": 10,
     "confirm_dict": 10,
+    "generate_report": 30,
 }
 
 
@@ -335,6 +370,7 @@ def dispatch_tool(name: str, args: dict, ctx: ToolContext) -> dict:
         "request_confirmation": _tool_request_confirmation,
         "propose_dict_entry": _tool_propose_dict_entry,
         "confirm_dict": _tool_confirm_dict,
+        "generate_report": _tool_generate_report,
     }
     handler = dispatch_map.get(name)
     if handler is None:
@@ -682,6 +718,70 @@ def _tool_confirm_dict(args: dict, ctx: ToolContext) -> dict:
         "merged_count": len(draft_entries.get("fields", [])),
         "dict_file": str(dict_file),
     }
+
+
+def _tool_generate_report(args: dict, ctx: ToolContext) -> dict:
+    """
+    根据固化计算结果生成 Markdown 报告并可选导出 Word。
+
+    report_type → 模板名映射：
+      concentration   → concentration_report
+      nav             → nav_report
+      asset_structure → concentration_report（结构类似，复用）
+      custom          → 需要 data["template"] 指定模板名
+    """
+    from tools.report_builder import render_report, export_word as _export_word
+    from datetime import datetime
+
+    report_type = args.get("report_type", "")
+    data = dict(args.get("data") or {})
+    title = args.get("title", "")
+    should_export = args.get("export_word", True)
+
+    template_map = {
+        "concentration": "concentration_report",
+        "nav": "nav_report",
+        "asset_structure": "concentration_report",
+        "custom": data.get("template", ""),
+    }
+    template_name = template_map.get(report_type, "")
+    if not template_name:
+        return {"ok": False, "error": f"未知报告类型：{report_type}"}
+
+    if title:
+        data.setdefault("title", title)
+    else:
+        labels = {
+            "concentration_report": "主体集中度监控报告",
+            "nav_report": "净值运作报告",
+        }
+        data.setdefault("title", labels.get(template_name, "DataAgent 报告"))
+
+    render_result = render_report(template_name, data)
+    if not render_result.ok:
+        return {"ok": False, "error": render_result.error}
+
+    result: dict = {
+        "ok": True,
+        "report_type": report_type,
+        "template": template_name,
+        "markdown": render_result.markdown,
+        "word_path": "",
+    }
+
+    if should_export:
+        output_dir = Path(__file__).resolve().parent.parent / "data" / "outputs"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        word_filename = f"{template_name}_{ts}.docx"
+        word_result = _export_word(render_result.markdown, str(output_dir / word_filename))
+        if word_result.ok:
+            result["word_path"] = word_result.word_path
+            result["word_filename"] = word_filename
+        else:
+            result["word_export_error"] = word_result.error
+
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -1,0 +1,24 @@
+{% include 'reports/base_report.md.j2' %}
+
+## 一、净值运作指标
+
+{% if metrics %}
+| 产品名称 | 净值日期 | 单位净值 | 7日收益率 | 月收益率 | 年初至今 |
+|----------|----------|----------|----------|----------|---------|
+{% for m in metrics %}| {{ m.product }} | {{ m.nav_date | default('—') }} | {{ "%.4f" | format(m.unit_nav) if m.unit_nav else '—' }} | {{ ("%.4f" | format(m.return_7d) + '%') if m.return_7d is not none else '—' }} | {{ ("%.4f" | format(m.return_1m) + '%') if m.return_1m is not none else '—' }} | {{ ("%.4f" | format(m.return_ytd) + '%') if m.return_ytd is not none else '—' }} |
+{% endfor %}
+
+{% if warnings %}
+### 数据异常提示
+
+{% for w in warnings %}
+- {{ w }}
+{% endfor %}
+{% endif %}
+
+{% else %}
+*暂无净值数据。*
+{% endif %}
+
+---
+*本报告由 DataAgent 自动生成，口径来源于固化计算器。*

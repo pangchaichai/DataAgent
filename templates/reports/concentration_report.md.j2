@@ -1,0 +1,33 @@
+{% include 'reports/base_report.md.j2' %}
+
+## 一、主体集中度监控结果
+
+**计算口径**：{{ market_value_field | default('穿透后市值') }}
+**集团合并**：{{ '是' if use_group_merge else '否' }}
+**超标阈值**：{{ threshold_pct | default(10.0) }}%
+
+{% if breaches %}
+### 超标主体（共 {{ breaches | length }} 项）
+
+| 序号 | 主体/债券 | 产品 | 集中度 | 阈值 | 市值（元） |
+|------|----------|------|--------|------|-----------|
+{% for b in breaches %}| {{ loop.index }} | {{ b.entity_or_bond }} | {{ b.product | default('—') }} | {{ "%.2f" | format(b.concentration_pct) }}% | {{ "%.2f" | format(b.threshold_pct) }}% | {{ "{:,.2f}".format(b.market_value) }} |
+{% endfor %}
+
+{% if warnings %}
+### 数据异常提示
+
+{% for w in warnings %}
+- {{ w }}
+{% endfor %}
+{% endif %}
+
+{% else %}
+### 监控结论
+
+当前全部主体集中度均在阈值（{{ threshold_pct | default(10.0) }}%）以内，无超标情况。
+
+{% endif %}
+
+---
+*本报告由 DataAgent 自动生成，口径来源于固化计算器，结果供参考，请结合业务实际判断。*

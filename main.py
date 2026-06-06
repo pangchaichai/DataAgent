@@ -860,6 +860,26 @@ def create_flask_app() -> Flask:
         get_logger().cleanup_old_logs()
         return jsonify({"ok": True})
 
+    # ── GET /api/report/download/<filename> — 下载 Word 报告 ─
+    @app.route('/api/report/download/<filename>')
+    def api_report_download(filename):
+        import re
+        from flask import send_from_directory
+        # 安全校验：只允许 alphanumeric + _ + - + .docx
+        if not re.match(r'^[\w\-]+\.docx$', filename):
+            return jsonify({"error": "非法文件名"}), 400
+        output_dir = os.path.join(BASE_DIR, 'data', 'outputs')
+        file_path = os.path.join(output_dir, filename)
+        if not os.path.isfile(file_path):
+            return jsonify({"error": "文件不存在"}), 404
+        return send_from_directory(output_dir, filename, as_attachment=True)
+
+    # ── GET /api/report/templates — 报告模板列表 ─────────────
+    @app.route('/api/report/templates')
+    def api_report_templates():
+        from tools.report_builder import list_templates
+        return jsonify({"templates": list_templates()})
+
     return app
 
 
