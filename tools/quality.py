@@ -11,8 +11,7 @@ tools/quality.py — 数据质量诊断
 所有计算使用 DuckDB 聚合 SQL，不逐行 Python 循环。
 """
 
-from dataclasses import dataclass, field, asdict
-from typing import Optional
+from dataclasses import dataclass, field
 
 import duckdb
 
@@ -33,7 +32,7 @@ JOIN_COMPAT_WARN = 0.80          # JOIN 匹配率 < 80% → warning
 class QualityReport:
     """数据质量诊断报告"""
     null_rates: dict[str, float] = field(default_factory=dict)
-    date_range: Optional[dict] = None       # {"column": str, "min": str, "max": str}
+    date_range: dict | None = None       # {"column": str, "min": str, "max": str}
     entity_coverage: dict = field(default_factory=dict)
     # {"matched": int, "total": int, "unmatched": [str, ...]}
     join_compatibility: dict = field(default_factory=dict)
@@ -149,7 +148,7 @@ def _compute_null_rates(conn, table_name: str) -> dict[str, float]:
     return null_rates
 
 
-def _detect_date_range(conn, table_name: str, field_map: dict) -> Optional[dict]:
+def _detect_date_range(conn, table_name: str, field_map: dict) -> dict | None:
     """检测日期列并返回 min/max 范围"""
     # 候选日期列：字段映射中 dtype=date 的列，或列名含"日期"
     date_cols = []
@@ -284,7 +283,7 @@ def _compute_join_compatibility(
     return compatibility
 
 
-def _guess_join_key(table_type: str, field_map: dict) -> Optional[str]:
+def _guess_join_key(table_type: str, field_map: dict) -> str | None:
     """根据表类型推断 JOIN 键"""
     if table_type in ('holding', 'rating_entity', 'rating_bond'):
         return (

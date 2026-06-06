@@ -9,8 +9,8 @@ platform/notify_driver.py
 """
 
 import os
-import sys
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 
 
@@ -65,6 +65,20 @@ class LinuxDesktopDriver(NotifyDriver):
             ConsoleFallback().push(message, title, level)
 
 
+class MacOSNotifyDriver(NotifyDriver):
+    """macOS 原生通知（Notification Center，使用内置 osascript，零额外依赖）"""
+
+    def push(self, message: str, title: str = "DataAgent", level: str = "info"):
+        try:
+            script = f'display notification "{message}" with title "{title}"'
+            subprocess.run(
+                ["osascript", "-e", script],
+                timeout=3, capture_output=True
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            ConsoleFallback().push(message, title, level)
+
+
 class ConsoleFallback(NotifyDriver):
     """
     控制台输出 — Claude Code SSH 环境的通知方式
@@ -91,7 +105,8 @@ def get_notify_driver() -> NotifyDriver:
     env = os.environ.get('DATAAGENT_ENV', 'auto').lower()
 
     if env == 'dev':
-        # 开发模式：Linux桌面 or 控制台
+        if sys.platform == 'darwin':
+            return MacOSNotifyDriver()
         if sys.platform.startswith('linux'):
             return LinuxDesktopDriver()
         return ConsoleFallback()
@@ -102,6 +117,9 @@ def get_notify_driver() -> NotifyDriver:
             return WindowsToastDriver()
         except ImportError:
             return ConsoleFallback()
+
+    if sys.platform == 'darwin':
+        return MacOSNotifyDriver()
 
     if sys.platform.startswith('linux'):
         return LinuxDesktopDriver()

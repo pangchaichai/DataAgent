@@ -10,7 +10,7 @@ agent/context.py — Agent 上下文构建
 所有信息来源于 data_loader 的已加载表注册表，不重复读取文件。
 """
 
-from tools.data_loader import get_loaded_tables, _loaded_tables
+from tools.data_loader import _loaded_tables, get_loaded_tables
 
 
 def build_schema_context() -> str:

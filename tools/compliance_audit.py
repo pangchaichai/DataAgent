@@ -11,13 +11,12 @@ tools/compliance_audit.py — 合规级审计日志
 所有日志写入 data/compliance_audit/ 目录的 JSONL 文件，追加写入不覆盖。
 """
 
-import json
 import hashlib
+import json
 import os
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from dataclasses import dataclass, field, asdict
-
 
 # ═══════════════════════════════════════════════════════════════
 #  Dataclass

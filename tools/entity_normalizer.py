@@ -12,8 +12,8 @@ JOIN 前使用归一后的标准名称，保证跨表关联准确。
 数据来源：data_dictionary/entity_alias.yaml
 """
 
+
 import yaml
-from pathlib import Path
 
 
 class EntityNormalizer:

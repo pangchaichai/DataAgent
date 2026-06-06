@@ -7,6 +7,7 @@ tests/test_tools.py — 工具层单元测试
 import os
 import sys
 import tempfile
+
 import pytest
 
 # 确保项目根目录在 sys.path 中
@@ -51,9 +52,9 @@ def utf8_csv():
 
 def test_init_duckdb_memory_limit():
     """验证 DuckDB 内存限制设置生效"""
-    from tools.data_loader import init_duckdb_connection
     # 重置全局连接，确保测试独立性
     import tools.data_loader as dl
+    from tools.data_loader import init_duckdb_connection
     dl._global_conn = None
     dl._loaded_tables.clear()
 
@@ -65,8 +66,8 @@ def test_init_duckdb_memory_limit():
 
 def test_init_duckdb_singleton():
     """验证多次调用返回同一连接"""
-    from tools.data_loader import init_duckdb_connection, get_connection
     import tools.data_loader as dl
+    from tools.data_loader import get_connection, init_duckdb_connection
     dl._global_conn = None
 
     c1 = init_duckdb_connection()
@@ -80,8 +81,8 @@ def test_init_duckdb_singleton():
 
 def test_load_csv_gb18030(gb18030_csv):
     """测试 GB18030 CSV 加载：编码检测 + 千分位清洗 + 字段映射"""
-    from tools.data_loader import load_file, get_connection, get_loaded_tables
     import tools.data_loader as dl
+    from tools.data_loader import get_connection, get_loaded_tables, load_file
     dl._global_conn = None
     dl._loaded_tables.clear()
     dl.init_duckdb_connection()
@@ -105,8 +106,8 @@ def test_load_csv_gb18030(gb18030_csv):
 
 def test_load_csv_utf8(utf8_csv):
     """测试 UTF-8 CSV 加载"""
-    from tools.data_loader import load_file
     import tools.data_loader as dl
+    from tools.data_loader import load_file
     dl._global_conn = None
     dl._loaded_tables.clear()
     dl.init_duckdb_connection()
@@ -118,8 +119,8 @@ def test_load_csv_utf8(utf8_csv):
 
 def test_load_csv_auto_encoding(gb18030_csv):
     """测试自动编码检测"""
-    from tools.data_loader import load_file
     import tools.data_loader as dl
+    from tools.data_loader import load_file
     dl._global_conn = None
     dl._loaded_tables.clear()
     dl.init_duckdb_connection()
@@ -132,8 +133,8 @@ def test_load_csv_auto_encoding(gb18030_csv):
 
 def test_load_nonexistent_file():
     """测试加载不存在的文件应抛出异常"""
-    from tools.data_loader import load_file
     import tools.data_loader as dl
+    from tools.data_loader import load_file
     dl._global_conn = None
     dl._loaded_tables.clear()
     dl.init_duckdb_connection()
@@ -148,8 +149,8 @@ def test_load_nonexistent_file():
 
 def test_field_mapping_missing_required(gb18030_csv):
     """验证必填字段缺失时会记录警告"""
-    from tools.data_loader import load_file
     import tools.data_loader as dl
+    from tools.data_loader import load_file
     dl._global_conn = None
     dl._loaded_tables.clear()
     dl.init_duckdb_connection()
@@ -280,8 +281,8 @@ def test_guard_unknown_table(duckdb_with_table):
 
 def test_guard_blocks_read_csv():
     """read_csv_auto 应被拦截"""
-    from tools.data_loader import init_duckdb_connection
     import tools.data_loader as dl
+    from tools.data_loader import init_duckdb_connection
     dl._global_conn = None
     conn = init_duckdb_connection()
     from tools.query_runner import SQLGuard
@@ -345,6 +346,7 @@ class TestQualityReport:
     def q_conn(self):
         """创建含空值和不同质量特征的测试表"""
         import duckdb
+
         import tools.data_loader as dl
         dl._global_conn = None
         dl._loaded_tables.clear()

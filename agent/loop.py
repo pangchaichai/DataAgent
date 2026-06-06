@@ -16,16 +16,15 @@ agent/loop.py — Agent 核心循环（Phase R1：重构为真正 tool-calling A
 
 import json
 import time
-from typing import Generator, Optional
+from collections.abc import Generator
 
-from tools.data_loader import get_connection, get_loaded_tables
-from tools.query_runner import execute_query, QueryResult
-from tools.error_translator import translate as translate_error
-from tools.runtime_logger import get_logger as _get_logger
+from agent.context import build_schema_context
 from agent.llm_client import LLMClient
 from agent.skill_loader import SkillLoader
-from agent.context import build_schema_context
-
+from tools.data_loader import get_loaded_tables
+from tools.error_translator import translate as translate_error
+from tools.query_runner import execute_query
+from tools.runtime_logger import get_logger as _get_logger
 
 # ═══════════════════════════════════════════════════════════════
 #  常量
@@ -151,9 +150,11 @@ def run_agent_loop(
     Yields SSE 事件字典。
     """
     # ── 加载 ToolContext ────────────────────────────────────
-    from agent.tools_spec import TOOL_DEFINITIONS, dispatch_tool, ToolContext
-    import yaml
     from pathlib import Path
+
+    import yaml
+
+    from agent.tools_spec import TOOL_DEFINITIONS, ToolContext, dispatch_tool
 
     config_path = Path(__file__).resolve().parent.parent / "config.yaml"
     with open(config_path, encoding="utf-8") as f:
@@ -367,7 +368,6 @@ def _execute_with_retry(args: dict, tool_ctx, tool_id: str) -> dict:
     执行 run_sql 工具，失败时尝试自动修正（最多 MAX_TOOL_RETRY 次）。
     仅对 syntax 类型错误自动重试，semantic/empty/anomaly 直接返回。
     """
-    from tools.query_runner import execute_query
 
     sql = args.get("sql", "")
     if not sql.strip():

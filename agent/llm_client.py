@@ -13,12 +13,11 @@ agent/llm_client.py — LLM 调用客户端
 import json
 import os
 import time
+from collections.abc import Generator
 from dataclasses import dataclass, field
-from typing import Generator, Optional
 
 import requests
 import yaml
-
 
 # ═══════════════════════════════════════════════════════════════
 #  Dataclass
@@ -58,6 +57,7 @@ class ReportDegradedResult:
     message: str
     numerical_data: dict = field(default_factory=dict)
     degraded: bool = True
+    success: bool = False
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -90,6 +90,7 @@ class LLMClient:
         self.providers = {
             'enterprise_internal': self.cfg.get('enterprise_internal', {}),
             'deepseek': self.cfg.get('deepseek', {}),
+            'lmstudio': self.cfg.get('lmstudio', {}),
         }
 
     # ── 公开接口 ──────────────────────────────────────────────
@@ -170,7 +171,7 @@ class LLMClient:
         )
         return self._format_degraded_output(prompt, degraded), degraded
 
-    def classify_intent(self, user_input: str, skill_registry: list[dict]) -> tuple[Optional[str], LLMResponse]:
+    def classify_intent(self, user_input: str, skill_registry: list[dict]) -> tuple[str | None, LLMResponse]:
         """
         意图分类端点（Phase 4 完整实现）。
 
@@ -242,6 +243,57 @@ class LLMClient:
             return self._chat_native(messages, tools, timeout, max_tokens)
         else:
             return self._chat_react(messages, tools, timeout, max_tokens)
+
+    # ── Provider 管理接口 ──────────────────────────────────────
+
+    def test_connection(self, provider: str = None) -> dict:
+        """测试 LLM provider 连通性，返回状态和可用模型列表。"""
+        import requests as _req
+        provider = provider or self.sql_gen_cfg.get('primary', 'enterprise_internal')
+        cfg = self.providers.get(provider)
+        if not cfg or not cfg.get('url'):
+            return {"ok": False, "error": f"未配置 provider: {provider}"}
+        url = cfg["url"].rstrip("/") + "/models"
+        api_key = (
+            os.environ.get(f"{provider.upper()}_API_KEY")
+            or cfg.get('api_key', '')
+        )
+        headers = {'Content-Type': 'application/json'}
+        if api_key and api_key not in self._PLACEHOLDER_KEYS:
+            headers['Authorization'] = f'Bearer {api_key}'
+        try:
+            resp = _req.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                models = resp.json().get("data", [])
+                return {
+                    "ok": True,
+                    "provider": provider,
+                    "models": [m["id"] for m in models],
+                    "configured_model": cfg.get("model", ""),
+                }
+            return {"ok": False, "error": f"HTTP {resp.status_code}"}
+        except _req.ConnectionError:
+            return {"ok": False, "error": f"无法连接 {cfg['url']}，请确认服务已启动"}
+        except _req.Timeout:
+            return {"ok": False, "error": "连接超时（5s）"}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
+    def list_providers(self) -> list[dict]:
+        """返回所有已配置的 provider 及其基本信息。"""
+        primary = self.sql_gen_cfg.get('primary', 'enterprise_internal')
+        result = []
+        for name, cfg in self.providers.items():
+            if not cfg or not cfg.get('url'):
+                continue
+            result.append({
+                "name": name,
+                "url": cfg.get("url", ""),
+                "model": cfg.get("model", ""),
+                "is_local": name == "lmstudio",
+                "is_primary": name == primary,
+            })
+        return result
 
     def _chat_native(
         self, messages: list[dict], tools: list[dict] | None,

@@ -19,12 +19,13 @@
   - 新增定时任务 = 在 task_config.yaml 添加配置项，不改代码
 """
 
-import schedule
 import threading
 import time
-import yaml
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import schedule
+import yaml
 
 
 class TaskManager:
@@ -119,7 +120,7 @@ class TaskManager:
             run_log_path.parent.mkdir(parents=True, exist_ok=True)
             with open(run_log_path, 'w', encoding='utf-8') as f:
                 json.dump(last_runs, f, ensure_ascii=False)
-        except (IOError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError):
             pass
 
     def _build_instruction(self, skill_name: str, params: dict) -> str:
@@ -168,8 +169,9 @@ class TaskManager:
           - 允许 data_max_age_days 天内的滞后（config.yaml 配置）
           - 过期则推送告警，不执行计算（防止假合规）
         """
-        from tools.data_loader import get_loaded_tables
         from datetime import datetime, timedelta
+
+        from tools.data_loader import get_loaded_tables
 
         tables = get_loaded_tables()
         today = datetime.now().strftime('%Y%m%d')
@@ -231,7 +233,7 @@ class TaskManager:
             try:
                 with open(run_log_path, encoding='utf-8') as f:
                     last_runs = json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 pass
 
         missed = []

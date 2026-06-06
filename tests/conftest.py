@@ -8,11 +8,11 @@ tests/conftest.py — 全局测试 fixtures 和钩子
 4. 测试会话结束后生成摘要
 """
 
+import json
 import os
 import sys
-import json
-import time
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 

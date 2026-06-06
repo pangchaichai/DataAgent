@@ -13,10 +13,9 @@ tools/entity_manager.py — 集团系管理
   两者组合：别名 → 标准名 → 集团系，完成从原始数据到集团合并的完整链路
 """
 
-import yaml
 from pathlib import Path
-from typing import Optional
 
+import yaml
 
 # ═══════════════════════════════════════════════════════════════
 #  EntityManager

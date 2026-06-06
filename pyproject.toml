@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "dataagent"
+version = "1.5.0"
+description = "自然语言 → 确定性计算 → 受控叙述 的本地资管分析助手"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",   # line too long — already enforced by line-length
+    "B008",   # do not perform function calls in default arguments
+    "UP007",  # Use X | Y for union — some Python 3.11 paths still use Optional
+]
+# 已有代码第一次 CI 时 ignore 以下，后续逐步清理
+per-file-ignores = { "tests/*" = ["F401", "F811"] }
+
+[tool.ruff.lint.isort]
+known-first-party = ["agent", "tools", "calculators", "platform_adapter"]
+
+[tool.pytest.ini_options]
+# 继承 pytest.ini；此处不重复设置以避免冲突

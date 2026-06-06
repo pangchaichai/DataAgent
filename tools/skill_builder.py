@@ -8,15 +8,12 @@ tools/skill_builder.py — Skill 自助创建与发布
   4. 发布到 skills/ 目录
 """
 
-import os
 import re
-import yaml
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from dataclasses import dataclass, field, asdict
-from typing import Optional
+
 
 from agent.skill_loader import SkillLoader, _parse_frontmatter
-
 
 # ═══════════════════════════════════════════════════════════════
 #  常量
@@ -105,7 +102,7 @@ def generate_skill_md(draft: SkillDraft) -> str:
     desc_body = draft.description.strip()
     if draft.trigger_words:
         desc_body += f'\n  触发词：{draft.trigger_words}'
-    lines.append(f'description: |')
+    lines.append('description: |')
     for dl in desc_body.split('\n'):
         lines.append(f'  {dl.strip()}')
 
@@ -189,7 +186,7 @@ def build_skill_generation_prompt(user_description: str) -> str:
 }}"""
 
 
-def parse_llm_skill_response(llm_output: str) -> Optional[SkillDraft]:
+def parse_llm_skill_response(llm_output: str) -> SkillDraft | None:
     """解析 LLM 返回的 JSON 为 SkillDraft"""
     import json
     text = llm_output.strip()
@@ -334,7 +331,7 @@ def save_draft(name: str, content: str) -> dict:
     return {"ok": True, "path": str(draft_path)}
 
 
-def load_draft(name: str) -> Optional[str]:
+def load_draft(name: str) -> str | None:
     """加载 Skill 草稿"""
     draft_path = DRAFTS_DIR / f'{name}.md'
     if not draft_path.exists():
