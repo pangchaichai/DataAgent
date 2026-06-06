@@ -1,7 +1,8 @@
-# DataAgent — Claude Code 主引导文件 v1.5
+# DataAgent — Claude Code 主引导文件 v2.0
 
 > **每次开始新会话，必须先完整阅读本文件。**
 > 版本历史见文末"改进记录"表格。
+> v2.0 融入 Evolution I-1~I-10（工程基建 / Harness 加固 / 报告图表 / Blueprint 拆分 / 规划层 / calculators 补齐 / JS 模块化）。
 > v1.5 融入 Phase R 重构（tool-calling Agent / 质量诊断 / UI 重建 / 自适应编码 / 跨会话记忆）。
 >
 > **测试指南**：完整测试策略见 `TESTING.md`。每次迭代后须按该文件第四章流程执行测试。
@@ -78,20 +79,36 @@ DataAgent 是一个「**自然语言 → 确定性计算 → 受控叙述**」�
 
 ---
 
-## 二、架构总览（v1.5 新增 Agent 工具编排层 + 剖析/质量层）
+## 二、架构总览（v2.0 新增 Blueprint API 层 + 规划执行层 + 扩展工具层）
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  交互层  PyWebView 窗口 / 对话 / 设置面板 / 确认卡片 / 告警横幅  │
+│          前端：9 个独立 ui/js/*.js 模块（I-10 模块化）          │
 ├──────────────────────────────────────────────────────────────┤
-│  ★Agent 工具编排层  LLM function-calling → 5 工具分发          │
-│    profile_table(剖析) / run_sql(探索) / run_calculator(固化)  │
-│    ask_user(澄清) / request_confirmation(确认)                 │
+│  ★Blueprint API 层  api/（I-7 拆分）                          │
+│    chat.py / data.py / config_api.py / skill_api.py          │
+│    report_api.py / system_api.py                             │
+│    session_store.py — 共享 _session + _stream_queues          │
+├──────────────────────────────────────────────────────────────┤
+│  ★规划执行层  agent/planner.py + agent/executor.py（I-8）      │
+│    should_plan() → build_plan() → run_with_plan()            │
+│    plan/plan_step/plan_done SSE 事件流                        │
+├──────────────────────────────────────────────────────────────┤
+│  ★Agent 工具编排层  LLM function-calling → 工具分发            │
+│    profile_table / run_sql / run_calculator                  │
+│    ask_user / request_confirmation                           │
+│    agent/hooks.py（Hook系统）+ agent/self_check.py（结果自检）  │
 │    暂停/续跑机制 + 会话 messages 持久化                         │
 ├──────────────────────────────────────────────────────────────┤
 │  业务能力层（两类，严格区分）                                   │
 │   A. 探索式分析：LLM 生成 SQL（允许灵活，经 SQLGuard 校验）      │
 │   B. 合规/报告口径：calculators/ 固化计算（禁止 LLM 生成 SQL）   │
+│      新增：position_diff / leverage / liquidity（I-9）        │
+├──────────────────────────────────────────────────────────────┤
+│  ★扩展工具层  tools/file_reader.py（Word/PDF解析，I-6）         │
+│              tools/web_search.py（DuckDuckGo联网，I-6）       │
+│              tools/cost_tracker.py（Token成本追踪，I-1）       │
 ├──────────────────────────────────────────────────────────────┤
 │  ★剖析/质量层  tools/profiler.py(表结构剖析 + 自适应编码)        │
 │              tools/quality.py(空值率/覆盖率/JOIN兼容性)         │
@@ -116,28 +133,33 @@ DataAgent 是一个「**自然语言 → 确定性计算 → 受控叙述**」�
 
 ---
 
-## 三、技术栈（v1.5 更新）
+## 三、技术栈（v2.0 更新）
 
 | 层级 | 选型 | 说明 |
 |------|------|------|
 | 桌面窗口 | pywebview 4.4.x | 原生窗口，pythonnet 3.x 兼容 |
-| 后端 | Flask（最小化） | 随机端口，避免冲突 |
-| 实时通信 | SSE（Server-Sent Events） | LLM 流式输出 + tool_start/tool_end/thinking/ask/confirm 事件 |
+| 后端 | Flask + Blueprint | 随机端口；api/ 目录 6 个 Blueprint 模块（I-7） |
+| 实时通信 | SSE（Server-Sent Events） | LLM 流式输出 + plan/plan_step/tool_start/tool_end/ask/confirm 事件 |
 | 数据引擎 | DuckDB（内嵌） | max_memory=200MB, threads=2 |
 | 数据处理 | Pandas | 清洗辅助 |
 | 编码检测 | **多编码竞争评分** | 自适应 UTF-8/GB18030/GBK/GB2312/Latin-1 |
 | SQL 解析 | sqlglot | CTE/子查询/别名感知的表名提取 |
 | 定时调度 | schedule 库 | 轻量，含补跑检测 + 数据时效校验 |
-| 前端 | 单 HTML 文件 | vanilla JS + 本地 CSS + 本地 ECharts（**零 CDN**） |
-| 报告模板 | Jinja2 | 渲染引擎 |
+| 前端 | HTML + 9个独立 JS 模块 | vanilla JS + 本地 CSS + 本地 ECharts（**零 CDN**）；ui/js/ 目录（I-10） |
+| 报告模板 | Jinja2 + python-docx | 渲染引擎 + Word 文档导出（I-2） |
+| 文档解析 | python-docx / pypdf2 | Word/PDF 文件读取（I-6） |
+| 联网搜索 | duckduckgo-search | DuckDuckGo 搜索 API，可选 dev 依赖（I-6） |
 | 系统通知 | winotify / osascript | Windows=toast，macOS=Notification Center |
 | 配置 | PyYAML | config.yaml / task_config.yaml / groups.yaml |
-| 日志 | append-only JSONL | 会话日志 + 独立合规审计日志 |
+| 日志 | append-only JSONL | 会话日志 + 独立合规审计日志 + 运行时两级日志 |
 | LLM | DeepSeek / Qwen3-32B / LM Studio 本地 | OpenAI function-calling 原生支持（tool_mode: native）；本地测试支持 LM Studio |
 | 记忆检索 | rank_bm25 + SQLite | 跨会话口径纠正（默认关闭，仅本机） |
+| 成本追踪 | tools/cost_tracker.py | Token 用量 + 估算费用，按 endpoint/model 分类（I-1） |
 | 系统监控 | psutil | 内存/进程健康检查 |
 | 打包 | PyInstaller --onedir | 单目录绿色版 |
+| 测试 | pytest + pytest-cov | pyproject.toml 配置，PreCommit hook 自动运行 |
 
+Evolution 新增依赖：`python-docx` `duckduckgo-search`（可选）
 Phase R 新增依赖：`psutil` `rank_bm25`
 开发依赖文件：`requirements-dev.txt`（Linux/macOS）
 生产依赖文件：`requirements-prod.txt`（Windows，含 pywebview/winotify/pyinstaller/pythonnet）
@@ -149,24 +171,45 @@ Phase R 新增依赖：`psutil` `rank_bm25`
 ```
 DataAgent/
 ├── CLAUDE.md
-├── main.py
-├── config.yaml
+├── PROGRESS.md
+├── pyproject.toml             ← ★I-1: pytest + ruff 配置
+├── main.py                    ← ★I-7: 108行，仅启动逻辑
+├── session_store.py           ← ★I-7: 共享 _session/_stream_queues/锁
+├── config.yaml                ← 运行时配置（.gitignore，从 config.example.yaml 复制）
+├── config.example.yaml        ← 配置模板（提交到 git）
+├── .env.example               ← API Key 模板
 ├── groups.yaml
+│
+├── api/                       ← ★I-7: Flask Blueprint 拆分
+│   ├── __init__.py            ← register_blueprints(app)
+│   ├── chat.py                ← /api/chat + /api/stream + confirm/reset/sessions
+│   ├── data.py                ← /api/tables + /api/upload（两阶段）
+│   ├── config_api.py          ← /api/config + /api/groups + memory
+│   ├── skill_api.py           ← /api/skills + /api/skill-builder/*
+│   ├── report_api.py          ← /api/report/download
+│   └── system_api.py          ← /api/health + /api/status + /api/llm/* + /api/logs/*
 │
 ├── agent/
 │   ├── loop.py                ← ★R1: tool-calling 循环
-│   ├── tools_spec.py          ← ★R1: 5 工具定义 + dispatch
+│   ├── tools_spec.py          ← ★R1: 工具定义 + dispatch + 场景化过滤（I-1b）
 │   ├── llm_client.py          ← ★R1: ChatResult + chat() (function-calling)
-│   ├── context.py             ← ★R2: 注入质量诊断摘要
+│   ├── context.py             ← ★R2+I-3b: 注入质量摘要 + 三级压缩
+│   ├── planner.py             ← ★I-8: should_plan() + build_plan() + Plan/PlanStep
+│   ├── executor.py            ← ★I-8: run_with_plan() + _StepTracker + SSE 事件
+│   ├── hooks.py               ← ★I-1b/I-5b: Hook系统 + 审计 hash chain
+│   ├── self_check.py          ← ★I-1b: 工具参数校验 + 结果语义自检
 │   ├── skill_loader.py
 │   └── memory.py              ← ★R5: BM25 + SQLite 收窄记忆
 │
-├── calculators/               ← ★新增：固化计算模块（P0-1）
+├── calculators/               ← 固化计算模块（P0-1，禁止 LLM 生成 SQL）
 │   ├── README.md
-│   ├── concentration.py       ← 主体/单券集中度固化计算
-│   ├── nav_metrics.py         ← 净值指标固化计算
-│   ├── asset_structure.py     ← 资产结构固化计算
-│   ├── credit_distribution.py ← 信用评级分布固化计算
+│   ├── concentration.py       ← 主体/单券集中度
+│   ├── nav_metrics.py         ← 净值指标
+│   ├── asset_structure.py     ← 资产结构
+│   ├── credit_distribution.py ← 信用评级分布
+│   ├── position_diff.py       ← ★I-9: 跨期持仓对比（新建仓/清仓/加减仓）
+│   ├── leverage.py            ← ★I-9: 杠杆率计算 + 超标检测
+│   ├── liquidity.py           ← ★I-9: 流动性四档分层 + 覆盖率
 │   └── _base.py
 │
 ├── data_dictionary/           ← 语义层（P0-2/P0-4）
@@ -180,30 +223,39 @@ DataAgent/
 │   ├── entity_alias.yaml      ← 主体别名归一表
 │   └── drafts/                ← ★R4: 内联推断草稿目录
 │
+├── templates/                 ← ★I-2: 报告 Jinja2 模板
+│   └── reports/
+│       ├── base_report.md.j2
+│       ├── concentration_report.md.j2
+│       └── nav_report.md.j2
+│
 ├── scheduler/
-│   └── task_manager.py        ← 新增补跑机制（P1-1）
+│   └── task_manager.py        ← 补跑机制（P1-1）
 │
 ├── tasks/
 │   └── task_config.yaml
 │
 ├── tools/
 │   ├── __init__.py
-│   ├── data_loader.py         ← ★R2-fix: 多编码竞争评分 + drop_table
+│   ├── data_loader.py         ← 多编码竞争评分 + drop_table
 │   ├── query_runner.py        ← sqlglot 解析 + 增强 SQLGuard（P1-4）
-│   ├── profiler.py            ← ★R1: Agent 自行剖析表结构
-│   ├── quality.py             ← ★R2: 数据质量诊断报告
+│   ├── profiler.py            ← Agent 自行剖析表结构
+│   ├── quality.py             ← 数据质量诊断报告
 │   ├── entity_manager.py
 │   ├── entity_normalizer.py   ← 主体归一（P0-4）
-│   ├── report_builder.py
-│   ├── chart_builder.py
+│   ├── report_builder.py      ← ★I-2: Jinja2渲染 + python-docx Word导出
+│   ├── chart_builder.py       ← ★I-3: 5种图表 + 自动选型 + ECharts option
+│   ├── file_reader.py         ← ★I-6: Word/PDF/TXT 文档解析
+│   ├── web_search.py          ← ★I-6: DuckDuckGo 搜索（可选 dev 依赖）
+│   ├── cost_tracker.py        ← ★I-1: Token 成本追踪（单例，按 endpoint/model）
 │   ├── notify.py
 │   ├── error_translator.py    ← 用户侧错误话术（P2-5）
 │   ├── compliance_audit.py    ← 合规级审计日志（P1-6）
-│   ├── skill_builder.py       ← ★v1.6: Skill 自助创建/校验/发布
-│   └── runtime_logger.py      ← ★v1.6: 两级运行日志系统
+│   ├── skill_builder.py       ← Skill 自助创建/校验/发布
+│   └── runtime_logger.py      ← 两级运行日志系统（basic/detailed）
 │
 ├── skills/
-│   ├── concentration_monitor/ ← 已改：引用 calculators，不让 LLM 生成 SQL
+│   ├── concentration_monitor/ ← 引用 calculators，禁 LLM 生成 SQL
 │   ├── partnership_summary/
 │   ├── dept_weekly_report/    ← 模板待确认，Phase 4 进入条件
 │   ├── monthly_bond_summary/  ← 模板待确认，Phase 4 进入条件
@@ -215,22 +267,53 @@ DataAgent/
 ├── schemas/                   ← 仍保留（兼容），内容指向 data_dictionary/
 ├── prompts/
 ├── ui/
-│   └── index.html             ← @mention 含边界定义（P2-6）
+│   ├── index.html             ← 纯 HTML 结构 + <script src> 引用（I-10 模块化后）
+│   ├── echarts.min.js         ← 本地 ECharts，零 CDN
+│   └── js/                   ← ★I-10: 9 个独立 JS 模块
+│       ├── state.js           ← 全局 ST 状态 + 流式变量
+│       ├── dom.js             ← $()、api()、toast、setSendMode、剪贴板
+│       ├── render.js          ← Markdown/表格/图表/报告/计划卡片渲染
+│       ├── chat.js            ← SSE 收发 + handleChunk（含 plan 事件）
+│       ├── upload.js          ← 两阶段上传弹窗
+│       ├── sidebar.js         ← 会话/表/技能/集团/推荐
+│       ├── settings.js        ← 设置面板、LLM配置、记忆、日志
+│       ├── skill_builder.js   ← Skill 自助创建四步向导
+│       └── main.js            ← 初始化、键盘/拖拽绑定、健康轮询
+│
 ├── data/
 │   ├── uploads/
 │   ├── outputs/
 │   ├── sessions/              ← 会话日志
-│   ├── compliance_audit/      ← ★新增：合规审计日志目录
-│   ├── logs/                  ← ★v1.6: 运行日志（JSONL按日滚动）
-│   └── skill_drafts/          ← ★v1.6: Skill 草稿暂存
+│   ├── compliance_audit/      ← 合规审计日志
+│   ├── logs/                  ← 运行日志（JSONL按日滚动）
+│   ├── skill_drafts/          ← Skill 草稿暂存
+│   └── test_reports/          ← pytest 覆盖率报告 + latest_summary.json
+│
 ├── docs/
+│   ├── evolution-master-plan.md  ← 权威演进指南（替代旧 roadmap）
+│   └── ...
+│
 ├── tests/
-│   ├── test_agent.py          ← 含 R1 tool-calling / R4/R5 记忆 测试
-│   ├── test_tools.py           ← 含 R2 质量诊断 测试
-│   ├── test_calculators.py    ← 固化计算单测（P0-1要求）
-│   ├── test_profiler.py       ← ★R1: profiler 单测
-│   └── test_platform.py       ← 平台适配层单测
-└── requirements.txt
+│   ├── conftest.py            ← pytest fixtures（tmp dirs, mock config）
+│   ├── test_agent.py          ← tool-calling 循环 + 记忆 + LLM client
+│   ├── test_calculators.py    ← 固化计算单测（30个用例，含I-9新增）
+│   ├── test_chart_builder.py  ← ★I-3: 图表生成（180行）
+│   ├── test_context.py        ← ★I-3b: 三级压缩（321行）
+│   ├── test_executor.py       ← ★I-8: run_with_plan + StepTracker（178行）
+│   ├── test_file_reader.py    ← ★I-6: 文档解析（需 python-docx）
+│   ├── test_hooks.py          ← ★I-1b: Hook系统（169行）
+│   ├── test_llm_provider.py   ← LLM provider 切换与测试
+│   ├── test_planner.py        ← ★I-8: should_plan/build_plan（202行）
+│   ├── test_platform.py       ← 平台适配层
+│   ├── test_profiler.py       ← profiler 单测
+│   ├── test_report_builder.py ← ★I-2: 报告渲染+Word导出（需 python-docx）
+│   ├── test_runtime_logger.py ← 运行时日志
+│   ├── test_self_check.py     ← ★I-1b: 结果自检（255行）
+│   ├── test_skill_builder.py  ← Skill 自助创建
+│   ├── test_tools.py          ← data_loader + query_runner + quality
+│   └── test_web_search.py     ← ★I-6: 联网搜索（需 duckduckgo-search）
+│
+└── requirements-dev.txt       ← 开发依赖（Linux/macOS）
 ```
 
 ---
@@ -879,4 +962,17 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v1.6 | 运行时两级日志系统（basic/detailed + 自动清理 + API 查询） | 用户体验需求 |
 | v1.6 | claude测试策略新增 | 用户体验需求 |
 | v1.7 | macOS 客户端支持（原生通知 + 平台感知） | 多平台需求 |
+| v2.0 | I-1: pyproject.toml + PreCommit hook + CostTracker + .env 密钥分离 | Evolution |
+| v2.0 | I-1b: Hook系统(agent/hooks.py) + 结果自检(self_check.py) + 场景化工具过滤 | Evolution |
+| v2.0 | I-2: 报告生成管线 — Jinja2渲染 + python-docx Word导出 + 三个报告模板 | Evolution |
+| v2.0 | I-3: 图表生成 — 5种图表+自动选型+ECharts option生成(chart_builder扩展) | Evolution |
+| v2.0 | I-3b: Agent上下文三级压缩 + CostTracker埋点(context.py重构) | Evolution |
+| v2.0 | I-4: 上传两阶段确认弹窗（预解析质量报告 → 确认入库） | Evolution |
+| v2.0 | I-5: /api/status + /api/suggestions + /api/llm/providers + /api/llm/test | Evolution |
+| v2.0 | I-5b: 审计 hash chain（SHA-256 前后链，防篡改） | Evolution |
+| v2.0 | I-6: 文档解析(file_reader.py) + 联网搜索(web_search.py + DuckDuckGo) | Evolution |
+| v2.0 | I-7: main.py拆分为Flask Blueprint(api/目录6模块) + session_store.py共享状态 | Evolution |
+| v2.0 | I-8: Agent规划层 — planner.py + executor.py + plan/plan_step SSE事件 | Evolution |
+| v2.0 | I-9: calculators补齐 — position_diff/leverage/liquidity（含30个单测） | Evolution |
+| v2.0 | I-10: 前端JS模块化 — index.html内联脚本拆成9个独立ui/js/*.js文件 | Evolution |
 | v1.7 | 本地 LLM 测试支持（LM Studio + qwen/qwen3-8b） | 开发效率 |

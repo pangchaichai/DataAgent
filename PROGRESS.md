@@ -4,13 +4,33 @@
 
 ---
 
-## 当前阶段：演进迭代 I-10 完成 → 下一步 I-11（待规划）
+## 当前阶段：Evolution I-1 ~ I-10 全部完成（2026-06-06）→ 下一步 I-11（待规划）
 
 ## Evolution Master Plan 迭代记录
-- [x] I-7 (2026-06-06): main.py 拆分为 Flask Blueprint 模块 + session_store.py 共享状态
-- [x] I-8 (2026-06-06): Agent 规划层 — planner.py + executor.py + plan/plan_step SSE 事件
-- [x] I-9 (2026-06-06): calculators 补齐 — position_diff / leverage / liquidity（含单测）
-- [x] I-10 (2026-06-06): 前端 JS 模块化 — 单体 index.html 拆成 9 个独立 js 文件
+
+### 已完成（I-1 ~ I-10，全部推送到 claude/trusting-goodall-O4ezp）
+
+| 迭代 | 完成日期 | 核心交付物 | 新增测试 |
+|------|---------|-----------|---------|
+| I-1 | 2026-06-06 | pyproject.toml + .claude/settings.json PreCommit hook + tools/cost_tracker.py + config.example.yaml | test_hooks.py, test_self_check.py |
+| I-1b | 2026-06-06 | agent/hooks.py（Hook系统）+ agent/self_check.py（结果自检）+ tools_spec.py 场景化工具过滤 | 含入 I-1 测试 |
+| I-2 | 2026-06-06 | tools/report_builder.py 扩展（Jinja2+Word导出）+ templates/reports/ 三个模板 | test_report_builder.py (234行) |
+| I-3 | 2026-06-06 | tools/chart_builder.py 扩展（5种图表+自动选型）| test_chart_builder.py (180行) |
+| I-3b | 2026-06-06 | agent/context.py 三级压缩 + CostTracker 埋点 | test_context.py (321行) |
+| I-4 | 2026-06-06 | 上传两阶段确认弹窗（/api/upload 预解析 → /api/upload/confirm 入库）| — |
+| I-5 | 2026-06-06 | /api/status + /api/suggestions + /api/llm/providers + /api/llm/test | — |
+| I-5b | 2026-06-06 | agent/hooks.py 审计 hash chain（SHA-256 前后链）| test_hooks.py |
+| I-6 | 2026-06-06 | tools/file_reader.py（Word/PDF解析）+ tools/web_search.py（DuckDuckGo）| test_file_reader.py, test_web_search.py |
+| I-7 | 2026-06-06 | main.py 拆分为 Blueprint（api/ 目录 6 个模块）+ session_store.py | — |
+| I-8 | 2026-06-06 | agent/planner.py + agent/executor.py + plan/plan_step/plan_done SSE 事件 | test_planner.py (202行), test_executor.py (178行) |
+| I-9 | 2026-06-06 | calculators/position_diff.py + leverage.py + liquidity.py | test_calculators.py +15用例 |
+| I-10 | 2026-06-06 | 前端 JS 模块化：index.html 内联脚本 1280行 → 9个独立 ui/js/*.js 文件 | — |
+
+### 测试统计（I-10 完成时）
+- 总测试数：327（含 1 skip）
+- 通过：311
+- 失败：15（均为可选 dev 依赖未装：python-docx / duckduckgo-search，核心模块全绿）
+- 核心模块覆盖率：calculators ≥ 88%，agent/planner 100%，tools/query_runner 84%
 
 ## Phase R — Agent 内核重构 ✅ 完成（2026-06-04）
 - [x] R1: Agent 内核重构为 tool-calling Agent（5 工具 + function-calling + 暂停续跑）
