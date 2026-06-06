@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-06-05T12:12:00.992575",
-  "total": 77,
-  "passed": 60,
-  "failed": 17,
+  "timestamp": "2026-06-05T23:15:19.164060",
+  "total": 125,
+  "passed": 114,
+  "failed": 11,
   "skipped": 0,
   "errors": 0,
   "exit_status": 1,
-  "duration_seconds": 2.31,
+  "duration_seconds": 3.53,
   "failed_tests": [
     {
       "nodeid": "tests/test_agent.py::TestLLMClient::test_report_text_with_deepseek",
@@ -17,60 +17,36 @@
       "message": "<ExceptionInfo AssertionError(\"SQL 生成应成功: api_key\\nassert False\\n +  where False = LLMResponse(success=False, text='', endpoint='deepseek', model='deepseek-chat', token_count=0, elapsed_ms=0, error='api_key').success\") tblen=24>"
     },
     {
-      "nodeid": "tests/test_agent.py::TestCategorizeError::test_syntax_error",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestCategorizeError::test_semantic_column_error",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestCategorizeError::test_semantic_table_error",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestCategorizeError::test_empty_result",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestCategorizeError::test_anomaly",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
-    },
-    {
-      "nodeid": "tests/test_agent.py::TestCategorizeError::test_parser_error_is_syntax",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
-    },
-    {
       "nodeid": "tests/test_agent.py::TestAgentLoopBasic::test_loop_no_tables_yields_help",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
+      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
     },
     {
       "nodeid": "tests/test_agent.py::TestAgentLoopBasic::test_loop_max_turns",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
+      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
     },
     {
       "nodeid": "tests/test_agent.py::TestAgentLoopBasic::test_loop_yields_stream_end",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
+      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
     },
     {
       "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_loop_multistep_runs_tools",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
+      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
     },
     {
       "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_loop_calculator_path",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
+      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
     },
     {
       "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_loop_ask_user_pause_resume",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
+      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
     },
     {
       "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_no_llm_sql_for_compliance",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
+      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
     },
     {
       "nodeid": "tests/test_agent.py::TestToolCallingLoop::test_multiturn_memory",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'pandas'\") tblen=26>"
+      "message": "<ExceptionInfo FileNotFoundError(2, 'No such file or directory') tblen=25>"
     },
     {
       "nodeid": "tests/test_agent.py::TestAgentMemory::test_memory_enabled_save_recall",
