@@ -14,8 +14,8 @@
 ## 零、开发环境与平台策略（重要，必读）
 
 ### 当前环境
-- **开发环境**：Linux（Claude Code）
-- **目标运行环境**：Windows 11
+- **开发环境**：Linux（Claude Code）/ macOS
+- **目标运行环境**：Windows 11 / macOS
 
 ### 解决策略：平台适配层
 
@@ -23,24 +23,33 @@
 
 ```
 platform_adapter/
-├── ui_driver.py      → 窗口驱动（Linux=浏览器，Windows=PyWebView）
-└── notify_driver.py  → 通知推送（Linux=终端/notify-send，Windows=toast）
+├── ui_driver.py      → 窗口驱动（Linux/macOS=浏览器，Windows=PyWebView）
+└── notify_driver.py  → 通知推送（Linux=notify-send，macOS=osascript，Windows=toast）
 ```
 
-### Linux 可以完整开发和测试的内容（所有业务逻辑）
+### Linux/macOS 可以完整开发和测试的内容（所有业务逻辑）
 Flask后端 / Agent Loop / DuckDB / calculators/ / data_dictionary/ / Skills系统 / LLM调用
 
 ### 必须等 Windows 的内容（仅UI层，Phase 5 统一处理）
 PyWebView 原生窗口 / winotify toast / PyInstaller 打包 / WebView2内存测试
 
+### LLM 测试策略
+- **本地开发测试**：LM Studio + qwen/qwen3-8b（数据不出本机，零成本）
+- **远程 API 测试**：DeepSeek（需 API Key）
+- **企业生产**：内网 LLM（合规要求）
+
 ### 启动方式
 ```bash
-# Linux 开发（自动走浏览器模式）
+# Linux/macOS 开发（自动走浏览器模式）
 pip install -r requirements-dev.txt
 python main.py
 
 # Windows 生产（自动走 PyWebView）
 pip install -r requirements-prod.txt
+python main.py
+
+# 使用本地 LLM 测试（需先启动 LM Studio Local Server）
+# config.yaml 中设置 llm.sql_gen.primary: lmstudio
 python main.py
 ```
 
@@ -60,7 +69,7 @@ DataAgent 是一个「**自然语言 → 确定性计算 → 受控叙述**」�
 
 | 约束 | 具体要求 |
 |------|---------|
-| 运行环境 | Windows 11，4–8 GB RAM，无独立 GPU |
+| 运行环境 | Windows 11 / macOS，4–8 GB RAM，无独立 GPU |
 | 内存目标 | **Python 进程树 < 200MB**（WebView2 渲染进程独立计算，Day 1 实测确认，必要时与业务方重新协商） |
 | 数据合规 | 实际数值不出内网；**问题文本和表名含敏感商业信息，SQL 生成优先走内网 LLM**；外部 LLM 仅作兜底且需合规签字 |
 | 用户背景 | 投资业务人员，非技术人员，设计不得有技术门槛 |
@@ -121,16 +130,16 @@ DataAgent 是一个「**自然语言 → 确定性计算 → 受控叙述**」�
 | 定时调度 | schedule 库 | 轻量，含补跑检测 + 数据时效校验 |
 | 前端 | 单 HTML 文件 | vanilla JS + 本地 CSS + 本地 ECharts（**零 CDN**） |
 | 报告模板 | Jinja2 | 渲染引擎 |
-| 系统通知 | winotify | Windows toast 通知 |
+| 系统通知 | winotify / osascript | Windows=toast，macOS=Notification Center |
 | 配置 | PyYAML | config.yaml / task_config.yaml / groups.yaml |
 | 日志 | append-only JSONL | 会话日志 + 独立合规审计日志 |
-| LLM | DeepSeek / Qwen3-32B | OpenAI function-calling 原生支持（tool_mode: native） |
+| LLM | DeepSeek / Qwen3-32B / LM Studio 本地 | OpenAI function-calling 原生支持（tool_mode: native）；本地测试支持 LM Studio |
 | 记忆检索 | rank_bm25 + SQLite | 跨会话口径纠正（默认关闭，仅本机） |
 | 系统监控 | psutil | 内存/进程健康检查 |
 | 打包 | PyInstaller --onedir | 单目录绿色版 |
 
 Phase R 新增依赖：`psutil` `rank_bm25`
-开发依赖文件：`requirements-dev.txt`（Linux）
+开发依赖文件：`requirements-dev.txt`（Linux/macOS）
 生产依赖文件：`requirements-prod.txt`（Windows，含 pywebview/winotify/pyinstaller/pythonnet）
 
 ---
@@ -498,6 +507,7 @@ class TaskManager:
 llm:
   sql_gen:
     primary: enterprise_internal    # 优先走内网
+    # primary: lmstudio             # ★ 本地开发测试时切换
     fallback: deepseek              # 兜底外部（需合规签字）
     external_allowed: false
     tool_mode: native               # ★R1: native = OpenAI function-calling
@@ -517,6 +527,12 @@ llm:
     url: https://api.deepseek.com/v1
     model: deepseek-chat
     api_key: ${DEEPSEEK_API_KEY}
+
+  lmstudio:                         # ★ 本地 LLM（LM Studio）
+    url: http://localhost:1234/v1    # LM Studio 默认端口
+    model: qwen/qwen3-8b            # 当前测试模型
+    api_key: lm-studio              # 占位符，LM Studio 不校验
+    timeout: 120                    # 本地推理较慢
 
 calculation_config:                 # 固化计算口径配置
   concentration:
@@ -541,6 +557,7 @@ memory:                             # ★R5: 跨会话记忆（默认关闭）
 | SQL生成（探索式） | sql_gen.primary | 字典映射后的语义字段名 + 用户问题 | ⚠️ 同上 |
 | 固化计算（合规/报告） | 本地calculators函数 | **不调用 LLM** | ✅ 无外发 |
 | 报告文字生成 | report_text | 精确计算结果数值 | ✅ 只走内网 |
+| 本地开发测试 | lmstudio | 同 sql_gen | ✅ 数据不出本机 |
 
 ---
 
@@ -861,3 +878,5 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v1.6 | Skill 自助创建与发布（LLM辅助生成+校验+草稿+发布） | 用户体验需求 |
 | v1.6 | 运行时两级日志系统（basic/detailed + 自动清理 + API 查询） | 用户体验需求 |
 | v1.6 | claude测试策略新增 | 用户体验需求 |
+| v1.7 | macOS 客户端支持（原生通知 + 平台感知） | 多平台需求 |
+| v1.7 | 本地 LLM 测试支持（LM Studio + qwen/qwen3-8b） | 开发效率 |

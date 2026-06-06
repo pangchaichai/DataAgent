@@ -143,7 +143,7 @@ DataAgent 采用**应用层沙箱**（SQLGuard + 封闭工具集）而非进程�
 ### 迭代依赖图
 
 ```
-I-1  工程基建+测试修复
+I-1  工程基建+测试修复+macOS+本地LLM
  │
  └─→ I-1b Harness 加固
       │
@@ -165,17 +165,19 @@ I-1  工程基建+测试修复
 
 ---
 
-### I-1：工程基建 + 测试修复（3-4 天）
+### I-1：工程基建 + 测试修复 + macOS 支持 + 本地 LLM（5-6 天）
 
-**目标**：建立自动化质量门控 + 全部测试绿灯。
+**目标**：建立自动化质量门控 + 全部测试绿灯 + macOS 客户端可用 + 本地 LLM 可选。
 
 **当前问题**：
 - `config.yaml` 不存在 → 8 个 agent/loop 测试 FileNotFoundError
 - `ReportDegradedResult` 缺少 `success` 属性 → 1 个测试失败
 - DeepSeek API key 未配置 → 1 个测试依赖外部服务
 - AgentMemory 测试断言错误 → 1 个测试失败
+- macOS 通知走 ConsoleFallback，无原生通知支持
+- 无法使用本地 LLM 测试，必须依赖外部 API
 
-**文件清单**：
+#### I-1.A 工程基建 + 测试修复
 
 | 操作 | 文件 | 说明 |
 |------|------|------|
@@ -188,10 +190,189 @@ I-1  工程基建+测试修复
 | 修改 | `tests/test_agent.py` | loop 测试用 fixture 提供 mock config；API key 测试改 mock |
 | 修改 | `tests/conftest.py` | 添加 `config_fixture` 提供测试用 config dict |
 
+#### I-1.B macOS 客户端支持
+
+**背景**：当前 UI 驱动层已适配 Linux（BrowserDevDriver）和 Windows（PyWebViewDriver），macOS 自动回退到 BrowserDevDriver，功能正常但通知走 ConsoleFallback（无桌面弹窗）。需要：① 原生 macOS 通知；② 平台感知显示正确的系统信息；③ macOS 依赖文件。
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 修改 | `platform_adapter/notify_driver.py` | 新增 `MacOSNotifyDriver`（使用 `osascript` 调 Notification Center，macOS 内置无需额外依赖）；`get_notify_driver()` 增加 `sys.platform == 'darwin'` 分支 |
+| 修改 | `platform_adapter/ui_driver.py` | `BrowserDevDriver.start()` 根据 `sys.platform` 显示平台提示（Linux/macOS）；macOS 下 Ctrl+C → Cmd+C 提示 |
+| 修改 | `tests/test_platform.py` | 补充 macOS 通知驱动单测（mock `subprocess.run` 验证 osascript 参数） |
+
+**MacOSNotifyDriver 实现**（`platform_adapter/notify_driver.py`）：
+```python
+class MacOSNotifyDriver(NotifyDriver):
+    """macOS 原生通知（Notification Center，使用内置 osascript）"""
+
+    def push(self, message: str, title: str = "DataAgent", level: str = "info"):
+        try:
+            script = f'display notification "{message}" with title "{title}"'
+            subprocess.run(
+                ["osascript", "-e", script],
+                timeout=3, capture_output=True
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            ConsoleFallback().push(message, title, level)
+```
+
+**get_notify_driver() 更新**：
+```python
+def get_notify_driver() -> NotifyDriver:
+    env = os.environ.get('DATAAGENT_ENV', 'auto').lower()
+
+    if env == 'dev':
+        if sys.platform == 'darwin':
+            return MacOSNotifyDriver()
+        if sys.platform.startswith('linux'):
+            return LinuxDesktopDriver()
+        return ConsoleFallback()
+
+    if sys.platform == 'win32':
+        # ... Windows 逻辑不变
+    if sys.platform == 'darwin':
+        return MacOSNotifyDriver()
+    if sys.platform.startswith('linux'):
+        return LinuxDesktopDriver()
+    return ConsoleFallback()
+```
+
+**BrowserDevDriver 平台感知**（`platform_adapter/ui_driver.py`）：
+```python
+def start(self, flask_app, port, title, width, height):
+    # ...
+    platform_name = "macOS" if sys.platform == 'darwin' else "Linux"
+    stop_key = "Cmd+C" if sys.platform == 'darwin' else "Ctrl+C"
+    print(f"  DataAgent 开发模式（{platform_name}/Browser）")
+    print(f"  访问地址：{url}")
+    print(f"  关闭方式：{stop_key}")
+```
+
+#### I-1.C 本地 LLM 测试支持（LM Studio）
+
+**背景**：开发和测试阶段频繁调用外部 API 存在成本和网络依赖问题。LM Studio 提供 OpenAI 兼容 API（默认 `http://localhost:1234/v1`），可在本地运行开源模型。当前测试模型为 `qwen/qwen3-8b`（LM Studio 中加载）。由于 LLM Client 已使用 OpenAI 格式，只需新增 provider 配置 + 连通性检测 + UI 选择入口。
+
+**安全说明**：本地 LLM 所有数据不出本机，天然满足数据合规要求。但本地模型推理能力弱于云端模型，**仅建议用于开发测试**，生产环境合规场景仍须使用企业内网 LLM 或签字确认后的外部 API。
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 修改 | `config.example.yaml` | 新增 `lmstudio` provider 配置块；`sql_gen.primary` 可选值增加 `lmstudio` |
+| 修改 | `agent/llm_client.py` | ① `_get_provider_config()` 支持 `lmstudio` provider；② 新增 `test_connection(provider)` 方法——调用 `/v1/models` 端点校验连通性并返回可用模型列表；③ 新增 `list_providers()` 返回已配置且可用的 provider 列表 |
+| 修改 | `main.py` | 新增 `GET /api/llm/providers`（返回可用 provider 列表 + 当前选择）+ `POST /api/llm/test`（测试指定 provider 连通性） |
+| 修改 | `ui/index.html` | 设置面板增加「LLM 来源」选择（本地 LM Studio / DeepSeek / 企业内网）+ 连通性测试按钮 + 状态指示灯 |
+| 新建 | `tests/test_llm_provider.py` | LM Studio provider 配置解析 + 连通性检测 mock 单测 |
+
+**config.example.yaml 新增配置**：
+```yaml
+llm:
+  sql_gen:
+    primary: lmstudio              # ★开发测试：使用本地 LM Studio
+    # primary: deepseek            # 远程 DeepSeek
+    # primary: enterprise_internal # 企业内网
+    fallback: deepseek
+    external_allowed: true
+    tool_mode: native
+    timeout: 60                    # 本地模型推理较慢，超时放宽
+    max_tokens: 2000
+
+  # ... report_text / enterprise_internal / deepseek 不变 ...
+
+  lmstudio:                        # ★ 本地 LLM（LM Studio）
+    url: http://localhost:1234/v1   # LM Studio 默认端口
+    model: qwen/qwen3-8b           # 当前测试模型
+    api_key: lm-studio             # LM Studio 不需真实 key，但 OpenAI 格式要求非空
+    timeout: 120                   # 本地推理耗时较长
+    max_tokens: 2000
+    # ★ LM Studio 使用说明：
+    # 1. 下载 LM Studio: https://lmstudio.ai
+    # 2. 加载模型：搜索 qwen/qwen3-8b 并下载
+    # 3. 启动 Local Server（默认端口 1234）
+    # 4. 将 sql_gen.primary 设为 lmstudio
+```
+
+**连通性检测**（`agent/llm_client.py`）：
+```python
+def test_connection(self, provider: str = None) -> dict:
+    """测试 LLM provider 连通性，返回状态和可用模型列表"""
+    provider = provider or self._get_primary_provider()
+    cfg = self._get_provider_config(provider)
+    if not cfg:
+        return {"ok": False, "error": f"未配置 provider: {provider}"}
+    try:
+        url = cfg["url"].rstrip("/") + "/models"
+        resp = requests.get(url, headers=self._build_headers(cfg),
+                           timeout=5)
+        if resp.status_code == 200:
+            models = resp.json().get("data", [])
+            model_ids = [m["id"] for m in models]
+            return {"ok": True, "provider": provider,
+                    "models": model_ids,
+                    "configured_model": cfg.get("model", "")}
+        return {"ok": False, "error": f"HTTP {resp.status_code}"}
+    except requests.ConnectionError:
+        return {"ok": False,
+                "error": f"无法连接 {cfg['url']}，请确认服务已启动"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
+
+def list_providers(self) -> list[dict]:
+    """返回所有已配置的 provider 及其状态"""
+    providers = []
+    for name in ["lmstudio", "deepseek", "enterprise_internal"]:
+        cfg = self._get_provider_config(name)
+        if cfg and cfg.get("url"):
+            providers.append({
+                "name": name,
+                "url": cfg["url"],
+                "model": cfg.get("model", ""),
+                "is_local": name == "lmstudio",
+                "is_primary": name == self._get_primary_provider(),
+            })
+    return providers
+```
+
+**API 端点**（`main.py`）：
+```python
+@app.route('/api/llm/providers', methods=['GET'])
+def api_llm_providers():
+    """返回可用 LLM provider 列表"""
+    providers = llm_client.list_providers()
+    return jsonify({"providers": providers,
+                    "current": config["llm"]["sql_gen"]["primary"]})
+
+@app.route('/api/llm/test', methods=['POST'])
+def api_llm_test():
+    """测试指定 provider 的连通性"""
+    provider = request.json.get("provider")
+    result = llm_client.test_connection(provider)
+    return jsonify(result)
+```
+
+**UI 设置面板 LLM 选择**（`ui/index.html` 设置面板区域）：
+```html
+<!-- LLM 来源选择 -->
+<div class="setting-group">
+  <label>LLM 来源</label>
+  <select id="llm-provider-select" onchange="switchLLMProvider(this.value)">
+    <!-- 动态填充：从 /api/llm/providers 获取 -->
+  </select>
+  <button onclick="testLLMConnection()" class="btn-sm">测试连接</button>
+  <span id="llm-status-dot"></span>
+</div>
+```
+
 **验收**：
 ```bash
 pytest tests/ -v          # 全通过，0 失败
 ruff check .              # 零错误或首次 ignore 已有代码
+# macOS 验收（macOS 环境下）：
+python main.py            # 浏览器自动打开，终端显示 "DataAgent 开发模式（macOS/Browser）"
+# 触发通知 → macOS Notification Center 弹出原生通知
+# 本地 LLM 验收：
+# 1. 启动 LM Studio，加载 qwen/qwen3-8b，开启 Local Server
+# 2. config.yaml 设置 sql_gen.primary: lmstudio
+# 3. python main.py → 设置面板选择 "LM Studio" → 点击测试连接 → 绿灯
+# 4. 上传 CSV → 自然语言查询 → 本地模型返回结果（响应较慢但功能正常）
 ```
 
 ---
@@ -611,7 +792,7 @@ class HookManager:
 
 | 迭代 | 天数 | 重点 | ETCLOVG 层 |
 |------|------|------|-----------|
-| I-1 | 3-4 | 工程基建 + 测试修复 | — |
+| I-1 | 5-6 | 工程基建 + 测试修复 + macOS + 本地LLM | — |
 | I-1b | 3 | Harness 加固 | T + V + E |
 | I-2 | 4-5 | 报告生成 | 功能 |
 | I-3 | 3-4 | 图表生成 | 功能 |
@@ -624,7 +805,7 @@ class HookManager:
 | I-8 | 5 | Plan-Execute | L |
 | I-9 | 4 | 计算器补齐 | 功能 |
 | I-10 | 4-5 | JS 模块化 | UX |
-| **合计** | **~50 天** | | |
+| **合计** | **~52 天** | | |
 
 ---
 
