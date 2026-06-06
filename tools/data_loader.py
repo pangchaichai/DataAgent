@@ -13,6 +13,7 @@ tools/data_loader.py — 数据文件加载器
   - 所有列名清洗后应不含首尾空格、不含不可见字符
 """
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,18 +53,135 @@ _global_conn: duckdb.DuckDBPyConnection | None = None
 # 已加载表注册表：{table_name: LoadResult}
 _loaded_tables: dict[str, LoadResult] = {}
 
+# DB 路径：':memory:' 表示内存模式（测试默认）；生产由 main.py 设置为文件路径
+_db_path: str = ':memory:'
+
+# 元数据 JSON 路径（文件模式时持久化 _loaded_tables）
+_METADATA_PATH = Path(__file__).parent.parent / 'data' / 'table_metadata.json'
+
+# ─── 表类型自动检测关键词 ─────────────────────────────────────
+_HOLDING_KEYWORDS = {"持仓", "市值", "穿透", "资产代码", "持有量", "持仓日期"}
+_NAV_KEYWORDS = {"净值", "累计净值", "万份收益", "七日年化", "单位净值"}
+_RATING_ENTITY_KEYWORDS = {"主体评级", "主体名称", "发行人评级", "内部评级"}
+_RATING_BOND_KEYWORDS = {"债项评级", "债券代码", "债券评级", "ISIN", "评级日期"}
+
+
+def auto_detect_table_type(df: pd.DataFrame, filename: str = "") -> str:
+    """
+    根据列名关键词自动检测表类型。
+    Returns: 'holding' | 'nav' | 'rating_entity' | 'rating_bond' | 'unknown'
+    """
+    cols_text = " ".join(df.columns)
+    filename_lower = filename.lower()
+    scores = {
+        "holding": sum(1 for k in _HOLDING_KEYWORDS if k in cols_text),
+        "nav": sum(1 for k in _NAV_KEYWORDS if k in cols_text),
+        "rating_entity": sum(1 for k in _RATING_ENTITY_KEYWORDS if k in cols_text),
+        "rating_bond": sum(1 for k in _RATING_BOND_KEYWORDS if k in cols_text),
+    }
+    # Filename hints (bonus)
+    if "持仓" in filename_lower or "holding" in filename_lower:
+        scores["holding"] += 2
+    if "净值" in filename_lower or "nav" in filename_lower:
+        scores["nav"] += 2
+    if "主体" in filename_lower and "评级" in filename_lower:
+        scores["rating_entity"] += 2
+    if "债券" in filename_lower and "评级" in filename_lower:
+        scores["rating_bond"] += 2
+
+    best = max(scores, key=scores.get)
+    return best if scores[best] > 0 else "unknown"
+
+
+def extract_date_from_filename(filename: str) -> str | None:
+    """
+    从文件名提取日期字符串（返回 YYYYMMDD 格式）。
+    支持模式：20260515 / 260515（两位年→补20） / 0515（当前年）
+    """
+    from datetime import datetime
+    # 8位完整日期
+    m = re.search(r'(20\d{6})', filename)
+    if m:
+        return m.group(1)
+    # 6位 YYMMDD（如 260515）
+    m = re.search(r'(?<!\d)(2[3-9]\d{4})(?!\d)', filename)
+    if m:
+        return "20" + m.group(1)
+    # 4位 MMDD（如 0515）
+    m = re.search(r'(?<!\d)(0[1-9]|1[0-2])([0-2]\d|3[01])(?!\d)', filename)
+    if m:
+        return datetime.now().strftime("%Y") + m.group(0)
+    return None
+
+
+def _save_table_metadata() -> None:
+    """将 _loaded_tables 持久化到 JSON（仅文件模式）。"""
+    if _db_path == ':memory:':
+        return
+    data: dict[str, dict] = {}
+    for name, r in _loaded_tables.items():
+        data[name] = {
+            "table_name": r.table_name,
+            "file_path": r.file_path,
+            "row_count": r.row_count,
+            "col_count": r.col_count,
+            "encoding": r.encoding,
+            "date_tag": r.date_tag,
+            "field_map": r.field_map,
+            "unmatched_cols": r.unmatched_cols,
+            "missing_required": r.missing_required,
+            "warnings": r.warnings,
+            "table_type": r.table_type,
+        }
+    try:
+        _METADATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _METADATA_PATH.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8'
+        )
+    except Exception:
+        pass
+
+
+def _restore_table_registry() -> None:
+    """从 JSON 恢复 _loaded_tables（启动时调用，仅文件模式）。"""
+    if not _METADATA_PATH.exists():
+        return
+    try:
+        data = json.loads(_METADATA_PATH.read_text(encoding='utf-8'))
+    except Exception:
+        return
+    existing = {r[0] for r in _global_conn.execute("SHOW TABLES").fetchall()}
+    for name, d in data.items():
+        if name not in existing:
+            continue
+        _loaded_tables[name] = LoadResult(
+            table_name=d["table_name"],
+            file_path=d.get("file_path", ""),
+            row_count=d.get("row_count", 0),
+            col_count=d.get("col_count", 0),
+            encoding=d.get("encoding", ""),
+            date_tag=d.get("date_tag"),
+            field_map=d.get("field_map", {}),
+            unmatched_cols=d.get("unmatched_cols", []),
+            missing_required=d.get("missing_required", []),
+            warnings=d.get("warnings", []),
+            table_type=d.get("table_type", "unknown"),
+        )
+
 
 def init_duckdb_connection(max_memory: str = "200MB", threads: int = 2) -> duckdb.DuckDBPyConnection:
     """
-    创建并返回全局 DuckDB 内存连接。
-    多次调用返回同一连接（单例模式）。
+    创建并返回全局 DuckDB 连接（单例）。
+    生产模式使用文件持久化（_db_path 由 main.py 设置）；测试默认 :memory:。
     """
     global _global_conn
     if _global_conn is not None:
         return _global_conn
-    _global_conn = duckdb.connect(':memory:')
+    _global_conn = duckdb.connect(_db_path)
     _global_conn.execute(f"SET max_memory='{max_memory}'")
     _global_conn.execute(f"SET threads={threads}")
+    if _db_path != ':memory:':
+        _restore_table_registry()
     return _global_conn
 
 
@@ -506,6 +624,7 @@ def load_file(
             result.warnings.append(f"质量诊断失败：{e}")
 
     _loaded_tables[safe_table] = result
+    _save_table_metadata()
     return result
 
 
@@ -520,4 +639,5 @@ def drop_table(table_name: str) -> bool:
     except Exception:
         pass
     del _loaded_tables[table_name]
+    _save_table_metadata()
     return True

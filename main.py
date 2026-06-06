@@ -19,6 +19,7 @@ Windows 生产启动：
 import json
 import os
 import queue
+import re
 import socket
 import threading
 import time
@@ -162,6 +163,10 @@ def reset_session():
 
 def create_flask_app() -> Flask:
     """创建 Flask 应用，注册所有 API 路由"""
+    import tools.data_loader as _dl
+    _dl._db_path = str(BASE_DIR / 'data' / 'dataagent.duckdb')
+    _dl.init_duckdb_connection()
+
     # 使用绝对路径，兼容任意 CWD 和 PyInstaller
     app = Flask(
         __name__,
@@ -182,55 +187,110 @@ def create_flask_app() -> Flask:
         from tools.data_loader import get_loaded_tables
         return jsonify({"tables": get_loaded_tables()})
 
-    # ── POST /api/upload — 上传数据文件 ─────────────────────
+    # ── POST /api/upload — 阶段1：上传并返回智能识别预览 ─────────
     @app.route('/api/upload', methods=['POST'])
     def api_upload():
         if 'file' not in request.files:
             return jsonify({"ok": False, "error": "未收到文件"}), 400
-
         file = request.files['file']
         if not file.filename:
             return jsonify({"ok": False, "error": "文件名为空"}), 400
 
-        table_type = request.form.get('table_type', 'unknown')
-        date_tag = request.form.get('date_tag', '')
-        table_name = request.form.get('table_name', '')
-
-        # 绝对路径，兼容任意 CWD
-        upload_dir = BASE_DIR / 'data' / 'uploads' / table_type
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        file_path = str(upload_dir / file.filename)
+        # 暂存到 uploads/pending/
+        pending_dir = BASE_DIR / 'data' / 'uploads' / 'pending'
+        pending_dir.mkdir(parents=True, exist_ok=True)
+        file_path = str(pending_dir / file.filename)
         file.save(file_path)
 
-        if not table_name:
-            stem = Path(file.filename).stem
-            table_name = f"{table_type}_{stem}"
-
-        from tools.data_loader import init_duckdb_connection, load_file
-        init_duckdb_connection()
+        # 智能检测：读取列名 + 前3行 + 行数估算
+        from tools.data_loader import (
+            auto_detect_table_type, detect_encoding, extract_date_from_filename,
+        )
+        import pandas as pd
+        ext = Path(file.filename).suffix.lower()
         try:
-            result = load_file(file_path, table_name, date_tag=date_tag or None, table_type=table_type or None)
+            if ext == '.csv':
+                enc = detect_encoding(file_path)
+                df_preview = pd.read_csv(file_path, encoding=enc, dtype=str,
+                                         keep_default_na=False, nrows=3)
+                # 估算总行数（快速）
+                with open(file_path, 'rb') as _f:
+                    row_estimate = sum(1 for _ in _f) - 1
+            else:
+                df_preview = pd.read_excel(file_path, dtype=str, nrows=3)
+                row_estimate = len(pd.read_excel(file_path, dtype=str))
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"文件读取失败：{str(e)[:200]}"}), 400
+
+        detected_type = auto_detect_table_type(df_preview, file.filename)
+        detected_date = extract_date_from_filename(file.filename)
+
+        return jsonify({
+            "ok": True,
+            "file_path": file_path,
+            "filename": file.filename,
+            "detected_type": detected_type,
+            "detected_date": detected_date or "",
+            "columns": list(df_preview.columns),
+            "preview_rows": df_preview.values.tolist(),
+            "row_estimate": max(row_estimate, len(df_preview)),
+            "col_count": len(df_preview.columns),
+        })
+
+    # ── POST /api/upload/confirm — 阶段2：用户确认后入库 ─────────
+    @app.route('/api/upload/confirm', methods=['POST'])
+    def api_upload_confirm():
+        data = request.get_json(force=True) or {}
+        file_path = data.get('file_path', '')
+        table_type = data.get('table_type', 'unknown')
+        date_tag = data.get('date_tag', '')
+        table_name = data.get('table_name', '')
+        filename = data.get('filename', Path(file_path).name)
+
+        # 安全校验：路径必须在 uploads/ 目录内
+        uploads_dir = BASE_DIR / 'data' / 'uploads'
+        try:
+            Path(file_path).resolve().relative_to(uploads_dir.resolve())
+        except ValueError:
+            return jsonify({"ok": False, "error": "非法文件路径"}), 400
+
+        if not Path(file_path).exists():
+            return jsonify({"ok": False, "error": "文件不存在，请重新上传"}), 400
+
+        # 将文件移入正式目录
+        dest_dir = BASE_DIR / 'data' / 'uploads' / table_type
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = str(dest_dir / filename)
+        import shutil
+        shutil.move(file_path, dest_path)
+
+        if not table_name:
+            stem = Path(filename).stem
+            safe_stem = re.sub(r'[^a-zA-Z0-9一-鿿_\-]', '_', stem)
+            table_name = f"{table_type}_{safe_stem}"
+
+        from tools.data_loader import load_file
+        try:
+            result = load_file(dest_path, table_name,
+                               date_tag=date_tag or None,
+                               table_type=table_type or None)
         except Exception as e:
             return jsonify({"ok": False, "error": f"文件加载失败：{str(e)[:200]}"}), 500
 
         with _session_lock:
             _session["loaded_files"].append({
-                "path": file_path, "table_name": table_name,
+                "path": dest_path, "table_name": table_name,
                 "date_tag": date_tag or "", "table_type": table_type,
             })
 
-        # 记录文件上传日志
         from tools.runtime_logger import get_logger as _get_log
-        _get_log().log_file_upload(file.filename, table_name,
-                                   result.row_count if hasattr(result, 'row_count') else 0,
-                                   result.col_count if hasattr(result, 'col_count') else 0)
+        _get_log().log_file_upload(filename, table_name, result.row_count, result.col_count)
 
-        # ★R2：返回质量诊断报告
-        response_data = {"ok": True, "table_name": table_name}
+        response_data = {"ok": True, "table_name": table_name,
+                         "row_count": result.row_count, "col_count": result.col_count}
         if result.quality_report:
             from dataclasses import asdict
             response_data["quality_report"] = asdict(result.quality_report)
-
         return jsonify(response_data)
 
     # ── POST /api/chat — 启动对话，返回 stream_id ────────────

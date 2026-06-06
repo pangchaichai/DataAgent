@@ -179,6 +179,82 @@ def test_thousands_separator_cleaning():
 
 
 # ═══════════════════════════════════════════════════════════════
+#  I-4: auto_detect_table_type 测试
+# ═══════════════════════════════════════════════════════════════
+
+class TestAutoDetectTableType:
+    def _df(self, cols):
+        import pandas as pd
+        return pd.DataFrame(columns=cols)
+
+    def test_holding_by_columns(self):
+        from tools.data_loader import auto_detect_table_type
+        df = self._df(['产品名称', '资产代码', '资产市值_穿透后', '持仓日期'])
+        assert auto_detect_table_type(df) == 'holding'
+
+    def test_nav_by_columns(self):
+        from tools.data_loader import auto_detect_table_type
+        df = self._df(['产品名称', '单位净值', '累计净值', '日期'])
+        assert auto_detect_table_type(df) == 'nav'
+
+    def test_rating_entity_by_columns(self):
+        from tools.data_loader import auto_detect_table_type
+        df = self._df(['主体名称', '主体评级', '内部评级', '行业'])
+        assert auto_detect_table_type(df) == 'rating_entity'
+
+    def test_rating_bond_by_columns(self):
+        from tools.data_loader import auto_detect_table_type
+        df = self._df(['债券代码', '债项评级', '发行人', '评级日期'])
+        assert auto_detect_table_type(df) == 'rating_bond'
+
+    def test_holding_by_filename_hint(self):
+        from tools.data_loader import auto_detect_table_type
+        df = self._df(['产品名称', '代码', '市值'])
+        assert auto_detect_table_type(df, '持仓_20260515.csv') == 'holding'
+
+    def test_nav_by_filename_hint(self):
+        from tools.data_loader import auto_detect_table_type
+        df = self._df(['产品', '日期', '数值'])
+        assert auto_detect_table_type(df, 'nav_0515.csv') == 'nav'
+
+    def test_unknown_no_keywords(self):
+        from tools.data_loader import auto_detect_table_type
+        df = self._df(['col_a', 'col_b', 'col_c'])
+        assert auto_detect_table_type(df) == 'unknown'
+
+
+# ═══════════════════════════════════════════════════════════════
+#  I-4: extract_date_from_filename 测试
+# ═══════════════════════════════════════════════════════════════
+
+class TestExtractDateFromFilename:
+    def test_full_8digit(self):
+        from tools.data_loader import extract_date_from_filename
+        assert extract_date_from_filename('持仓_20260515.csv') == '20260515'
+
+    def test_6digit_yy(self):
+        from tools.data_loader import extract_date_from_filename
+        result = extract_date_from_filename('holding_260515.csv')
+        assert result == '20260515'
+
+    def test_4digit_mmdd(self):
+        from tools.data_loader import extract_date_from_filename
+        from datetime import datetime
+        result = extract_date_from_filename('nav_0501.csv')
+        assert result is not None
+        assert result.endswith('0501')
+        assert len(result) == 8
+
+    def test_no_date(self):
+        from tools.data_loader import extract_date_from_filename
+        assert extract_date_from_filename('arbitrary_filename.csv') is None
+
+    def test_date_in_middle(self):
+        from tools.data_loader import extract_date_from_filename
+        assert extract_date_from_filename('report_20260601_v2.xlsx') == '20260601'
+
+
+# ═══════════════════════════════════════════════════════════════
 #  query_runner / SQLGuard 测试
 # ═══════════════════════════════════════════════════════════════
 
