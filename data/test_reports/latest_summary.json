@@ -1,11 +1,72 @@
 {
-  "timestamp": "2026-06-06T05:23:25.462190",
+  "timestamp": "2026-06-06T07:50:30.270495",
   "total": 327,
-  "passed": 326,
-  "failed": 0,
+  "passed": 311,
+  "failed": 15,
   "skipped": 0,
   "errors": 0,
-  "exit_status": 0,
-  "duration_seconds": 7.1,
-  "failed_tests": []
+  "exit_status": 1,
+  "duration_seconds": 5.7,
+  "failed_tests": [
+    {
+      "nodeid": "tests/test_agent.py::TestAgentMemory::test_memory_enabled_save_recall",
+      "message": "<ExceptionInfo AssertionError('assert 0 >= 1\\n +  where 0 = len([])') tblen=24>"
+    },
+    {
+      "nodeid": "tests/test_file_reader.py::TestReadDocx::test_read_docx_text",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'docx'\") tblen=25>"
+    },
+    {
+      "nodeid": "tests/test_file_reader.py::TestReadDocx::test_read_docx_with_table",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'docx'\") tblen=25>"
+    },
+    {
+      "nodeid": "tests/test_file_reader.py::TestReadDocx::test_docx_word_count",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'docx'\") tblen=25>"
+    },
+    {
+      "nodeid": "tests/test_report_builder.py::TestExportWord::test_basic_export",
+      "message": "<ExceptionInfo AssertionError(\"assert False\\n +  where False = ReportResult(ok=False, markdown='', word_path='', template='', error='python-docx 未安装，请运行 pip install python-docx', warnings=[]).ok\") tblen=24>"
+    },
+    {
+      "nodeid": "tests/test_report_builder.py::TestExportWord::test_table_export",
+      "message": "<ExceptionInfo AssertionError(\"assert False\\n +  where False = ReportResult(ok=False, markdown='', word_path='', template='', error='python-docx 未安装，请运行 pip install python-docx', warnings=[]).ok\") tblen=24>"
+    },
+    {
+      "nodeid": "tests/test_report_builder.py::TestExportWord::test_heading_levels",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'docx'\") tblen=24>"
+    },
+    {
+      "nodeid": "tests/test_report_builder.py::TestExportWord::test_output_dir_created",
+      "message": "<ExceptionInfo AssertionError(\"assert False\\n +  where False = ReportResult(ok=False, markdown='', word_path='', template='', error='python-docx 未安装，请运行 pip install python-docx', warnings=[]).ok\") tblen=24>"
+    },
+    {
+      "nodeid": "tests/test_report_builder.py::TestExportWord::test_bold_text",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'docx'\") tblen=24>"
+    },
+    {
+      "nodeid": "tests/test_report_builder.py::TestRenderAndExport::test_concentration_full_pipeline",
+      "message": "<ExceptionInfo AssertionError(\"assert False\\n +  where False = ReportResult(ok=False, markdown='', word_path='', template='', error='python-docx 未安装，请运行 pip install python-docx', warnings=[]).ok\") tblen=24>"
+    },
+    {
+      "nodeid": "tests/test_web_search.py::TestWebSearch::test_general_search_success",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
+    },
+    {
+      "nodeid": "tests/test_web_search.py::TestWebSearch::test_news_search_success",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
+    },
+    {
+      "nodeid": "tests/test_web_search.py::TestWebSearch::test_max_results_clamped",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
+    },
+    {
+      "nodeid": "tests/test_web_search.py::TestWebSearch::test_ddgs_exception_returns_error",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
+    },
+    {
+      "nodeid": "tests/test_web_search.py::TestWebSearch::test_snippet_truncated_to_400_chars",
+      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
+    }
+  ]
 }
