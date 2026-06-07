@@ -158,3 +158,46 @@ def api_upload_confirm():
         from dataclasses import asdict
         response_data["quality_report"] = asdict(result.quality_report)
     return jsonify(response_data)
+
+
+@data_bp.route('/api/tables/<table_name>/profile')
+def api_table_profile(table_name):
+    from tools.data_loader import get_connection, get_loaded_tables
+    tables = get_loaded_tables()
+    if not any(t['name'] == table_name for t in tables):
+        return jsonify({"error": "表不存在"}), 404
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "数据库连接不可用"}), 500
+    from tools.profiler import profile_table
+    try:
+        result = profile_table(conn, table_name)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"剖析失败：{str(e)[:200]}"}), 500
+
+
+@data_bp.route('/api/tables/<table_name>/quality')
+def api_table_quality(table_name):
+    from tools.data_loader import get_connection, get_loaded_tables, _loaded_tables
+    tables = get_loaded_tables()
+    match = next((t for t in tables if t['name'] == table_name), None)
+    if not match:
+        return jsonify({"error": "表不存在"}), 404
+    conn = get_connection()
+    if not conn:
+        return jsonify({"error": "数据库连接不可用"}), 500
+    from tools.quality import compute_quality_report
+    from dataclasses import asdict
+    try:
+        table_type = match.get('type', 'unknown')
+        loaded_info = _loaded_tables.get(table_name)
+        field_map = loaded_info.field_map if loaded_info and hasattr(loaded_info, 'field_map') else {}
+        report = compute_quality_report(
+            conn, table_name,
+            table_type=table_type,
+            field_map=field_map or {},
+        )
+        return jsonify({"ok": True, "report": asdict(report)})
+    except Exception as e:
+        return jsonify({"error": f"诊断失败：{str(e)[:200]}"}), 500

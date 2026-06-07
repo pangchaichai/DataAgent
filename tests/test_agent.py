@@ -205,6 +205,7 @@ class TestAgentLoopBasic:
         return LLMClient('config.yaml'), SkillLoader(local_dir='skills/')
 
     def test_loop_no_tables_yields_help(self):
+        """无数据表时 Agent 仍运行（不硬性阻断），最终产出 stream_end"""
         from agent.loop import run_agent_loop
         import tools.data_loader as dl
         dl._global_conn = None
@@ -213,9 +214,8 @@ class TestAgentLoopBasic:
 
         llm_client, skill_loader = self._get_components()
         events = list(run_agent_loop('查询持仓', llm_client, skill_loader))
-        assert len(events) >= 2
-        assert events[0]['type'] == 'text'
-        assert '上传' in str(events[0]['data'])
+        assert len(events) >= 1
+        assert events[-1]['type'] == 'stream_end'
 
     def test_loop_max_turns(self):
         from agent.loop import run_agent_loop

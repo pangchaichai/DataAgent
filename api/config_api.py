@@ -18,7 +18,10 @@ def api_config_read():
             cfg = yaml.safe_load(f) or {}
     except Exception as e:
         return jsonify({"error": f"读取配置失败：{e}"}), 500
-    raw_key = cfg.get('llm', {}).get('deepseek', {}).get('api_key', '')
+    llm_cfg = cfg.get('llm', {})
+    primary = llm_cfg.get('sql_gen', {}).get('primary', 'deepseek')
+    provider_cfg = llm_cfg.get(primary, llm_cfg.get('deepseek', {}))
+    raw_key = provider_cfg.get('api_key', '')
     api_key_set = bool(raw_key and raw_key not in (
         '', '你的DeepSeek_API_Key', '${DEEPSEEK_API_KEY}'
     ))
@@ -29,7 +32,9 @@ def api_config_read():
         "scheduler": cfg.get('scheduler', {"enabled": True}),
         "app": cfg.get('app', {}),
         "api_key_set": api_key_set,
-        "llm_model": cfg.get('llm', {}).get('deepseek', {}).get('model', 'deepseek-chat'),
+        "llm_url": provider_cfg.get('url', ''),
+        "llm_model": provider_cfg.get('model', 'deepseek-chat'),
+        "llm_provider": primary,
         "logging": cfg.get('logging', {"mode": "basic", "max_days": 30}),
     })
 
@@ -64,8 +69,16 @@ def api_config_write():
             cfg.setdefault('memory', {})['enabled'] = bool(data['memory']['enabled'])
         if 'scheduler' in data and 'enabled' in data['scheduler']:
             cfg.setdefault('scheduler', {})['enabled'] = bool(data['scheduler']['enabled'])
-        if data.get('api_key'):
-            cfg.setdefault('llm', {}).setdefault('deepseek', {})['api_key'] = data['api_key']
+        if data.get('llm_url') or data.get('llm_model') or data.get('api_key'):
+            llm_block = cfg.setdefault('llm', {})
+            primary = llm_block.get('sql_gen', {}).get('primary', 'deepseek')
+            provider_block = llm_block.setdefault(primary, llm_block.setdefault('deepseek', {}))
+            if data.get('api_key'):
+                provider_block['api_key'] = data['api_key']
+            if data.get('llm_url'):
+                provider_block['url'] = data['llm_url']
+            if data.get('llm_model'):
+                provider_block['model'] = data['llm_model']
         try:
             tmp_path = cfg_path.with_suffix('.yaml.tmp')
             with open(tmp_path, 'w', encoding='utf-8') as f:
