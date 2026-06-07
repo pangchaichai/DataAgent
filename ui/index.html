@@ -50,12 +50,19 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 .body-wrap{display:grid;grid-template-columns:240px 1fr;
   min-height:0;overflow:hidden;transition:grid-template-columns .2s ease;}
 .body-wrap.collapsed{grid-template-columns:0px 1fr;}
-.body-wrap.collapsed .sidebar{opacity:0;pointer-events:none;overflow:hidden;padding:0;border:none;}
+.body-wrap.collapsed .sidebar{opacity:0;pointer-events:none;overflow:hidden;padding:0;border:none;flex-direction:row;}
 
 /* ── Sidebar ── */
 .sidebar{background:var(--bg-s);border-right:1px solid var(--border);
-  min-height:0;overflow-y:auto;overflow-x:hidden;
-  padding:6px 6px 16px;transition:opacity .2s;}
+  min-height:0;overflow-x:hidden;
+  padding:6px 6px 0;transition:opacity .2s;
+  display:flex;flex-direction:column;}
+.sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:8px;}
+.sidebar-bottom{flex-shrink:0;padding:8px 6px;border-top:1px solid var(--border);}
+.sb-settings-btn{width:100%;display:flex;align-items:center;gap:6px;padding:7px 10px;
+  border:none;border-radius:6px;background:none;color:var(--text-2);
+  font-size:13px;cursor:pointer;text-align:left;transition:background .12s;}
+.sb-settings-btn:hover{background:var(--bg-hover);color:var(--text);}
 
 .sec{margin-bottom:1px;}
 .sec-h{display:flex;align-items:center;
@@ -450,6 +457,21 @@ select.sp-input{cursor:pointer;}
 .ptag-del{cursor:pointer;color:var(--text-3);font-size:11px;line-height:1;}
 .ptag-del:hover{color:var(--red);}
 
+/* ── Chart picker ── */
+.chart-picker{display:none;flex-wrap:wrap;gap:6px;margin-top:8px;padding:8px;
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;}
+.chart-picker.show{display:flex;}
+.chart-type-btn{padding:4px 12px;border:1px solid var(--border);border-radius:14px;
+  background:var(--bg-s);color:var(--text-2);font-size:12px;cursor:pointer;transition:all .12s;}
+.chart-type-btn:hover,.chart-type-btn.active{border-color:var(--blue);color:var(--blue);background:var(--blue-bg);}
+.chart-area{margin-top:6px;}
+
+/* ── Word export button ── */
+.word-export-btn{display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+  padding:5px 14px;border:1px solid var(--border);border-radius:6px;
+  background:var(--bg-s);color:var(--text-2);font-size:12px;cursor:pointer;transition:all .12s;}
+.word-export-btn:hover{border-color:var(--blue);color:var(--blue);}
+
 /* ── Toast ── */
 .toast-stack{position:fixed;bottom:20px;right:20px;z-index:300;
   display:flex;flex-direction:column;gap:8px;pointer-events:none;}
@@ -473,7 +495,6 @@ select.sp-input{cursor:pointer;}
     <span class="chip"><span class="dot on" id="llmDot"></span> <span id="llmName">--</span></span>
     <span class="chip">RAM <span id="ramMb">--</span>MB</span>
     <span class="chip">Tok <span id="tokenUsed">0</span>/<span id="tokenLimit">64K</span></span>
-    <button class="iconbtn" onclick="openSettings()" title="设置">⚙</button>
     <button class="iconbtn" onclick="toggleTheme()" title="切换主题">◐</button>
     <button class="iconbtn" onclick="resetChat()" title="新对话">＋</button>
   </div>
@@ -483,6 +504,7 @@ select.sp-input{cursor:pointer;}
 
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
+      <div class="sidebar-scroll">
       <div class="sec" id="sec-sessions">
         <div class="sec-h" onclick="toggleSec('sessions')">
           <span class="sec-arr">▸</span>会话
@@ -521,6 +543,10 @@ select.sp-input{cursor:pointer;}
         <div class="sec-bd">
           <div id="groupList"><div class="s-item" style="color:var(--text-3)">加载中…</div></div>
         </div>
+      </div>
+      </div><!-- end sidebar-scroll -->
+      <div class="sidebar-bottom">
+        <button class="sb-settings-btn" onclick="openSettings()" title="设置">⚙ 设置</button>
       </div>
     </aside>
 
@@ -957,9 +983,15 @@ async function uploadFile(file){
     const r=await fetch('/api/upload',{method:'POST',body:fd,signal:ctrl.signal});
     const d=await r.json();
     if(d.ok){
-      addSysMsg('已加载：<b>'+esc(d.table_name)+'</b>（'+esc(file.name)+'）','green');
-      if(d.quality_report)renderQuality(d.quality_report,d.table_name);
-      openSec('tables');refreshSidebar();
+      if(d.file_kind==='document'){
+        const info=d.file_type+(d.page_count?' · '+d.page_count+'页':'')+(d.word_count?' · '+d.word_count+'词':'');
+        addSysMsg('已读取文档：<b>'+esc(d.filename||file.name)+'</b>（'+esc(info)+'）'
+          +(d.text_preview?'<br><span style="color:var(--text-3);font-size:12px">预览：'+esc(d.text_preview.slice(0,120))+'…</span>':''),'green');
+      }else{
+        addSysMsg('已加载：<b>'+esc(d.table_name)+'</b>（'+esc(file.name)+'）','green');
+        if(d.quality_report)renderQuality(d.quality_report,d.table_name);
+        openSec('tables');refreshSidebar();
+      }
     }else{addSysMsg('上传失败：'+esc(d.error),'red');}
   }catch(e){
     if(e.name==='AbortError')addSysMsg('上传超时（超过120秒），请重试','red');
@@ -1118,10 +1150,33 @@ function handleChunk(chunk){
   }
   else if(t==='error'){finPW();breakStream();addSysMsg(esc(d.message||d),'red');}
   else if(t==='chart'){ST.pendingCharts.push(d);}
+  else if(t==='download'){
+    if(d&&d.filename){
+      const a=document.createElement('a');
+      a.href='/api/report/download/'+encodeURIComponent(d.filename);
+      a.download=d.filename;a.click();
+      toast('Word 文档已生成：'+d.filename,'success');
+    }
+  }
   else if(t==='stream_end'){
     if(ST._es){ST._es.close();ST._es=null;}
+    const bufLen=streamBuf.length;
     finPW();endStream();refreshSidebar();
     ST.pendingCharts.forEach(opt=>renderChart(opt));ST.pendingCharts=[];
+    // Auto-detect long agent replies (likely reports) and add Word export button
+    if(bufLen>300){
+      const lastRow=chat.lastElementChild;
+      if(lastRow&&lastRow.classList.contains('msg-row')){
+        const bo=lastRow.querySelector('.bubble-outer');
+        if(bo&&!bo.querySelector('.word-export-btn')){
+          const btn=document.createElement('button');
+          btn.className='word-export-btn';
+          btn.textContent='⬇ 导出 Word';
+          btn.onclick=function(){exportWordFromBubble(this);};
+          bo.insertBefore(btn,bo.querySelector('.msg-actions'));
+        }
+      }
+    }
   }
 }
 function breakStream(){if(streamEl)streamEl.classList.remove('streaming');streamEl=null;}
@@ -1200,11 +1255,15 @@ function inline(text){
 function addUserBubble(text){
   add(el('<div class="msg-row user"><div class="bubble user">'+esc(text)+'</div></div>'));
 }
-function addAgentHTML(html){
+function addAgentHTML(html, showWordExport){
+  const wordBtn=showWordExport
+    ?'<button class="word-export-btn" onclick="exportWordFromBubble(this)">⬇ 导出 Word</button>'
+    :'';
   add(el('<div class="msg-row">'
     +'<div class="agent-avatar">DA</div>'
     +'<div class="bubble-outer">'
     +'<div class="bubble agent">'+html+'</div>'
+    +wordBtn
     +'<div class="msg-actions">'
     +'<button class="msg-action-btn" onclick="copyBubble(this)">复制</button>'
     +'</div></div></div>'));
@@ -1236,7 +1295,10 @@ function renderTable(d){
   if(d.sql)h+='<span class="tc-link" onclick="toggleSql(this)">查看SQL</span>'
     +'<pre style="display:none;margin-top:4px;font-size:12px;background:var(--bg-code);'
     +'padding:6px 8px;border-radius:4px">'+esc(d.sql)+'</pre>';
-  h+='<span class="tc-link" onclick="exportCSV(this)">导出CSV</span></div></div>';
+  h+='<span class="tc-link" onclick="exportCSV(this)">导出CSV</span>'
+   +'<span class="tc-link" onclick="showChartPicker(this)">📊 图表</span></div>'
+   +'<div class="chart-picker"></div>'
+   +'<div class="chart-area"></div></div>';
   return el(h);
 }
 function toggleSql(el){
@@ -1336,6 +1398,80 @@ function exportCSV(btn){
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='export_'+Date.now()+'.csv';a.click();
+}
+function showChartPicker(btn){
+  const card=btn.closest('.table-card');
+  if(!card)return;
+  const picker=card.querySelector('.chart-picker');
+  if(!picker)return;
+  if(picker.classList.contains('show')){picker.classList.remove('show');return;}
+  const types=[['柱状图','bar'],['折线图','line'],['饼图','pie'],['散点图','scatter']];
+  picker.innerHTML=types.map(([label,type])=>
+    '<button class="chart-type-btn" onclick="renderTableChart(this.closest(\'.table-card\'),\''+type+'\',this.closest(\'.table-card\').querySelector(\'.chart-area\'))">'+label+'</button>'
+  ).join('');
+  picker.classList.add('show');
+}
+function renderTableChart(card,type,area){
+  if(typeof echarts==='undefined'){toast('图表库未加载','error');return;}
+  const table=card.querySelector('table');
+  if(!table){toast('找不到数据表','error');return;}
+  const headers=Array.from(table.querySelectorAll('thead th')).map(th=>th.textContent.trim());
+  const rowEls=Array.from(table.querySelectorAll('tbody tr'));
+  const rows=rowEls.map(r=>Array.from(r.querySelectorAll('td')).map(td=>td.textContent.trim()));
+  if(!rows.length||headers.length<2){toast('数据不足，无法绘图','error');return;}
+  // Use first column as category, remaining numeric columns as series
+  const numCols=[];
+  for(let c=1;c<headers.length;c++){
+    const vals=rows.map(r=>parseFloat((r[c]||'').replace(/,/g,'')));
+    if(vals.some(v=>!isNaN(v)))numCols.push(c);
+  }
+  if(!numCols.length){toast('无数值列，无法绘图','error');return;}
+  const cats=rows.map(r=>r[0]||'');
+  const id='ch_tbl_'+Math.random().toString(36).slice(2,8);
+  area.innerHTML='<div id="'+id+'" style="width:100%;height:280px"></div>';
+  requestAnimationFrame(()=>{
+    const dom=$(id);if(!dom)return;
+    let option;
+    if(type==='pie'){
+      const col=numCols[0];
+      const pieData=rows.map(r=>({name:r[0]||'',value:parseFloat((r[col]||'0').replace(/,/g,''))||0}));
+      option={tooltip:{trigger:'item'},series:[{type:'pie',data:pieData,radius:'60%'}]};
+    }else{
+      const series=numCols.map(c=>({
+        name:headers[c],type:type,
+        data:rows.map(r=>parseFloat((r[c]||'0').replace(/,/g,''))||0)
+      }));
+      option={tooltip:{trigger:'axis'},legend:{},
+        xAxis:{type:'category',data:cats,axisLabel:{rotate:30,fontSize:11}},
+        yAxis:{type:'value'},series};
+    }
+    try{
+      const ch=echarts.init(dom);ch.setOption(option);
+      // Mark active button
+      const picker=card.querySelector('.chart-picker');
+      if(picker)picker.querySelectorAll('.chart-type-btn').forEach(b=>{
+        b.classList.toggle('active',b.textContent.includes(
+          type==='bar'?'柱':type==='line'?'折':type==='pie'?'饼':'散'));
+      });
+    }catch(e){console.error(e);}
+  });
+}
+async function exportWordFromBubble(btn){
+  const bubble=btn.closest('.bubble-outer')?.querySelector('.bubble');
+  if(!bubble){toast('找不到报告内容','error');return;}
+  const content=bubble.innerText||bubble.textContent;
+  if(!content||content.length<10){toast('内容为空','error');return;}
+  btn.disabled=true;btn.textContent='导出中…';
+  try{
+    const r=await api('POST','/api/report/export-word',{content:content,report_name:'report'});
+    if(r.ok&&r.filename){
+      toast('Word 文档已生成：'+r.filename,'success');
+      const a=document.createElement('a');
+      a.href='/api/report/download/'+encodeURIComponent(r.filename);
+      a.download=r.filename;a.click();
+    }else{toast('导出失败：'+(r.error||'未知错误'),'error');}
+  }catch(e){toast('导出失败：'+e.message,'error');}
+  btn.disabled=false;btn.textContent='⬇ 导出 Word';
 }
 
 // ═══════════════════════════════════════════════

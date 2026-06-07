@@ -183,7 +183,7 @@ def create_flask_app() -> Flask:
         from tools.data_loader import get_loaded_tables
         return jsonify({"tables": get_loaded_tables()})
 
-    # ── POST /api/upload — 上传数据文件 ─────────────────────
+    # ── POST /api/upload — 上传文件（数据表或文档）─────────────
     @app.route('/api/upload', methods=['POST'])
     def api_upload():
         if 'file' not in request.files:
@@ -193,11 +193,40 @@ def create_flask_app() -> Flask:
         if not file.filename:
             return jsonify({"ok": False, "error": "文件名为空"}), 400
 
+        ext = Path(file.filename).suffix.lower()
+
+        # ── 文档类：Word / PDF / TXT ─────────────────────────
+        if ext in ('.docx', '.pdf', '.txt'):
+            doc_dir = BASE_DIR / 'data' / 'uploads' / 'documents'
+            doc_dir.mkdir(parents=True, exist_ok=True)
+            file_path = str(doc_dir / file.filename)
+            file.save(file_path)
+
+            from tools.file_reader import read_document
+            doc_result = read_document(file_path, max_chars=3000)
+            if not doc_result.ok:
+                return jsonify({"ok": False, "error": doc_result.error}), 400
+
+            from tools.runtime_logger import get_logger as _get_log
+            _get_log().log_file_upload(file.filename, "(document)", 0, 0)
+
+            return jsonify({
+                "ok": True,
+                "file_kind": "document",
+                "file_type": doc_result.file_type,
+                "filename": file.filename,
+                "file_path": file_path,
+                "text_preview": doc_result.text[:500],
+                "word_count": doc_result.word_count,
+                "page_count": doc_result.page_count,
+                "table_count": len(doc_result.tables),
+            })
+
+        # ── 数据表：CSV / Excel ──────────────────────────────
         table_type = request.form.get('table_type', 'unknown')
         date_tag = request.form.get('date_tag', '')
         table_name = request.form.get('table_name', '')
 
-        # 绝对路径，兼容任意 CWD
         upload_dir = BASE_DIR / 'data' / 'uploads' / table_type
         upload_dir.mkdir(parents=True, exist_ok=True)
         file_path = str(upload_dir / file.filename)
@@ -220,14 +249,12 @@ def create_flask_app() -> Flask:
                 "date_tag": date_tag or "", "table_type": table_type,
             })
 
-        # 记录文件上传日志
         from tools.runtime_logger import get_logger as _get_log
         _get_log().log_file_upload(file.filename, table_name,
                                    result.row_count if hasattr(result, 'row_count') else 0,
                                    result.col_count if hasattr(result, 'col_count') else 0)
 
-        # ★R2：返回质量诊断报告
-        response_data = {"ok": True, "table_name": table_name}
+        response_data = {"ok": True, "file_kind": "data", "table_name": table_name}
         if result.quality_report:
             from dataclasses import asdict
             response_data["quality_report"] = asdict(result.quality_report)
@@ -247,7 +274,7 @@ def create_flask_app() -> Flask:
         q: queue.Queue = queue.Queue()
 
         with _stream_queues_lock:
-            _stream_queues[sid] = q
+            _stream_queues[sid] = (q, None)
 
         # ★R1：读取会话消息历史和暂停状态
         with _session_lock:
@@ -300,11 +327,18 @@ def create_flask_app() -> Flask:
             except Exception as e:
                 from tools.runtime_logger import get_logger as _get_log
                 _get_log().log_exception('agent', 'Agent 循环异常', e)
-                q.put({"type": "error", "data": f"Agent 处理异常：{str(e)}"})
+                q.put({"type": "error", "data": {"message": f"Agent 处理异常：{str(e)}"}})
             finally:
                 q.put(None)  # 哨兵：流结束
 
-        threading.Thread(target=run_agent_bg, daemon=True).start()
+        t = threading.Thread(target=run_agent_bg, daemon=True)
+        t.start()
+
+        # Store thread reference for liveness check in SSE generator
+        with _stream_queues_lock:
+            if sid in _stream_queues:
+                _stream_queues[sid] = (q, t)
+
         return jsonify({"ok": True, "stream_id": sid})
 
     # ── POST /api/confirm — 用户确认/取消 ──────────────────
@@ -335,21 +369,24 @@ def create_flask_app() -> Flask:
     @app.route('/api/stream/<sid>')
     def api_stream(sid):
         with _stream_queues_lock:
-            q = _stream_queues.get(sid)
-        if q is None:
+            entry = _stream_queues.get(sid)
+        if entry is None:
             return jsonify({"error": "stream not found"}), 404
+        q, bg_thread = entry
 
         def generate():
             try:
                 while True:
                     try:
-                        event = q.get(timeout=120)
+                        event = q.get(timeout=30)
                     except queue.Empty:
-                        # 超时保活 ping
+                        # 检查后台线程是否还活着
+                        if bg_thread is not None and not bg_thread.is_alive():
+                            yield f"data: {json.dumps({'type': 'stream_end', 'data': None}, ensure_ascii=False)}\n\n"
+                            break
                         yield ": keep-alive\n\n"
                         continue
                     if event is None:
-                        # 正常结束，推送 stream_end 给前端
                         yield f"data: {json.dumps({'type': 'stream_end', 'data': None}, ensure_ascii=False)}\n\n"
                         break
                     yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
@@ -828,7 +865,7 @@ def create_flask_app() -> Flask:
 
         from tools.skill_builder import validate_skill_md
         result = validate_skill_md(content, str(BASE_DIR / 'skills'))
-        return jsonify(result.to_dict())
+        return jsonify({"ok": result.ok, "validation": result.to_dict()})
 
     # ── POST /api/skill-builder/save-draft — 保存草稿 ────────
     @app.route('/api/skill-builder/save-draft', methods=['POST'])
@@ -938,6 +975,37 @@ def create_flask_app() -> Flask:
         from tools.runtime_logger import get_logger
         get_logger().cleanup_old_logs()
         return jsonify({"ok": True})
+
+    # ── POST /api/report/export-word — 导出 Word 报告 ─────────
+    @app.route('/api/report/export-word', methods=['POST'])
+    def api_export_word():
+        data = request.get_json(force=True) if request.is_json else {}
+        content = (data.get('content') or '').strip()
+        report_name = (data.get('report_name') or 'report').strip()
+        if not content:
+            return jsonify({"ok": False, "error": "内容为空"}), 400
+        from tools.report_builder import export_report_word
+        import re
+        safe_name = re.sub(r'[^\w一-鿿\-]', '_', report_name)[:40]
+        result = export_report_word(content, safe_name)
+        return jsonify(result)
+
+    # ── GET /api/report/download/<filename> — 下载报告文件 ────
+    @app.route('/api/report/download/<path:filename>')
+    def api_report_download(filename):
+        import re
+        from flask import send_from_directory
+        if re.search(r'[/\\]', filename):
+            return jsonify({"error": "非法文件名"}), 400
+        outputs_dir = BASE_DIR / 'data' / 'outputs'
+        file_path = outputs_dir / filename
+        if not file_path.exists():
+            return jsonify({"error": "文件不存在"}), 404
+        return send_from_directory(
+            str(outputs_dir), filename,
+            as_attachment=True,
+            download_name=filename,
+        )
 
     return app
 

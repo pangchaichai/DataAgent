@@ -4,33 +4,22 @@
 
 ---
 
-## 当前阶段：Evolution I-1 ~ I-10 全部完成（2026-06-06）→ 下一步 I-11（待规划）
+## 当前阶段：v1.6.1 Bug 修复 → Phase 5（Windows 验证）
 
-## Evolution Master Plan 迭代记录
+## v1.6.1 — Bug 修复 ✅ 完成（2026-06-07）
 
-### 已完成（I-1 ~ I-10，全部推送到 claude/trusting-goodall-O4ezp）
+### 本次修复
+- [x] **Issue 1**: SSE 流挂起 — 增加后台线程存活检测，心跳超时从 120s 改为 30s，线程死亡时自动推送 stream_end
+- [x] **Issue 1**: 错误事件格式修正 — 从 `{"type":"error","data":"str"}` 改为 `{"type":"error","data":{"message":"str"}}`
+- [x] **Issue 2**: Skill Builder 发布流程 — validate 端点响应格式修正（增加 `validation` 外层 key）
+- [x] **Issue 3**: 文档上传支持 — 新增 `tools/file_reader.py`（python-docx + pypdf），上传接口支持 .docx/.pdf/.txt，HTML 文件选择器更新
+- [x] **Issue 4**: 图表功能 — 每个数据表卡片新增「📊 图表」按钮，支持柱状/饼图/折线/散点图，客户端 ECharts 渲染
+- [x] **Issue 5**: Word 导出 — 实现 `tools/report_builder.py`（Markdown→Word），新增 `/api/report/export-word` 和 `/api/report/download/<file>` 端点，报告类消息自动显示"导出Word"按钮
+- [x] **优化 2**: 设置按钮从右上角迁移至左侧边栏底部
+- [x] `agent/loop.py` config.yaml 加载增加 try/except 兜底
 
-| 迭代 | 完成日期 | 核心交付物 | 新增测试 |
-|------|---------|-----------|---------|
-| I-1 | 2026-06-06 | pyproject.toml + .claude/settings.json PreCommit hook + tools/cost_tracker.py + config.example.yaml | test_hooks.py, test_self_check.py |
-| I-1b | 2026-06-06 | agent/hooks.py（Hook系统）+ agent/self_check.py（结果自检）+ tools_spec.py 场景化工具过滤 | 含入 I-1 测试 |
-| I-2 | 2026-06-06 | tools/report_builder.py 扩展（Jinja2+Word导出）+ templates/reports/ 三个模板 | test_report_builder.py (234行) |
-| I-3 | 2026-06-06 | tools/chart_builder.py 扩展（5种图表+自动选型）| test_chart_builder.py (180行) |
-| I-3b | 2026-06-06 | agent/context.py 三级压缩 + CostTracker 埋点 | test_context.py (321行) |
-| I-4 | 2026-06-06 | 上传两阶段确认弹窗（/api/upload 预解析 → /api/upload/confirm 入库）| — |
-| I-5 | 2026-06-06 | /api/status + /api/suggestions + /api/llm/providers + /api/llm/test | — |
-| I-5b | 2026-06-06 | agent/hooks.py 审计 hash chain（SHA-256 前后链）| test_hooks.py |
-| I-6 | 2026-06-06 | tools/file_reader.py（Word/PDF解析）+ tools/web_search.py（DuckDuckGo）| test_file_reader.py, test_web_search.py |
-| I-7 | 2026-06-06 | main.py 拆分为 Blueprint（api/ 目录 6 个模块）+ session_store.py | — |
-| I-8 | 2026-06-06 | agent/planner.py + agent/executor.py + plan/plan_step/plan_done SSE 事件 | test_planner.py (202行), test_executor.py (178行) |
-| I-9 | 2026-06-06 | calculators/position_diff.py + leverage.py + liquidity.py | test_calculators.py +15用例 |
-| I-10 | 2026-06-06 | 前端 JS 模块化：index.html 内联脚本 1280行 → 9个独立 ui/js/*.js 文件 | — |
-
-### 测试统计（I-10 完成时）
-- 总测试数：327（含 1 skip）
-- 通过：311
-- 失败：15（均为可选 dev 依赖未装：python-docx / duckduckgo-search，核心模块全绿）
-- 核心模块覆盖率：calculators ≥ 88%，agent/planner 100%，tools/query_runner 84%
+### 评估：优化 1（会话处理中新开对话）
+当前架构为单全局会话（`_session` 字典 + 单流队列）。支持并行会话需重构为多租户会话隔离（每个会话独立 `_session_id`→状态映射）。评估：**合理但非当前优先级**，建议 Phase 5 稳健化阶段实现。工作量约 2 天，涉及 `session_store` 重构 + 前端会话切换逻辑。
 
 ## Phase R — Agent 内核重构 ✅ 完成（2026-06-04）
 - [x] R1: Agent 内核重构为 tool-calling Agent（5 工具 + function-calling + 暂停续跑）
