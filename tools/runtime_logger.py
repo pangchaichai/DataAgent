@@ -270,13 +270,37 @@ class RuntimeLogger:
         """日志系统统计"""
         files = self.get_log_files()
         total_kb = sum(f['size_kb'] for f in files)
+        token_total = self._sum_tokens_today()
         return {
             "mode": self._mode,
             "file_count": len(files),
             "total_size_mb": round(total_kb / 1024, 2),
             "max_days": self._max_days,
             "log_dir": str(LOG_DIR),
+            "token_total": token_total,
         }
+
+    def _sum_tokens_today(self) -> int:
+        """统计今日 LLM 调用的 token 总量"""
+        today_file = LOG_DIR / f"dataagent_{datetime.now().strftime('%Y%m%d')}.jsonl"
+        if not today_file.exists():
+            return 0
+        total = 0
+        try:
+            with open(today_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    if '"category":"llm"' not in line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        detail = entry.get('detail', {})
+                        if isinstance(detail, dict):
+                            total += detail.get('tokens', 0)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+        except Exception:
+            pass
+        return total
 
     # ── 清理 ──────────────────────────────────────────────────
 

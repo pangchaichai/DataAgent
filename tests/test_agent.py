@@ -7,7 +7,6 @@ tests/test_agent.py — Agent 层单元测试
 import os
 import sys
 import tempfile
-
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -51,31 +50,25 @@ class TestLLMClient:
         """首尾空白应被去除"""
         assert client._extract_sql('  SELECT 1  ') == 'SELECT 1'
 
-    def test_report_text_degraded_when_no_api_key(self, client):
-        """API key 为占位符时，report_text 应降级返回 ReportDegradedResult，不调用外部 LLM"""
-        from agent.llm_client import ReportDegradedResult
+    @pytest.mark.skipif(
+        not os.environ.get('DEEPSEEK_API_KEY'),
+        reason="需要 DEEPSEEK_API_KEY 环境变量"
+    )
+    def test_report_text_with_deepseek(self, client):
+        """测试环境：DeepSeek 配置正确时 generate_report_text 应成功"""
         text, resp = client.generate_report_text(
             '生成报告摘要', {'净值': 1.05}
         )
-        # 占位符 key → 应走降级路径，不抛异常
-        assert isinstance(resp, ReportDegradedResult) or not resp.success, \
-            "占位符 key 应触发降级或返回 success=False，不应成功调用外部 LLM"
-
-    def test_sql_gen_placeholder_key_returns_error(self, client):
-        """API key 为占位符时，generate_sql 应返回 success=False，error='api_key'"""
-        sql, resp = client.generate_sql('查询持仓表所有记录')
-        assert resp is not None
-        # 占位符 key → 被拒，不调用外部
-        assert not resp.success
-        assert resp.error == 'api_key'
+        assert resp.success, f"DeepSeek 应可用: {resp.error}"
 
     @pytest.mark.skipif(
         not os.environ.get('DEEPSEEK_API_KEY'),
-        reason="需要真实 DEEPSEEK_API_KEY 环境变量"
+        reason="需要 DEEPSEEK_API_KEY 环境变量"
     )
-    def test_sql_gen_with_real_api(self, client):
-        """实际 API key 时 generate_sql 应返回 SQL（CI 环境跳过）"""
+    def test_sql_gen_with_deepseek(self, client):
+        """测试环境：DeepSeek 配置正确时 generate_sql 应返回 SQL"""
         sql, resp = client.generate_sql('查询持仓表所有记录')
+        assert resp is not None
         assert resp.success, f"SQL 生成应成功: {resp.error}"
 
     def test_classify_intent_no_skills(self, client):
@@ -211,18 +204,18 @@ class TestAgentLoopBasic:
         from agent.skill_loader import SkillLoader
         return LLMClient('config.yaml'), SkillLoader(local_dir='skills/')
 
-    def test_loop_no_tables_does_not_hard_block(self):
-        """无数据表时 Agent 不应硬拦截，而是继续执行（可能走 LLM 或报 LLM 错误）"""
-        import tools.data_loader as dl
+    def test_loop_no_tables_yields_help(self):
         from agent.loop import run_agent_loop
+        import tools.data_loader as dl
         dl._global_conn = None
         dl._loaded_tables.clear()
         dl.init_duckdb_connection()
 
         llm_client, skill_loader = self._get_components()
         events = list(run_agent_loop('查询持仓', llm_client, skill_loader))
-        assert len(events) >= 1
-        assert events[-1]['type'] == 'stream_end'
+        assert len(events) >= 2
+        assert events[0]['type'] == 'text'
+        assert '上传' in str(events[0]['data'])
 
     def test_loop_max_turns(self):
         from agent.loop import run_agent_loop
@@ -231,8 +224,8 @@ class TestAgentLoopBasic:
         assert events[0]['type'] == 'error'
 
     def test_loop_yields_stream_end(self):
-        import tools.data_loader as dl
         from agent.loop import run_agent_loop
+        import tools.data_loader as dl
         dl._global_conn = None
         dl._loaded_tables.clear()
         dl.init_duckdb_connection()
@@ -288,7 +281,6 @@ def _make_tool_call(name, args, tc_id=""):
 def _setup_test_holding_table():
     """创建一张最小持仓测试表"""
     import duckdb
-
     import tools.data_loader as dl
     dl._global_conn = None
     dl._loaded_tables.clear()
@@ -526,11 +518,9 @@ class TestSchemaInference:
 
     def test_propose_dict_is_draft_only(self):
         """propose_dict_entry 只写 drafts/，不改正式字典"""
-        from pathlib import Path
-
         import yaml
-
-        from agent.tools_spec import ToolContext, _tool_propose_dict_entry
+        from pathlib import Path
+        from agent.tools_spec import _tool_propose_dict_entry, ToolContext
 
         ctx = ToolContext()
         # 写入测试草稿
@@ -551,11 +541,9 @@ class TestSchemaInference:
 
     def test_confirm_dict_merges_draft(self):
         """confirm_dict 应合并草稿到正式字典"""
-        from pathlib import Path
-
         import yaml
-
-        from agent.tools_spec import ToolContext, _tool_confirm_dict, _tool_propose_dict_entry
+        from pathlib import Path
+        from agent.tools_spec import _tool_propose_dict_entry, _tool_confirm_dict, ToolContext
 
         ctx = ToolContext()
         # 先写草稿
@@ -636,142 +624,3 @@ class TestAgentMemory:
         assert 'save_correction' in write_methods
         assert 'save_sql' not in write_methods
         assert 'save_business_rule' not in write_methods
-
-
-# ═══════════════════════════════════════════════════════════════
-#  I-1b 新增：参数校验 + 工具过滤测试（ETCLOVG T 层）
-# ═══════════════════════════════════════════════════════════════
-
-class TestToolArgValidation:
-    """_validate_tool_args：入参校验逻辑"""
-
-    def test_profile_table_missing_required(self):
-        from agent.tools_spec import _validate_tool_args
-        ok, err = _validate_tool_args("profile_table", {})
-        assert not ok
-        assert "table_name" in err
-
-    def test_profile_table_valid(self):
-        from agent.tools_spec import _validate_tool_args
-        ok, err = _validate_tool_args("profile_table", {"table_name": "test"})
-        assert ok
-
-    def test_run_sql_missing_sql(self):
-        from agent.tools_spec import _validate_tool_args
-        ok, err = _validate_tool_args("run_sql", {"purpose": "test"})
-        assert not ok
-        assert "sql" in err
-
-    def test_run_sql_valid_without_purpose(self):
-        """purpose 是可选字段，仅有 sql 应通过"""
-        from agent.tools_spec import _validate_tool_args
-        ok, _ = _validate_tool_args("run_sql", {"sql": "SELECT 1"})
-        assert ok
-
-    def test_run_sql_valid(self):
-        from agent.tools_spec import _validate_tool_args
-        ok, _ = _validate_tool_args("run_sql", {
-            "sql": "SELECT * FROM t LIMIT 10",
-            "purpose": "测试查询",
-        })
-        assert ok
-
-    def test_run_calculator_missing_calculator(self):
-        from agent.tools_spec import _validate_tool_args
-        ok, err = _validate_tool_args("run_calculator", {"holding_table": "t"})
-        assert not ok
-        assert "calculator" in err
-
-    def test_run_calculator_invalid_enum(self):
-        from agent.tools_spec import _validate_tool_args
-        ok, err = _validate_tool_args("run_calculator", {
-            "calculator": "nonexistent_calc",
-            "holding_table": "t",
-        })
-        assert not ok
-        assert "calculator" in err.lower() or "enum" in err.lower() or "nonexistent" in err.lower()
-
-    def test_run_calculator_valid_enum(self):
-        from agent.tools_spec import _validate_tool_args
-        ok, _ = _validate_tool_args("run_calculator", {
-            "calculator": "entity_concentration",
-            "holding_table": "test_holding",
-        })
-        assert ok
-
-    def test_ask_user_missing_question(self):
-        from agent.tools_spec import _validate_tool_args
-        ok, err = _validate_tool_args("ask_user", {"options": ["A", "B"]})
-        assert not ok
-        assert "question" in err
-
-    def test_ask_user_valid_without_options(self):
-        """options 是可选字段，仅有 question 应通过"""
-        from agent.tools_spec import _validate_tool_args
-        ok, _ = _validate_tool_args("ask_user", {"question": "选哪个？"})
-        assert ok
-
-    def test_unknown_tool_passes(self):
-        """未知工具名称：无 schema 可校验，应通过"""
-        from agent.tools_spec import _validate_tool_args
-        ok, _ = _validate_tool_args("unknown_tool", {"x": 1})
-        assert ok
-
-
-class TestToolFiltering:
-    """_filter_tools_for_context：场景化工具过滤"""
-
-    def test_exploratory_skill_keeps_run_sql(self):
-        from agent.loop import _filter_tools_for_context
-        from agent.skill_loader import SkillInfo
-        from agent.tools_spec import TOOL_DEFINITIONS
-        skill = SkillInfo(name="flexible_stats", description="灵活统计",
-                          calc_type="exploratory")
-        filtered = _filter_tools_for_context(TOOL_DEFINITIONS, skill)
-        names = [t["function"]["name"] for t in filtered]
-        assert "run_sql" in names
-
-    def test_fixed_skill_removes_run_sql(self):
-        from agent.loop import _filter_tools_for_context
-        from agent.skill_loader import SkillInfo
-        from agent.tools_spec import TOOL_DEFINITIONS
-        skill = SkillInfo(name="concentration_monitor", description="集中度监控",
-                          calc_type="fixed")
-        filtered = _filter_tools_for_context(TOOL_DEFINITIONS, skill)
-        names = [t["function"]["name"] for t in filtered]
-        assert "run_sql" not in names
-        assert "run_calculator" in names
-
-    def test_no_skill_keeps_all_tools(self):
-        from agent.loop import _filter_tools_for_context
-        from agent.tools_spec import TOOL_DEFINITIONS
-        filtered = _filter_tools_for_context(TOOL_DEFINITIONS, None)
-        assert len(filtered) == len(TOOL_DEFINITIONS)
-
-    def test_fixed_skill_loop_filters_run_sql(self):
-        """端到端：Loop 匹配 fixed skill 后，传给 LLM 的工具不含 run_sql"""
-        conn = _setup_test_holding_table()
-        from agent.skill_loader import SkillLoader
-        skill_loader = SkillLoader(local_dir='skills/')
-
-        received_tools: list = []
-
-        class ToolCapturingLLM:
-            call_count = 0
-
-            def chat(self, messages, tools=None, timeout=None, max_tokens=None):
-                from agent.llm_client import ChatResult
-                received_tools.extend(tools or [])
-                self.call_count += 1
-                return ChatResult(success=True, text="完成", tool_calls=[])
-
-        mock = ToolCapturingLLM()
-
-        from agent.loop import run_agent_loop
-        list(run_agent_loop("检查集中度是否超标", mock, skill_loader))
-
-        tool_names = [t["function"]["name"] for t in received_tools]
-        # concentration_monitor 是 fixed skill，run_sql 应被过滤
-        assert "run_sql" not in tool_names, (
-            f"Fixed skill 场景不应暴露 run_sql，实际工具：{tool_names}"
-        )

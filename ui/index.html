@@ -140,14 +140,64 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 [data-theme="dark"] .scroll-btn{box-shadow:0 2px 8px rgba(0,0,0,.5);}
 
 /* ── Welcome ── */
-.welcome{text-align:center;color:var(--text-3);margin:auto;padding:40px 20px;}
-.welcome h2{color:var(--text);font-size:18px;font-weight:600;margin-bottom:8px;}
-.welcome p{font-size:14px;margin:4px 0;}
-.welcome .sub{font-size:13px;color:var(--text-3);}
-.welcome .wq{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:16px;}
+.welcome{text-align:center;color:var(--text-3);margin:auto;padding:32px 20px;max-width:680px;}
+.welcome h2{color:var(--text);font-size:20px;font-weight:700;margin-bottom:6px;}
+.welcome>p{font-size:14px;margin:4px 0;color:var(--text-2);}
+.welcome-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:20px;text-align:left;}
+.wc-card{padding:14px 16px;border:1px solid var(--border);border-radius:10px;
+  cursor:pointer;transition:all .15s;background:var(--bg-s);}
+.wc-card:hover{border-color:var(--blue);box-shadow:0 2px 8px rgba(37,99,235,.08);}
+.wc-icon{font-size:20px;margin-bottom:6px;}
+.wc-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.wc-desc{font-size:12px;color:var(--text-3);line-height:1.5;}
+.welcome-examples{margin-top:16px;font-size:12px;color:var(--text-3);}
+.wex-item{display:inline-block;margin:4px 6px 4px 0;padding:5px 12px;border:1px solid var(--border);
+  border-radius:16px;cursor:pointer;transition:all .12s;font-size:12px;color:var(--text-2);}
+.wex-item:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg);}
 .wq-btn{font-size:12px;padding:5px 14px;border-radius:14px;border:1px solid var(--border);
   background:var(--bg-s);color:var(--text-2);cursor:pointer;transition:all .15s;}
 .wq-btn:hover{border-color:var(--blue);color:var(--blue);}
+
+/* ── Table Profile Modal ── */
+.profile-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;
+  display:none;align-items:center;justify-content:center;}
+.profile-overlay.show{display:flex;}
+.profile-modal{background:var(--bg-s);border-radius:12px;width:min(680px,90vw);
+  max-height:80vh;overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.pm-header{display:flex;align-items:center;padding:14px 18px;
+  border-bottom:1px solid var(--border);gap:10px;}
+.pm-header h3{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+.pm-body{overflow-y:auto;padding:12px 18px 18px;}
+.pm-col{display:grid;grid-template-columns:1fr 80px 60px 60px 1fr;gap:1px;
+  font-size:12px;background:var(--border);border-radius:6px;overflow:hidden;}
+.pm-col>div{background:var(--bg-s);padding:6px 8px;}
+.pm-col .pm-hdr{font-weight:600;color:var(--text-2);background:var(--bg-hover);}
+.pm-null{color:var(--orange);}.pm-null.ok{color:var(--green);}
+.pm-samples{font-size:11px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* @mention autocomplete */
+.mention-popup{position:absolute;bottom:100%;left:8px;right:8px;max-height:180px;
+  overflow-y:auto;background:var(--bg-s);border:1px solid var(--border);
+  border-radius:8px;box-shadow:0 -4px 16px rgba(0,0,0,.12);display:none;z-index:30;}
+.mention-popup.show{display:block;}
+.mention-item{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;
+  font-size:13px;transition:background .1s;}
+.mention-item:hover,.mention-item.active{background:var(--blue-bg);}
+.mention-item .mi-name{font-weight:500;color:var(--text);}
+.mention-item .mi-meta{font-size:11px;color:var(--text-3);}
+
+.pm-tabs{display:flex;gap:2px;margin-left:auto;margin-right:8px;}
+.pm-tab{border:none;background:var(--bg-hover);color:var(--text-2);padding:3px 12px;
+  border-radius:5px;font-size:12px;cursor:pointer;transition:all .12s;}
+.pm-tab.active{background:var(--blue);color:#fff;}
+.pm-tab:hover:not(.active){background:var(--border);}
+.pm-quality-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
+.pm-q-card{padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);}
+.pm-q-card h4{font-size:12px;color:var(--text-2);margin-bottom:6px;font-weight:500;}
+.pm-q-val{font-size:20px;font-weight:600;}
+.pm-q-val.good{color:var(--green);}
+.pm-q-val.warn{color:var(--orange);}
+.pm-q-val.bad{color:var(--red);}
 
 /* ── Messages ── */
 .msg-row{display:flex;gap:10px;max-width:100%;}
@@ -257,12 +307,6 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 .action-card .summary-table td{padding:4px 8px;font-size:13px;}
 .action-card .summary-table td:last-child{text-align:right;font-weight:600;
   font-variant-numeric:tabular-nums;}
-.report-card{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:8px 0;max-width:100%;}
-.report-header{padding:8px 12px;background:var(--bg-s);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
-.report-body{padding:12px 16px;font-size:13px;max-height:400px;overflow-y:auto;}
-.report-body table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0;}
-.report-body th,.report-body td{border:1px solid var(--border);padding:4px 8px;}
-.report-body th{background:var(--bg-s);font-weight:600;}
 .btn{border:none;border-radius:6px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;}
 .btn.primary{background:var(--blue);color:#fff;}.btn.primary:hover{opacity:.9;}
 .btn.ghost{background:var(--bg-s);border:1px solid var(--border);
@@ -278,27 +322,6 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
   max-width:600px;font-size:12.5px;}
 .quality-card b{display:block;margin-bottom:4px;}
 .q-row{margin:2px 0;}.q-crit{color:var(--red);}
-
-/* ── Upload confirm card ── */
-.upload-confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);
-  z-index:200;display:flex;align-items:center;justify-content:center;}
-.upload-confirm-card{background:var(--bg-s);border-radius:12px;
-  padding:24px 28px;min-width:480px;max-width:680px;width:90vw;
-  box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:80vh;overflow-y:auto;}
-.upload-confirm-card h3{font-size:15px;font-weight:700;margin-bottom:16px;}
-.upload-confirm-card .meta-row{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;}
-.upload-confirm-card .meta-item{display:flex;flex-direction:column;gap:4px;}
-.upload-confirm-card .meta-label{font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;}
-.upload-confirm-card select,.upload-confirm-card input[type=text]{
-  border:1px solid var(--border);border-radius:6px;padding:5px 10px;
-  font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;}
-.upload-confirm-card .preview-tbl{width:100%;border-collapse:collapse;font-size:12px;
-  margin:12px 0;max-height:160px;display:block;overflow-y:auto;}
-.upload-confirm-card .preview-tbl th,.upload-confirm-card .preview-tbl td{
-  border:1px solid var(--border);padding:4px 8px;white-space:nowrap;
-  max-width:160px;overflow:hidden;text-overflow:ellipsis;}
-.upload-confirm-card .preview-tbl th{background:var(--bg-hover);font-weight:600;}
-.upload-confirm-card .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
 
 /* ── Input bar ── */
 .inputbar{flex-shrink:0;border-top:1px solid var(--border);
@@ -448,7 +471,6 @@ select.sp-input{cursor:pointer;}
     <button class="iconbtn" onclick="toggleSidebar()" title="切换侧栏">☰</button>
     <span class="logo"><span class="logo-icon">DA</span> DataAgent</span>
     <span class="chip"><span class="dot on" id="llmDot"></span> <span id="llmName">--</span></span>
-    <span class="chip" id="tablesChip" title="已加载数据表" style="cursor:pointer" onclick="openSec('tables')">表 <span id="tablesCount">0</span></span>
     <span class="chip">RAM <span id="ramMb">--</span>MB</span>
     <span class="chip">Tok <span id="tokenUsed">0</span>/<span id="tokenLimit">64K</span></span>
     <button class="iconbtn" onclick="openSettings()" title="设置">⚙</button>
@@ -471,7 +493,7 @@ select.sp-input{cursor:pointer;}
         </div>
       </div>
 
-      <div class="sec" id="sec-tables">
+      <div class="sec open" id="sec-tables">
         <div class="sec-h" onclick="toggleSec('tables')">
           <span class="sec-arr">▸</span>数据表
           <span class="act" id="uploadLink">上传</span>
@@ -481,7 +503,7 @@ select.sp-input{cursor:pointer;}
         </div>
       </div>
 
-      <div class="sec" id="sec-skills">
+      <div class="sec open" id="sec-skills">
         <div class="sec-h" onclick="toggleSec('skills')">
           <span class="sec-arr">▸</span>Skills
           <span class="act" onclick="event.stopPropagation();openSkillBuilder()">创建</span>
@@ -500,21 +522,6 @@ select.sp-input{cursor:pointer;}
           <div id="groupList"><div class="s-item" style="color:var(--text-3)">加载中…</div></div>
         </div>
       </div>
-
-      <div class="sec open" id="sec-quick">
-        <div class="sec-h" onclick="toggleSec('quick')">
-          <span class="sec-arr">▸</span>一键执行
-        </div>
-        <div class="sec-bd">
-          <div style="padding:4px 4px 4px 8px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);margin-bottom:4px">点击直接发送指令</div>
-          <div style="padding:4px 4px 4px 8px;display:flex;flex-direction:column;gap:4px;">
-            <button class="wq-btn" onclick="sendQuick('合规监控：检查主体集中度是否超标')" style="text-align:left" title="点击直接执行">✅ 合规集中度检查</button>
-            <button class="wq-btn" onclick="sendQuick('生成产品运作报告，包括净值、持仓分布和信用评级分析')" style="text-align:left" title="点击直接执行">📄 运作报告</button>
-            <button class="wq-btn" onclick="sendQuick('查询今日持仓情况，展示各产品持仓汇总')" style="text-align:left" title="点击直接执行">📊 持仓汇总</button>
-            <button class="wq-btn" onclick="sendQuick('生成持仓分布图表')" style="text-align:left" title="点击直接执行">📈 持仓图表</button>
-          </div>
-        </div>
-      </div>
     </aside>
 
     <!-- MAIN -->
@@ -528,29 +535,43 @@ select.sp-input{cursor:pointer;}
         <div class="chat" id="chat">
           <div class="welcome" id="welcomePanel">
             <h2>DataAgent</h2>
-            <p>上传资管数据文件，用中文提问即可分析</p>
-            <p class="sub">合规/报告数字使用固化口径计算，需要您确认后输出</p>
-            <div class="wq">
-              <button class="wq-btn" onclick="triggerUpload()">📂 上传数据</button>
-              <button class="wq-btn" onclick="sendQuick('/tables')">/tables</button>
-              <button class="wq-btn" onclick="sendQuick('/skills')">/skills</button>
-              <button class="wq-btn" onclick="sendQuick('/health')">/health</button>
+            <p>专业的金融资管数据分析助手</p>
+            <div class="welcome-cards">
+              <div class="wc-card" onclick="triggerUpload()">
+                <div class="wc-icon">📊</div>
+                <div class="wc-title">上传数据分析</div>
+                <div class="wc-desc">上传 CSV/Excel 持仓、净值、评级文件，自然语言查询分析</div>
+              </div>
+              <div class="wc-card" onclick="sendQuick('帮我检查主体集中度是否有超标情况')">
+                <div class="wc-icon">✅</div>
+                <div class="wc-title">合规监控</div>
+                <div class="wc-desc">主体/单券集中度自动检查，固化口径确保数字准确</div>
+              </div>
+              <div class="wc-card" onclick="openSkillBuilder()">
+                <div class="wc-icon">⚡</div>
+                <div class="wc-title">创建 Skill</div>
+                <div class="wc-desc">用自然语言描述分析需求，AI 帮你生成可复用的分析技能</div>
+              </div>
+              <div class="wc-card" onclick="$('input').focus();$('input').placeholder='输入任意问题，如金融监管政策、行业知识…'">
+                <div class="wc-icon">💬</div>
+                <div class="wc-title">通用问答</div>
+                <div class="wc-desc">无需数据也能使用：回答金融知识、分析文档、行业咨询</div>
+              </div>
             </div>
-            <div id="welcomeExamples" style="margin-top:16px;"></div>
+            <div id="welcomeExamples" class="welcome-examples"></div>
           </div>
-          <div id="suggestionsBar" style="display:none;padding:8px 16px 0;"></div>
         </div>
         <button class="scroll-btn" id="scrollBtn" onclick="scrollBottom()">↓ 最新消息</button>
       </div>
 
-      <div class="inputbar" id="inputbar">
+      <div class="inputbar" id="inputbar" style="position:relative">
+        <div class="mention-popup" id="mentionPopup"></div>
         <div class="hintbar" id="hint">请先在上方完成确认或选择后再继续</div>
         <div class="quick" id="quickBtns">
-          <button class="q-btn" onclick="fillExample('数据分析')" title="填入示例文本到输入框，可编辑后发送">📊 数据分析</button>
-          <button class="q-btn" onclick="fillExample('合规检查')" title="填入示例文本到输入框，可编辑后发送">✅ 合规检查</button>
-          <button class="q-btn" onclick="fillExample('报告生成')" title="填入示例文本到输入框，可编辑后发送">📄 报告生成</button>
-          <button class="q-btn" onclick="fillExample('图表')" title="填入示例文本到输入框，可编辑后发送">📈 图表</button>
-          <button class="q-btn" onclick="resetChat()">新对话</button>
+          <button class="q-btn" onclick="triggerUpload()" title="上传数据文件或文档">📂 上传</button>
+          <button class="q-btn" onclick="sendQuick('帮我检查主体集中度是否超标')" title="直接执行合规检查">✅ 合规检查</button>
+          <button class="q-btn" onclick="sendQuick('生成产品运作报告')" title="直接生成运作报告">📄 报告</button>
+          <button class="q-btn" onclick="sendQuick('查询持仓情况，按市值降序排列')" title="查询持仓">📊 持仓</button>
         </div>
         <div class="inrow" id="inrow">
           <textarea id="input" rows="2"
@@ -559,7 +580,8 @@ select.sp-input{cursor:pointer;}
             onkeydown="onKey(event)"></textarea>
           <button class="send" id="sendBtn" onclick="sendMessage()">发送</button>
         </div>
-        <input type="file" id="fileInput" style="display:none" accept=".csv,.xlsx,.xls,.docx,.pdf,.txt"
+        <input type="file" id="fileInput" style="display:none"
+          accept=".csv,.xlsx,.xls,.pdf,.docx,.doc,.txt"
           onchange="handleFiles(this.files)" multiple/>
       </div>
     </main>
@@ -614,22 +636,22 @@ select.sp-input{cursor:pointer;}
     <div class="sp-section">
       <div class="sp-title">LLM 配置</div>
       <div class="sp-row">
-        <label>LLM 来源</label>
-        <div style="display:flex;gap:6px;flex:1;min-width:0;">
-          <select id="cfg-llm-provider" class="sp-input" style="flex:1;"
-            onchange="onLLMProviderChange()">
-            <!-- 动态填充，来自 /api/llm/providers -->
-          </select>
-          <button class="sp-btn" onclick="testLLMConnection()" title="测试连接">测试</button>
-          <span id="llm-status-dot" style="font-size:16px;align-self:center;">⚪</span>
-        </div>
+        <label>服务地址</label>
+        <input type="text" id="cfg-llm-url" class="sp-input" placeholder="https://api.deepseek.com/v1"/>
       </div>
-      <div id="llm-provider-hint" class="sp-hint"></div>
+      <div class="sp-row">
+        <label>模型</label>
+        <input type="text" id="cfg-llm-model" class="sp-input" placeholder="deepseek-chat"/>
+      </div>
       <div class="sp-row">
         <label>API Key</label>
         <input type="password" id="cfg-apikey" class="sp-input" placeholder="sk-…（留空不修改）"/>
       </div>
-      <div id="apikeyStatus" class="sp-hint"></div>
+      <div class="sp-row" style="justify-content:space-between">
+        <div id="apikeyStatus" class="sp-hint" style="flex:1"></div>
+        <button class="sp-btn" onclick="testLLMConnection()" id="testConnBtn">测试连接</button>
+      </div>
+      <div id="llmTestResult" class="sp-hint" style="margin-top:4px"></div>
     </div>
 
     <!-- 计算口径 -->
@@ -707,53 +729,6 @@ select.sp-input{cursor:pointer;}
   </div>
 </div>
 
-<!-- UPLOAD CONFIRM OVERLAY -->
-<div class="upload-confirm-overlay" id="uploadConfirmOverlay" style="display:none">
-  <div class="upload-confirm-card">
-    <h3>📂 文件识别结果 — 请确认后入库</h3>
-    <div class="meta-row">
-      <div class="meta-item">
-        <span class="meta-label">文件名</span>
-        <span id="ucFilename" style="font-size:13px;"></span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">表行数（估算）</span>
-        <span id="ucRows" style="font-size:13px;"></span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">列数</span>
-        <span id="ucCols" style="font-size:13px;"></span>
-      </div>
-    </div>
-    <div class="meta-row">
-      <div class="meta-item">
-        <span class="meta-label">表类型</span>
-        <select id="ucType">
-          <option value="holding">持仓表 (holding)</option>
-          <option value="nav">净值表 (nav)</option>
-          <option value="rating_entity">主体评级表 (rating_entity)</option>
-          <option value="rating_bond">债券评级表 (rating_bond)</option>
-          <option value="unknown">未知 (unknown)</option>
-        </select>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">数据日期</span>
-        <input type="text" id="ucDate" placeholder="YYYYMMDD（可为空）" style="width:160px">
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">表名</span>
-        <input type="text" id="ucTableName" placeholder="自动生成" style="width:200px">
-      </div>
-    </div>
-    <div style="font-size:12px;color:var(--text-3);margin-bottom:6px;">列预览：</div>
-    <div id="ucPreview" style="overflow-x:auto;"></div>
-    <div class="actions">
-      <button class="btn ghost" onclick="cancelUploadConfirm()">取消</button>
-      <button class="btn primary" onclick="confirmUploadFile()">确认入库</button>
-    </div>
-  </div>
-</div>
-
 <!-- SKILL BUILDER OVERLAY -->
 <div class="settings-overlay" id="sbOverlay" onclick="closeSkillBuilder()"></div>
 
@@ -821,18 +796,1302 @@ select.sp-input{cursor:pointer;}
   </div>
 </div>
 
+<!-- TABLE PROFILE MODAL -->
+<div class="profile-overlay" id="profileOverlay" onclick="if(event.target===this)closeProfile()">
+  <div class="profile-modal">
+    <div class="pm-header">
+      <h3 id="pmTitle">表结构剖析</h3>
+      <div class="pm-tabs">
+        <button class="pm-tab active" id="pmTabStruct" onclick="switchProfileTab('struct')">结构</button>
+        <button class="pm-tab" id="pmTabQuality" onclick="switchProfileTab('quality')">质量</button>
+      </div>
+      <button class="iconbtn" onclick="closeProfile()" style="font-size:13px">✕</button>
+    </div>
+    <div class="pm-body" id="pmBody">加载中…</div>
+    <div class="pm-body" id="pmBodyQuality" style="display:none">加载中…</div>
+  </div>
+</div>
+
 <!-- TOAST STACK -->
 <div class="toast-stack" id="toastStack"></div>
 
-<script src="/static/js/state.js"></script>
-<script src="/static/js/dom.js"></script>
-<script src="/static/js/render.js"></script>
-<script src="/static/js/chat.js"></script>
-<script src="/static/js/upload.js"></script>
-<script src="/static/js/sidebar.js"></script>
-<script src="/static/js/settings.js"></script>
-<script src="/static/js/skill_builder.js"></script>
-<script src="/static/js/main.js"></script>
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+const ST={
+  streamId:null,
+  _es:null,
+  locked:false,
+  sessionId:'',
+  pendingCharts:[]
+};
+let streamEl=null, streamBuf='';
+let _pw=null, _pwBd=null, _pwN=0;
+let _upl=false;
+let _products=[];
+
+// ═══════════════════════════════════════════════
+//  DOM helpers
+// ═══════════════════════════════════════════════
+const $=id=>document.getElementById(id);
+const chat=$('chat');
+function scrollBottom(){chat.scrollTop=chat.scrollHeight;}
+function add(node){chat.appendChild(node);scrollBottom();return node;}
+function el(h){const d=document.createElement('div');d.innerHTML=h.trim();return d.firstElementChild||d;}
+function esc(s){
+  if(s==null)return'';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════
+//  Scroll-to-bottom button
+// ═══════════════════════════════════════════════
+const scrollBtn=$('scrollBtn');
+chat.addEventListener('scroll',()=>{
+  const near=chat.scrollHeight-chat.scrollTop-chat.clientHeight<80;
+  scrollBtn.classList.toggle('show',!near);
+});
+
+// ═══════════════════════════════════════════════
+//  API
+// ═══════════════════════════════════════════════
+async function api(method,path,body){
+  const opts={method,headers:{}};
+  if(body){opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(body);}
+  const r=await fetch(path,opts);return r.json();
+}
+
+// ═══════════════════════════════════════════════
+//  Clipboard
+// ═══════════════════════════════════════════════
+function copyText(text,btn,label){
+  const restore=()=>setTimeout(()=>{if(btn&&btn._orig)btn.textContent=btn._orig;},1500);
+  if(btn){btn._orig=btn._orig||btn.textContent;btn.textContent=label||'✓ 已复制';}
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(restore).catch(()=>{legacyCopy(text);restore();});
+  }else{legacyCopy(text);restore();}
+}
+function legacyCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text;ta.style.cssText='position:fixed;opacity:0';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);
+}
+function copyCodeBlock(btn){
+  const code=btn.parentElement?.querySelector('code');
+  if(code)copyText(code.textContent,btn);
+}
+function copyBubble(btn){
+  const bubble=btn.closest('.bubble-outer')?.querySelector('.bubble');
+  if(bubble)copyText(bubble.textContent.trim(),btn);
+}
+
+// ═══════════════════════════════════════════════
+//  Send / Stop
+// ═══════════════════════════════════════════════
+function setSendMode(mode){
+  const btn=$('sendBtn');
+  if(mode==='stream'){
+    btn.textContent='停止';btn.classList.add('stop');btn.onclick=stopStream;
+  }else{
+    btn.textContent='发送';btn.classList.remove('stop');btn.onclick=sendMessage;
+  }
+}
+function setBusy(busy){$('input').readOnly=busy;}
+function stopStream(){
+  if(ST._es){ST._es.close();ST._es=null;}
+  finPW();endStream();
+  addSysMsg('已停止','orange');
+}
+
+// ═══════════════════════════════════════════════
+//  Process wrapper
+// ═══════════════════════════════════════════════
+function getPW(){
+  if(_pw)return _pw;
+  const w=document.createElement('div');
+  w.className='pw-wrap open';
+  w.innerHTML='<div class="pw-hd" onclick="this.parentElement.classList.toggle(\'open\')">'
+    +'<span class="pw-icon spin">↻</span>'
+    +'<span class="pw-lbl">正在处理…</span>'
+    +'<span class="pw-arr">▸</span></div>'
+    +'<div class="pw-bd"></div>';
+  _pwBd=w.querySelector('.pw-bd');
+  _pwN=0;add(w);_pw=w;return w;
+}
+function finPW(){
+  if(!_pw)return;
+  const lbl=_pw.querySelector('.pw-lbl'),icon=_pw.querySelector('.pw-icon');
+  if(lbl)lbl.textContent='执行过程（'+_pwN+'步）';
+  if(icon){icon.textContent='✓';icon.classList.remove('spin');}
+  _pw.classList.remove('open');
+  _pw=null;_pwBd=null;
+}
+function updatePWLabel(){
+  if(!_pw)return;
+  const lbl=_pw.querySelector('.pw-lbl');
+  if(lbl)lbl.textContent='正在执行… 第'+_pwN+'步';
+}
+
+// ═══════════════════════════════════════════════
+//  Upload
+// ═══════════════════════════════════════════════
+async function handleFiles(files){
+  if(_upl){addSysMsg('上传进行中，请稍等…','orange');return;}
+  _upl=true;
+  try{for(const f of Array.from(files))await uploadFile(f);}
+  finally{_upl=false;const fi=$('fileInput');if(fi)fi.value='';}
+}
+async function uploadFile(file){
+  if(!file)return;
+  addSysMsg('正在上传：<b>'+esc(file.name)+'</b>…','blue');
+  const fd=new FormData();
+  fd.append('file',file);fd.append('table_type',guessType(file.name));
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),120000);
+  try{
+    const r=await fetch('/api/upload',{method:'POST',body:fd,signal:ctrl.signal});
+    const d=await r.json();
+    if(d.ok){
+      addSysMsg('已加载：<b>'+esc(d.table_name)+'</b>（'+esc(file.name)+'）','green');
+      if(d.quality_report)renderQuality(d.quality_report,d.table_name);
+      openSec('tables');refreshSidebar();
+    }else{addSysMsg('上传失败：'+esc(d.error),'red');}
+  }catch(e){
+    if(e.name==='AbortError')addSysMsg('上传超时（超过120秒），请重试','red');
+    else addSysMsg('上传异常：'+esc(e.message),'red');
+  }finally{clearTimeout(timer);}
+}
+function guessType(fn){
+  const n=fn.toLowerCase();
+  if(n.includes('持仓')||n.includes('holding'))return'holding';
+  if(n.includes('净值')||n.includes('nav'))return'nav';
+  if(n.includes('评级')&&n.includes('主体'))return'rating_entity';
+  if(n.includes('评级')&&n.includes('债券'))return'rating_bond';
+  return'unknown';
+}
+
+// ═══════════════════════════════════════════════
+//  Sessions
+// ═══════════════════════════════════════════════
+async function loadSessions(){
+  try{
+    const d=await api('GET','/api/sessions');
+    const s=d.sessions||[];
+    const list=$('sessionList');
+    if(!s.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无历史</div>';return;}
+    list.innerHTML=s.slice(0,12).map(sess=>{
+      const active=sess.id===ST.sessionId;
+      return '<div class="s-item'+(active?' active':'')+'">'
+        +'<span class="dot '+(active?'on':'off')+'"></span>'
+        +'<span class="s-text" onclick="loadSes(\''+esc(sess.id)+'\')">'+esc(sess.title||'未命名')+'</span>'
+        +'<span class="s-meta">'+((sess.updated_at||'').slice(5,16))+'</span>'
+        +'<span class="item-del" onclick="deleteSession(\''+esc(sess.id)+'\',event)" title="删除">×</span>'
+        +'</div>';
+    }).join('');
+  }catch(e){}
+}
+async function loadSes(id){
+  try{
+    const d=await api('GET','/api/sessions/'+id);
+    clearChat();ST.sessionId=id;
+    $('chatTitle').textContent=d.title||'历史会话';
+    (d.messages||[]).forEach(m=>{
+      if(m.role==='user'&&m.content)addUserBubble(m.content);
+      else if(m.role==='assistant'&&m.content)addAgentHTML(renderMd(m.content));
+    });
+    addSysMsg('历史会话加载完成，可继续对话','blue');
+    refreshSidebar();
+  }catch(e){addSysMsg('加载失败：'+esc(e.message),'red');}
+}
+async function deleteSession(id,e){
+  e.stopPropagation();
+  if(!confirm('确定要删除这条会话记录吗？'))return;
+  const r=await api('DELETE','/api/sessions/'+id);
+  if(r.ok){
+    if(ST.sessionId===id){ST.sessionId='';$('chatTitle').textContent='新对话';}
+    loadSessions();toast('已删除会话');
+  }else toast('删除失败：'+(r.error||''),'error');
+}
+
+// ═══════════════════════════════════════════════
+//  SSE Send
+// ═══════════════════════════════════════════════
+async function sendMessage(){
+  const inp=$('input');
+  const msg=inp.value.trim();
+  if(!msg||ST.locked||inp.readOnly)return;
+  inp.value='';autoResize(inp);
+  const w=chat.querySelector('.welcome');if(w)w.remove();
+  addUserBubble(msg);
+  $('chatTitle').textContent=msg.slice(0,40);
+  setSendMode('stream');setBusy(true);
+  try{
+    const r=await fetch('/api/chat',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:msg}),
+    });
+    const d=await r.json();
+    if(!d.ok){setSendMode('idle');setBusy(false);addSysMsg(d.error||'请求失败','red');return;}
+    ST.streamId=d.stream_id;
+    const es=new EventSource('/api/stream/'+ST.streamId);
+    ST._es=es;
+    es.onmessage=function(e){try{handleChunk(JSON.parse(e.data));}catch(ex){console.error(ex);}};
+    es.onerror=function(){
+      if(!ST._es)return;
+      es.close();ST._es=null;finPW();endStream();
+    };
+  }catch(e){setSendMode('idle');setBusy(false);addSysMsg('请求失败：'+esc(e.message),'red');}
+}
+
+// ═══════════════════════════════════════════════
+//  Chunk handler
+// ═══════════════════════════════════════════════
+function handleChunk(chunk){
+  const t=chunk.type,d=chunk.data;
+  if(t==='text'){
+    finPW();
+    if(!d)return;
+    if(!streamEl){
+      streamBuf='';
+      const row=document.createElement('div');
+      row.className='msg-row';
+      row.innerHTML='<div class="agent-avatar">DA</div>'
+        +'<div class="bubble-outer">'
+        +'<div class="bubble agent streaming"></div>'
+        +'<div class="msg-actions">'
+        +'<button class="msg-action-btn" onclick="copyBubble(this)">复制</button>'
+        +'</div></div>';
+      streamEl=row.querySelector('.bubble.agent');add(row);
+    }
+    streamBuf+=d;streamEl.innerHTML=renderMd(streamBuf);scrollBottom();
+  }
+  else if(t==='thinking'){
+    getPW();
+    if(_pwBd){
+      const line=document.createElement('div');
+      line.className='proc-line';
+      line.innerHTML='<span class="p-icon">💭</span>'
+        +'<span class="p-label">'+esc((d||'').slice(0,100))+'</span>';
+      _pwBd.appendChild(line);_pwN++;updatePWLabel();
+    }
+    scrollBottom();
+  }
+  else if(t==='tool_start'){
+    getPW();
+    if(_pwBd){
+      const line=document.createElement('div');
+      line.className='proc-line';line.id='tool-'+d.id;
+      line.innerHTML='<span class="p-icon">⚡</span>'
+        +'<span class="p-name">'+esc(d.tool||'')+'</span>'
+        +'<span class="p-label">'+esc(d.label||'')+'</span>'
+        +'<span class="p-st running">…</span>';
+      _pwBd.appendChild(line);_pwN++;updatePWLabel();
+    }
+    scrollBottom();
+  }
+  else if(t==='tool_end'){
+    const line=$('tool-'+d.id);
+    if(line){
+      const st=line.querySelector('.p-st'),icon=line.querySelector('.p-icon');
+      if(d.success){
+        if(st){st.className='p-st ok';st.textContent='✓';}if(icon)icon.textContent='✓';
+      }else{
+        if(st){st.className='p-st warn';st.textContent='↻';}if(icon)icon.textContent='↻';
+      }
+    }
+  }
+  else if(t==='table'){breakStream();add(renderTable(d));}
+  else if(t==='confirm'){
+    finPW();breakStream();ST.locked=true;lockInput(true);
+    const card=renderConfirm(d);add(card);
+    requestAnimationFrame(()=>card.querySelector('.btn.primary')?.focus());
+  }
+  else if(t==='ask'){
+    finPW();breakStream();ST.locked=true;lockInput(true);
+    const card=renderAsk(d);add(card);
+    requestAnimationFrame(()=>card.querySelector('.btn.opt')?.focus());
+  }
+  else if(t==='error'){finPW();breakStream();addSysMsg(esc(d.message||d),'red');}
+  else if(t==='chart'){ST.pendingCharts.push(d);}
+  else if(t==='stream_end'){
+    if(ST._es){ST._es.close();ST._es=null;}
+    finPW();endStream();refreshSidebar();
+    ST.pendingCharts.forEach(opt=>renderChart(opt));ST.pendingCharts=[];
+  }
+}
+function breakStream(){if(streamEl)streamEl.classList.remove('streaming');streamEl=null;}
+function endStream(){
+  breakStream();streamBuf='';ST.streamId=null;
+  setSendMode('idle');setBusy(false);
+  setTimeout(()=>{if(!ST.locked)$('input').focus();},80);
+}
+
+// ═══════════════════════════════════════════════
+//  Markdown renderer
+// ═══════════════════════════════════════════════
+function renderMd(raw){
+  if(!raw)return'';
+  const lines=raw.split('\n');
+  let html='',inCode=false,code=[],inList=false,listTag='',inTable=false,tableRows=[];
+  for(let i=0;i<lines.length;i++){
+    const L=lines[i];
+    if(L.startsWith('```')){
+      if(inCode){
+        html+='<div class="code-wrap">'
+          +'<button class="copy-btn" onclick="copyCodeBlock(this)">复制</button>'
+          +'<pre><code>'+esc(code.join('\n'))+'</code></pre></div>';
+        inCode=false;code=[];
+      }else{closeList();closeTable();inCode=true;}
+      continue;
+    }
+    if(inCode){code.push(L);continue;}
+    if(L.match(/^\|.*\|$/)){closeList();if(!inTable){inTable=true;tableRows=[];}tableRows.push(L);continue;}
+    if(inTable)closeTable();
+    if(!L.trim()){closeList();html+='<br>';continue;}
+    if(L.startsWith('### ')){closeList();html+='<h4>'+inline(L.slice(4))+'</h4>';continue;}
+    if(L.startsWith('## ')){closeList();html+='<h4>'+inline(L.slice(3))+'</h4>';continue;}
+    if(L.startsWith('# ')){closeList();html+='<h3>'+inline(L.slice(2))+'</h3>';continue;}
+    if(L.startsWith('> ')){closeList();html+='<blockquote>'+inline(L.slice(2))+'</blockquote>';continue;}
+    const ul=L.match(/^\s*[-*]\s+(.*)/);
+    if(ul){if(!inList||listTag!=='ul'){closeList();html+='<ul>';inList=true;listTag='ul';}
+      html+='<li>'+inline(ul[1])+'</li>';continue;}
+    const ol=L.match(/^\s*\d+\.\s+(.*)/);
+    if(ol){if(!inList||listTag!=='ol'){closeList();html+='<ol>';inList=true;listTag='ol';}
+      html+='<li>'+inline(ol[1])+'</li>';continue;}
+    closeList();html+='<p>'+inline(L)+'</p>';
+  }
+  if(inCode)html+='<div class="code-wrap">'
+    +'<button class="copy-btn" onclick="copyCodeBlock(this)">复制</button>'
+    +'<pre><code>'+esc(code.join('\n'))+'</code></pre></div>';
+  closeList();closeTable();
+  return html;
+  function closeList(){if(inList){html+=listTag==='ul'?'</ul>':'</ol>';inList=false;}}
+  function closeTable(){
+    if(!inTable)return;inTable=false;
+    if(tableRows.length<2){tableRows.forEach(r=>{html+='<p>'+inline(r)+'</p>';});tableRows=[];return;}
+    const hdr=tableRows[0].split('|').filter(c=>c.trim());
+    let t='<div class="md-table-wrap"><table class="md-table"><thead><tr>';
+    hdr.forEach(c=>{t+='<th>'+inline(c.trim())+'</th>';});
+    t+='</tr></thead><tbody>';
+    for(let j=2;j<tableRows.length;j++){
+      const cells=tableRows[j].split('|').filter(c=>c.trim());
+      t+='<tr>';cells.forEach(c=>{t+='<td>'+inline(c.trim())+'</td>';});t+='</tr>';
+    }
+    t+='</tbody></table></div>';html+=t;tableRows=[];
+  }
+}
+function inline(text){
+  let s=esc(text);
+  s=s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  s=s.replace(/`(.+?)`/g,'<code>$1</code>');
+  s=s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank">$1</a>');
+  return s;
+}
+
+// ═══════════════════════════════════════════════
+//  Render helpers
+// ═══════════════════════════════════════════════
+function addUserBubble(text){
+  add(el('<div class="msg-row user"><div class="bubble user">'+esc(text)+'</div></div>'));
+}
+function addAgentHTML(html){
+  add(el('<div class="msg-row">'
+    +'<div class="agent-avatar">DA</div>'
+    +'<div class="bubble-outer">'
+    +'<div class="bubble agent">'+html+'</div>'
+    +'<div class="msg-actions">'
+    +'<button class="msg-action-btn" onclick="copyBubble(this)">复制</button>'
+    +'</div></div></div>'));
+}
+function addSysMsg(html,color){
+  const c=color==='red'?'var(--red)':color==='green'?'var(--green)':color==='orange'?'var(--orange)':'var(--blue)';
+  add(el('<div class="msg-row"><div class="agent-avatar">DA</div>'
+    +'<div class="bubble agent" style="border-left:3px solid '+c+';font-size:13px;">'
+    +html+'</div></div>'));
+}
+function renderTable(d){
+  const cols=d.columns||[],rows=d.rows||[];
+  let h='<div class="table-card"><div class="tc-head">'
+    +'<span class="tc-title">'+esc(d.title||'查询结果')+'</span>'
+    +'<span class="tc-meta">'+rows.length+'行</span></div>'
+    +'<div class="dt-wrap"><table class="dt"><thead><tr>'
+    +cols.map((c,i)=>'<th onclick="sortTbl(this,'+i+')">'+esc(c)+'</th>').join('')
+    +'</tr></thead><tbody>';
+  rows.forEach(r=>{
+    h+='<tr>';
+    r.forEach(v=>{
+      const isNum=typeof v==='number'||(typeof v==='string'&&v!==''&&!isNaN(Number(v)));
+      h+='<td'+(isNum?' class="num"':'')+'>'
+        +(isNum?Number(v).toLocaleString():esc(String(v??'')))+'</td>';
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table></div><div class="tc-actions">';
+  if(d.sql)h+='<span class="tc-link" onclick="toggleSql(this)">查看SQL</span>'
+    +'<pre style="display:none;margin-top:4px;font-size:12px;background:var(--bg-code);'
+    +'padding:6px 8px;border-radius:4px">'+esc(d.sql)+'</pre>';
+  h+='<span class="tc-link" onclick="exportCSV(this)">导出CSV</span></div></div>';
+  return el(h);
+}
+function toggleSql(el){
+  const pre=el.nextElementSibling;
+  if(pre)pre.style.display=pre.style.display==='none'?'block':'none';
+}
+function renderConfirm(d){
+  let tbl='';
+  (d.summary||[]).forEach(s=>{
+    tbl+='<tr><td>'+esc(s.label||'')+'</td><td>'+esc(String(s.value??''))+'</td></tr>';
+  });
+  if(tbl)tbl='<table class="summary-table">'+tbl+'</table>';
+  let formula='';
+  if(d.sql_or_formula)formula='<div style="margin:8px 0">'
+    +'<span class="tc-link" onclick="toggleSql(this)">查看公式/SQL</span>'
+    +'<pre style="display:none;margin-top:4px;font-size:12px">'+esc(d.sql_or_formula)+'</pre></div>';
+  return el('<div class="action-card">'
+    +'<h3>'+esc(d.title||'请确认')+'</h3>'
+    +'<div class="sub">请确认以上数值与口径是否正确</div>'
+    +tbl+formula
+    +'<button class="btn primary" onclick="doConfirm(true)">确认，继续</button>'
+    +'<button class="btn ghost" style="margin-left:8px" onclick="doConfirm(false)">取消</button>'
+    +'</div>');
+}
+function renderAsk(d){
+  const opts=(d.options||[]).map(o=>
+    '<button class="btn opt" onclick="doAsk(\''+esc(o)+'\')">'+esc(o)+'</button>'
+  ).join('');
+  return el('<div class="action-card">'
+    +'<h3>'+esc(d.question||'请选择')+'</h3>'
+    +'<div class="sub">为保证数字正确，请选择一个选项</div>'
+    +opts+'</div>');
+}
+function renderQuality(qr,name){
+  const crit=qr.critical_issues||[],warns=qr.warnings||[];
+  let h='<div class="quality-card"><b>数据质量 · '+esc(name)+'</b>';
+  if(crit.length){
+    h+='<div style="color:var(--red);margin-top:4px">需要注意（'+crit.length+'项）</div>';
+    crit.forEach(c=>{h+='<div class="q-row q-crit">• '+esc(c)+'</div>';});
+  }
+  if(warns.length)warns.slice(0,5).forEach(w=>{
+    h+='<div class="q-row" style="color:var(--text-2)">• '+esc(w)+'</div>';
+  });
+  if(!crit.length&&!warns.length)
+    h+='<div style="color:var(--green);margin-top:4px">数据质量正常</div>';
+  h+='</div>';add(el(h));
+}
+function renderChart(opt){
+  if(typeof echarts==='undefined'){console.warn('ECharts not loaded');return;}
+  const id='ch_'+Math.random().toString(36).slice(2,8);
+  add(el('<div class="table-card">'
+    +'<div class="tc-head"><span class="tc-title">'+esc(opt.title||'图表')+'</span></div>'
+    +'<div id="'+id+'" style="width:100%;height:350px"></div></div>'));
+  requestAnimationFrame(()=>{
+    const dom=$(id);
+    if(dom){try{echarts.init(dom).setOption(opt.option);}catch(e){console.error(e);}}
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  Actions
+// ═══════════════════════════════════════════════
+async function doConfirm(confirmed){
+  ST.locked=false;lockInput(false);
+  await api('POST','/api/confirm',{confirmed});
+  if(!confirmed)addSysMsg('已取消本次操作','orange');
+  else{$('input').value='确认继续';sendMessage();}
+}
+function doAsk(choice){ST.locked=false;lockInput(false);$('input').value=choice;sendMessage();}
+function sendQuick(cmd){$('input').value=cmd;sendMessage();}
+function lockInput(lock){
+  $('inrow').classList.toggle('disabled',lock);
+  $('hint').classList.toggle('show',lock);
+}
+function sortTbl(th,col){
+  const tbody=th.closest('table').querySelector('tbody');
+  const rows=Array.from(tbody.querySelectorAll('tr'));
+  const asc=th.dataset.sort!=='asc';
+  rows.sort((a,b)=>{
+    const va=a.children[col]?.textContent||'',vb=b.children[col]?.textContent||'';
+    const na=parseFloat(va.replace(/,/g,'')),nb=parseFloat(vb.replace(/,/g,''));
+    if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na;
+    return asc?va.localeCompare(vb):vb.localeCompare(va);
+  });
+  th.dataset.sort=asc?'asc':'desc';
+  rows.forEach(r=>tbody.appendChild(r));
+}
+function exportCSV(btn){
+  const table=btn.closest('.table-card')?.querySelector('table');
+  if(!table)return;
+  let csv='';
+  table.querySelectorAll('tr').forEach(r=>{
+    const cells=[];
+    r.querySelectorAll('th,td').forEach(c=>cells.push('"'+c.textContent.replace(/"/g,'""')+'"'));
+    csv+=cells.join(',')+'\n';
+  });
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='export_'+Date.now()+'.csv';a.click();
+}
+
+// ═══════════════════════════════════════════════
+//  Sidebar
+// ═══════════════════════════════════════════════
+function toggleSidebar(){$('bodyWrap').classList.toggle('collapsed');}
+async function refreshSidebar(){loadSessions();loadTables();loadSkills();loadGroups();}
+function toggleSec(name){const sec=$('sec-'+name);if(sec)sec.classList.toggle('open');}
+function openSec(name){const sec=$('sec-'+name);if(sec&&!sec.classList.contains('open'))sec.classList.add('open');}
+
+async function loadTables(){
+  try{
+    const d=await api('GET','/api/tables');
+    const tables=d.tables||[];
+    window._cachedTables=tables;
+    const list=$('tableList');
+    if(!tables.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无数据表，点击上方「上传」添加</div>';updateWelcomeExamples([]);return;}
+    list.innerHTML=tables.map(t=>{
+      const color=t.type==='holding'?'var(--green)':t.type==='nav'?'var(--blue)':'var(--text-3)';
+      return '<div class="s-item" onclick="openProfile(\''+esc(t.name)+'\')" title="点击查看表结构">'
+        +'<span class="dot" style="background:'+color+'"></span>'
+        +'<span class="s-text">'+esc(t.name)+'</span>'
+        +'<span class="s-meta">'+t.rows+'行</span>'
+        +'<span class="item-del" onclick="event.stopPropagation();deleteTable(\''+esc(t.name)+'\')" title="卸载">×</span>'
+        +'</div>';
+    }).join('');
+    updateWelcomeExamples(tables);
+  }catch(e){}
+}
+function updateWelcomeExamples(tables){
+  const el=$('welcomeExamples');if(!el)return;
+  if(!tables.length){el.innerHTML='';return;}
+  const examples=[];
+  const hasHolding=tables.find(t=>t.type==='holding');
+  const hasNav=tables.find(t=>t.type==='nav');
+  if(hasHolding)examples.push(
+    {text:'@'+hasHolding.name+' 按主体统计持仓市值排名前10',icon:'📊'},
+    {text:'@'+hasHolding.name+' 检查主体集中度是否超标',icon:'✅'}
+  );
+  if(hasNav)examples.push(
+    {text:'@'+hasNav.name+' 最近一周净值变动如何',icon:'📈'}
+  );
+  if(tables.length>1)examples.push(
+    {text:'已加载的数据有哪些表？各表结构是什么？',icon:'🔍'}
+  );
+  if(!examples.length)examples.push({text:'帮我分析已加载的数据',icon:'💡'});
+  el.innerHTML='<div style="margin-top:12px;font-size:12px;color:var(--text-3)">试试这些：</div>'
+    +examples.slice(0,3).map(ex=>
+      '<div class="wex-item" onclick="sendQuick(\''+esc(ex.text)+'\')">'
+      +ex.icon+' '+esc(ex.text)+'</div>'
+    ).join('');
+}
+async function loadSkills(){
+  try{
+    const d=await api('GET','/api/skills');
+    const list=$('skillList'),skills=d.skills||[];
+    if(!skills.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">无可用技能，点击「创建」添加</div>';return;}
+    list.innerHTML=skills.map(s=>{
+      const desc=(s.description||'').split('\n')[0].slice(0,60);
+      const reqTables=(s.required_tables||[]).join('/');
+      return '<div class="s-item" onclick="triggerSkill(\''+esc(s.name)+'\')" title="'+esc(desc+(reqTables?'\n需要: '+reqTables+'表':''))+'">'
+        +'<span class="s-text">'+esc(s.name)+'</span>'
+        +'<span class="s-tag '+(s.calc_type==='fixed'?'fixed':'exp')+'">'
+        +(s.calc_type==='fixed'?'固化':'探索')+'</span></div>';
+    }).join('');
+  }catch(e){}
+}
+function triggerSkill(name){
+  $('input').value='@skill:'+name+' ';
+  $('input').focus();
+}
+// Maps stable element IDs → real group names (handles special chars safely)
+const _grpMap={};
+// Produce a stable alphanumeric+CJK ID from an arbitrary name
+function grpSid(name){return'g_'+String(name||'').replace(/[^a-zA-Z0-9㐀-鿿豈-﫿]/g,'_');}
+
+async function loadGroups(){
+  try{
+    const r=await fetch('/api/groups');if(!r.ok)return;
+    const d=await r.json();const groups=d.groups||{};
+    const list=$('groupList');
+    const entries=Object.entries(groups);
+    if(!entries.length){
+      list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无集团系</div>';return;
+    }
+    // Rebuild map and HTML
+    Object.keys(_grpMap).forEach(k=>delete _grpMap[k]);
+    list.innerHTML=entries.map(([name,members])=>{
+      const sid=grpSid(name);
+      _grpMap[sid]=name;
+      // Member rows use data attributes to avoid inline JS encoding issues
+      const ms=(members||[]).map(m=>
+        '<div class="grp-member" data-group="'+esc(name)+'" data-member="'+esc(m)+'">'
+        +'<span class="m-name">'+esc(m)+'</span>'
+        +'<span class="m-del" onclick="removeMemberEl(this)">×</span>'
+        +'</div>'
+      ).join('');
+      return '<div class="grp-item" id="'+sid+'">'
+        +'<div class="grp-hd" onclick="toggleGrp(\''+sid+'\')">'
+        +'<span class="grp-arr">▸</span>'
+        +'<span class="grp-name">'+esc(name)+'</span>'
+        +'<span class="grp-cnt">'+(members||[]).length+'</span>'
+        +'<span class="grp-del" onclick="event.stopPropagation();confirmDeleteGroup(\''+sid+'\')" title="删除集团">×</span>'
+        +'</div>'
+        +'<div class="grp-bd">'+ms
+        +'<div class="grp-add">'
+        +'<input type="text" id="addm-'+sid+'" placeholder="添加主体名称"'
+        +' onkeydown="if(event.key===\'Enter\')addMember(\''+sid+'\')" />'
+        +'<button onclick="addMember(\''+sid+'\')">+</button>'
+        +'</div></div></div>';
+    }).join('');
+  }catch(e){}
+}
+function toggleGrp(sid){
+  const item=document.getElementById(sid);
+  if(item)item.classList.toggle('open');
+}
+async function addMember(sid){
+  const groupName=_grpMap[sid];if(!groupName)return;
+  const inp=document.getElementById('addm-'+sid);if(!inp)return;
+  const entity=inp.value.trim();if(!entity)return;
+  const r=await api('POST','/api/groups/'+encodeURIComponent(groupName)+'/members',{entity});
+  if(r.ok){inp.value='';loadGroups();toast('已添加：'+entity,'success');}
+  else toast('添加失败：'+(r.error||''),'error');
+}
+function removeMemberEl(btn){
+  const item=btn.closest('.grp-member');if(!item)return;
+  removeMember(item.dataset.group,item.dataset.member);
+}
+async function removeMember(groupName,entity){
+  const r=await api('DELETE','/api/groups/'+encodeURIComponent(groupName)+'/members',{entity});
+  if(r.ok){loadGroups();toast('已移除：'+entity);}
+  else toast('移除失败：'+(r.error||''),'error');
+}
+async function confirmDeleteGroup(sid){
+  const name=_grpMap[sid];if(!name)return;
+  if(!confirm('确定要删除集团系「'+name+'」及其所有主体吗？'))return;
+  const r=await api('DELETE','/api/groups/'+encodeURIComponent(name));
+  if(r.ok){loadGroups();toast('已删除：'+name,'success');}
+  else toast('删除失败：'+(r.error||''),'error');
+}
+function showCreateGroup(){
+  const name=prompt('输入新集团系名称：');
+  if(!name||!name.trim())return;
+  createGroup(name.trim());
+}
+async function createGroup(name){
+  const r=await api('POST','/api/groups',{name,members:[]});
+  if(r.ok){loadGroups();toast('已创建：'+name,'success');openSec('groups');}
+  else toast('创建失败：'+(r.error||''),'error');
+}
+async function deleteTable(name){
+  if(!confirm('确定要卸载表「'+name+'」吗？数据文件不会被删除。'))return;
+  const r=await api('DELETE','/api/tables/'+encodeURIComponent(name));
+  if(r.ok){loadTables();toast('已卸载：'+name);}
+  else toast('卸载失败：'+(r.error||''),'error');
+}
+
+// ═══════════════════════════════════════════════
+//  Settings panel
+// ═══════════════════════════════════════════════
+async function openSettings(){
+  await loadSettings();
+  $('settingsOverlay').classList.add('show');
+  $('settingsPanel').classList.add('show');
+}
+function closeSettings(){
+  $('settingsOverlay').classList.remove('show');
+  $('settingsPanel').classList.remove('show');
+}
+async function loadSettings(){
+  try{
+    const d=await api('GET','/api/config');
+    const up=d.user_profile||{};
+    $('cfg-name').value=up.name||'';
+    $('cfg-dept').value=up.department||'';
+    $('cfg-role').value=up.role||'';
+    _products=(Array.isArray(up.managed_products)?up.managed_products:[]).filter(p=>p&&p.trim());
+    renderProductTags();
+
+    const cc=(d.calculation_config||{}).concentration||{};
+    $('cfg-thresh-entity').value=cc.threshold_entity??10;
+    $('cfg-thresh-bond').value=cc.threshold_single_bond??10;
+    $('cfg-mkt-field').value=cc.market_value_field||'穿透后市值';
+    $('cfg-group-merge').checked=cc.use_group_merge!==false;
+
+    $('cfg-memory').checked=!!(d.memory||{}).enabled;
+    $('cfg-scheduler').checked=!!(d.scheduler||{}).enabled;
+
+    $('cfg-llm-url').value=d.llm_url||'';
+    $('cfg-llm-model').value=d.llm_model||'deepseek-chat';
+    const keySet=d.api_key_set;
+    $('apikeyStatus').textContent=keySet?'✓ API Key 已配置':'未配置 — 需配置后才能使用 AI 功能';
+    $('apikeyStatus').style.color=keySet?'var(--green)':'var(--orange)';
+  }catch(e){toast('加载配置失败','error');}
+
+  // Memory stats
+  try{
+    const ms=await api('GET','/api/memory/stats');
+    if(ms.enabled){
+      $('memStats').textContent='已存 '+ms.count+' 条，'+ms.size_mb+'MB'+(ms.warning?' ⚠️ 超过阈值':'');
+    }else{$('memStats').textContent='记忆功能未启用';}
+  }catch(e){}
+
+  // Task list
+  try{
+    const td=await api('GET','/api/tasks');
+    const tasks=td.tasks||[];
+    $('spTaskList').innerHTML=tasks.length
+      ?tasks.map(t=>'<div style="font-size:12px;padding:3px 0;color:var(--text-2)">• '
+        +esc(t.name||JSON.stringify(t))+(t.schedule?' ('+esc(t.schedule)+')':'')+'</div>').join('')
+      :'<div style="font-size:12px;color:var(--text-3)">暂无定时任务</div>';
+  }catch(e){}
+
+  // Log settings
+  loadLogSettings();
+}
+function renderProductTags(){
+  $('productTags').innerHTML=_products.map((p,i)=>
+    '<span class="ptag">'+esc(p)
+    +'<span class="ptag-del" onclick="removeProduct('+i+')">×</span></span>'
+  ).join('');
+}
+function addProduct(){
+  const inp=$('newProduct'),v=inp.value.trim();
+  if(!v)return;
+  if(!_products.includes(v))_products.push(v);
+  inp.value='';renderProductTags();
+}
+function removeProduct(i){_products.splice(i,1);renderProductTags();}
+async function saveSettings(){
+  const body={
+    user_profile:{
+      name:$('cfg-name').value.trim(),
+      department:$('cfg-dept').value.trim(),
+      role:$('cfg-role').value,
+      managed_products:_products,
+    },
+    calculation_config:{concentration:{
+      threshold_entity:parseFloat($('cfg-thresh-entity').value)||10,
+      threshold_single_bond:parseFloat($('cfg-thresh-bond').value)||10,
+      market_value_field:$('cfg-mkt-field').value.trim()||'穿透后市值',
+      use_group_merge:$('cfg-group-merge').checked,
+    }},
+    memory:{enabled:$('cfg-memory').checked},
+    scheduler:{enabled:$('cfg-scheduler').checked},
+  };
+  const apikey=$('cfg-apikey').value.trim();
+  if(apikey)body.api_key=apikey;
+  const llmUrl=$('cfg-llm-url').value.trim();
+  if(llmUrl)body.llm_url=llmUrl;
+  const llmModel=$('cfg-llm-model').value.trim();
+  if(llmModel)body.llm_model=llmModel;
+  try{
+    const r=await api('POST','/api/config',body);
+    if(r.ok){
+      toast('配置已保存','success');
+      if(apikey)$('cfg-apikey').value='';
+      closeSettings();
+    }else toast('保存失败：'+(r.error||''),'error');
+  }catch(e){toast('保存失败','error');}
+}
+async function testLLMConnection(){
+  const btn=$('testConnBtn');
+  const result=$('llmTestResult');
+  btn.disabled=true;btn.textContent='测试中…';
+  result.textContent='';result.style.color='var(--text-3)';
+  try{
+    const d=await api('POST','/api/llm/test');
+    if(d.ok){
+      result.textContent='✓ 连接成功（模型: '+(d.model||'--')+'）';
+      result.style.color='var(--green)';
+    }else{
+      result.textContent='✕ '+d.error;
+      result.style.color='var(--red)';
+    }
+  }catch(e){result.textContent='✕ 请求失败';result.style.color='var(--red)';}
+  btn.disabled=false;btn.textContent='测试连接';
+}
+async function saveMemoryToggle(){
+  try{
+    const r=await api('POST','/api/config',{memory:{enabled:$('cfg-memory').checked}});
+    if(r.ok){
+      toast('记忆功能已'+($('cfg-memory').checked?'开启':'关闭'),'success');
+      // Refresh stats
+      const ms=await api('GET','/api/memory/stats');
+      if(ms.enabled){$('memStats').textContent='已存 '+ms.count+' 条，'+ms.size_mb+'MB';}
+      else{$('memStats').textContent='记忆功能未启用';}
+    }else{toast('切换失败：'+(r.error||''),'error');}
+  }catch(e){toast('切换失败','error');}
+}
+async function clearMemory(){
+  if(!confirm('确定要清空所有记忆记录吗？此操作不可恢复。'))return;
+  const r=await api('POST','/api/memory/clear');
+  if(r.ok){toast('记忆库已清空','success');loadSettings();}
+  else toast('清空失败：'+(r.error||''),'error');
+}
+
+// ═══════════════════════════════════════════════
+//  Toast
+// ═══════════════════════════════════════════════
+function toast(msg,type,duration){
+  const stack=$('toastStack');
+  const t=document.createElement('div');
+  t.className='toast'+(type&&type!=='info'?' '+type:'');
+  t.textContent=msg;
+  stack.appendChild(t);
+  setTimeout(()=>{
+    t.style.animation='toastOut .2s ease forwards';
+    setTimeout(()=>t.remove(),200);
+  },duration||2800);
+}
+
+// ═══════════════════════════════════════════════
+//  Keyboard
+// ═══════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if($('mentionPopup').classList.contains('show')){$('mentionPopup').classList.remove('show');return;}
+    if(ST._es)stopStream();
+    else if($('sbPanel').classList.contains('show'))closeSkillBuilder();
+    else if($('settingsPanel').classList.contains('show'))closeSettings();
+  }
+});
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#inputbar'))$('mentionPopup').classList.remove('show');
+});
+
+// ═══════════════════════════════════════════════
+//  Input
+// ═══════════════════════════════════════════════
+function onKey(e){
+  const popup=$('mentionPopup');
+  if(popup.classList.contains('show')){
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();mentionNav(e.key==='ArrowDown'?1:-1);return;
+    }
+    if(e.key==='Enter'||e.key==='Tab'){
+      const active=popup.querySelector('.mention-item.active');
+      if(active){e.preventDefault();mentionSelect(active.dataset.name);return;}
+    }
+    if(e.key==='Escape'){popup.classList.remove('show');return;}
+  }
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
+}
+function autoResize(ta){
+  ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';
+  checkMention(ta);
+}
+let _mentionIdx=-1;
+function checkMention(ta){
+  const popup=$('mentionPopup');
+  const val=ta.value,pos=ta.selectionStart;
+  const before=val.slice(0,pos);
+  const match=before.match(/@([^\s@]*)$/);
+  if(!match){popup.classList.remove('show');return;}
+  const query=match[1].toLowerCase();
+  const tables=(window._cachedTables||[]).filter(t=>
+    !query||t.name.toLowerCase().includes(query));
+  if(!tables.length){popup.classList.remove('show');return;}
+  _mentionIdx=-1;
+  popup.innerHTML=tables.slice(0,8).map(t=>
+    '<div class="mention-item" data-name="'+esc(t.name)+'" onclick="mentionSelect(\''+esc(t.name)+'\')">'
+    +'<span class="dot" style="background:'+(t.type==='holding'?'var(--green)':t.type==='nav'?'var(--blue)':'var(--text-3)')+'"></span>'
+    +'<span class="mi-name">'+esc(t.name)+'</span>'
+    +'<span class="mi-meta">'+t.rows+'行</span></div>'
+  ).join('');
+  popup.classList.add('show');
+}
+function mentionNav(dir){
+  const popup=$('mentionPopup');
+  const items=[...popup.querySelectorAll('.mention-item')];
+  if(!items.length)return;
+  items.forEach(i=>i.classList.remove('active'));
+  _mentionIdx=(_mentionIdx+dir+items.length)%items.length;
+  items[_mentionIdx].classList.add('active');
+}
+function mentionSelect(name){
+  const ta=$('input'),val=ta.value,pos=ta.selectionStart;
+  const before=val.slice(0,pos),after=val.slice(pos);
+  const atIdx=before.lastIndexOf('@');
+  ta.value=before.slice(0,atIdx)+'@'+name+' '+after;
+  ta.selectionStart=ta.selectionEnd=atIdx+name.length+2;
+  $('mentionPopup').classList.remove('show');
+  ta.focus();
+}
+function triggerUpload(){openSec('tables');$('fileInput').click();}
+function clearChat(){chat.innerHTML='';}
+
+async function resetChat(){
+  if(ST._es){ST._es.close();ST._es=null;}
+  ST.locked=false;lockInput(false);endStream();finPW();
+  clearChat();
+  chat.innerHTML='<div class="welcome" id="welcomePanel"><h2>DataAgent</h2>'
+    +'<p>专业的金融资管数据分析助手</p>'
+    +'<div class="welcome-cards">'
+    +'<div class="wc-card" onclick="triggerUpload()"><div class="wc-icon">📊</div>'
+    +'<div class="wc-title">上传数据分析</div>'
+    +'<div class="wc-desc">上传 CSV/Excel 持仓、净值、评级文件</div></div>'
+    +'<div class="wc-card" onclick="sendQuick(\'帮我检查主体集中度是否有超标情况\')"><div class="wc-icon">✅</div>'
+    +'<div class="wc-title">合规监控</div>'
+    +'<div class="wc-desc">集中度自动检查，固化口径保证准确</div></div>'
+    +'<div class="wc-card" onclick="openSkillBuilder()"><div class="wc-icon">⚡</div>'
+    +'<div class="wc-title">创建 Skill</div>'
+    +'<div class="wc-desc">AI 帮你生成可复用的分析技能</div></div>'
+    +'<div class="wc-card" onclick="$(\'input\').focus()"><div class="wc-icon">💬</div>'
+    +'<div class="wc-title">通用问答</div>'
+    +'<div class="wc-desc">金融知识、文档分析、行业咨询</div></div>'
+    +'</div></div>';
+  try{await api('POST','/api/reset');}catch(e){}
+  $('chatTitle').textContent='新对话';
+  ST.sessionId='';refreshSidebar();
+  setTimeout(()=>$('input').focus(),100);
+}
+
+// ═══════════════════════════════════════════════
+//  Table Profile
+// ═══════════════════════════════════════════════
+let _profileTable='';
+async function openProfile(tableName){
+  _profileTable=tableName;
+  $('profileOverlay').classList.add('show');
+  $('pmTitle').textContent=tableName;
+  $('pmTabStruct').classList.add('active');
+  $('pmTabQuality').classList.remove('active');
+  $('pmBody').style.display='';
+  $('pmBodyQuality').style.display='none';
+  $('pmBody').innerHTML='<div style="text-align:center;padding:30px;color:var(--text-3)">加载中…</div>';
+  $('pmBodyQuality').innerHTML='';
+  try{
+    const d=await api('GET','/api/tables/'+encodeURIComponent(tableName)+'/profile');
+    if(d.error){$('pmBody').innerHTML='<div style="color:var(--red)">'+esc(d.error)+'</div>';return;}
+    let html='<div style="margin-bottom:10px;font-size:13px;color:var(--text-2)">'
+      +d.row_count+'行 × '+d.columns.length+'列</div>';
+    html+='<div class="pm-col">';
+    html+='<div class="pm-hdr">列名</div><div class="pm-hdr">类型</div>'
+      +'<div class="pm-hdr">空值率</div><div class="pm-hdr">去重</div><div class="pm-hdr">样本值</div>';
+    (d.columns||[]).forEach(c=>{
+      const nullPct=Math.round((c.null_rate||0)*100);
+      const nullCls=nullPct>5?'pm-null':'pm-null ok';
+      html+='<div title="'+esc(c.name)+'">'+esc(c.name)+'</div>';
+      html+='<div style="color:var(--text-3)">'+esc(c.dtype)+'</div>';
+      html+='<div class="'+nullCls+'">'+nullPct+'%</div>';
+      html+='<div>'+(c.distinct_count||'-')+'</div>';
+      const samples=(c.samples||[]).join(', ')||(c.min!=null?c.min+'~'+c.max:'—');
+      html+='<div class="pm-samples" title="'+esc(samples)+'">'+esc(samples)+'</div>';
+    });
+    html+='</div>';
+    if(d.field_map&&Object.keys(d.field_map).length){
+      html+='<div style="margin-top:14px;font-size:12px;color:var(--text-2)">'
+        +'<b>字段映射：</b>'+Object.entries(d.field_map).map(([k,v])=>esc(k)+'→'+esc(v)).join('、')
+        +'</div>';
+    }
+    $('pmBody').innerHTML=html;
+  }catch(e){$('pmBody').innerHTML='<div style="color:var(--red)">加载失败：'+esc(e.message)+'</div>';}
+}
+function switchProfileTab(tab){
+  if(tab==='struct'){
+    $('pmTabStruct').classList.add('active');$('pmTabQuality').classList.remove('active');
+    $('pmBody').style.display='';$('pmBodyQuality').style.display='none';
+  }else{
+    $('pmTabStruct').classList.remove('active');$('pmTabQuality').classList.add('active');
+    $('pmBody').style.display='none';$('pmBodyQuality').style.display='';
+    loadQualityTab(_profileTable);
+  }
+}
+async function loadQualityTab(tableName){
+  const body=$('pmBodyQuality');
+  body.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-3)">分析中…</div>';
+  try{
+    const d=await api('GET','/api/tables/'+encodeURIComponent(tableName)+'/quality');
+    if(d.error){body.innerHTML='<div style="color:var(--red)">'+esc(d.error)+'</div>';return;}
+    const q=d.report||d;
+    const nullRates=q.null_rates||{};
+    const cols=Object.keys(nullRates);
+    const avgNull=cols.length?cols.reduce((s,k)=>s+nullRates[k],0)/cols.length:0;
+    const completeness=Math.round((1-avgNull)*100);
+    const compCls=completeness>=95?'good':completeness>=80?'warn':'bad';
+    const highNullCols=cols.filter(k=>nullRates[k]>0.05);
+    let html='<div class="pm-quality-grid">';
+    html+='<div class="pm-q-card"><h4>数据完整度</h4><div class="pm-q-val '+compCls+'">'+completeness+'%</div></div>';
+    html+='<div class="pm-q-card"><h4>总列数</h4><div class="pm-q-val">'+cols.length+'</div></div>';
+    html+='<div class="pm-q-card"><h4>高空值列</h4><div class="pm-q-val '+(highNullCols.length?'warn':'good')+'">'
+      +highNullCols.length+'</div></div>';
+    const critCount=(q.critical_issues||[]).length;
+    html+='<div class="pm-q-card"><h4>严重问题</h4><div class="pm-q-val '+(critCount?'bad':'good')+'">'
+      +critCount+'</div></div>';
+    html+='</div>';
+    if(highNullCols.length){
+      html+='<div style="margin-top:14px"><div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:6px">需关注列（空值率>5%）</div>';
+      highNullCols.sort((a,b)=>nullRates[b]-nullRates[a]).forEach(col=>{
+        const pct=Math.round(nullRates[col]*100);
+        html+='<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">'
+          +'<span style="flex:1;color:var(--text)">'+esc(col)+'</span>'
+          +'<span style="color:var(--orange)">'+pct+'% 空值</span></div>';
+      });
+      html+='</div>';
+    }
+    if(q.critical_issues&&q.critical_issues.length){
+      html+='<div style="margin-top:12px;padding:8px 10px;background:var(--red-bg);border-radius:6px;font-size:12px;color:var(--red)">';
+      q.critical_issues.forEach(c=>{html+='<div>✕ '+esc(c)+'</div>';});
+      html+='</div>';
+    }
+    if(q.warnings&&q.warnings.length){
+      html+='<div style="margin-top:12px;padding:8px 10px;background:var(--orange-bg);border-radius:6px;font-size:12px;color:var(--orange)">';
+      q.warnings.forEach(w=>{html+='<div>⚠ '+esc(w)+'</div>';});
+      html+='</div>';
+    }
+    if(!critCount&&!highNullCols.length&&!(q.warnings||[]).length){
+      html+='<div style="margin-top:14px;text-align:center;color:var(--green);font-size:13px">数据质量良好，无异常发现</div>';
+    }
+    body.innerHTML=html;
+  }catch(e){body.innerHTML='<div style="color:var(--text-3)">质量检查不可用</div>';}
+}
+function closeProfile(){$('profileOverlay').classList.remove('show');}
+function toggleTheme(){
+  const h=document.documentElement;
+  h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';
+}
+
+// ═══════════════════════════════════════════════
+//  Drag & Drop
+// ═══════════════════════════════════════════════
+const ibar=$('inputbar');
+ibar.addEventListener('dragover',e=>{e.preventDefault();ibar.classList.add('dragover');});
+ibar.addEventListener('dragleave',()=>ibar.classList.remove('dragover'));
+ibar.addEventListener('drop',e=>{
+  e.preventDefault();ibar.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+$('uploadLink').addEventListener('click',()=>{openSec('tables');$('fileInput').click();});
+
+// ═══════════════════════════════════════════════
+//  Init
+// ═══════════════════════════════════════════════
+refreshSidebar();
+setTimeout(()=>$('input').focus(),200);
+
+async function pollHealth(){
+  try{
+    const d=await api('GET','/api/health');
+    $('ramMb').textContent=d.ram_mb||'--';
+    $('tokenUsed').textContent=d.token_used||0;
+    $('tokenLimit').textContent=Math.round((d.token_limit||64000)/1000)+'K';
+    $('llmName').textContent=d.llm_name||'--';
+    if(d.llm_name&&d.llm_name!=='--')$('llmDot').className='dot on';
+  }catch(e){}
+}
+pollHealth();
+setInterval(async()=>{
+  try{
+    const d=await api('GET','/api/health');
+    $('ramMb').textContent=d.ram_mb||'--';
+    $('tokenUsed').textContent=d.token_used||0;
+    $('tokenLimit').textContent=Math.round((d.token_limit||64000)/1000)+'K';
+    $('llmName').textContent=d.llm_name||'--';
+  }catch(e){}
+},15000);
+
+// ═══════════════════════════════════════════════
+//  Skill Builder
+// ═══════════════════════════════════════════════
+let _sbStep=0;
+
+function openSkillBuilder(){
+  _sbStep=0;
+  $('sbDescInput').value='';
+  $('sbEditor').value='';
+  sbGoStep(0);
+  sbLoadDrafts();
+  $('sbOverlay').classList.add('show');
+  $('sbPanel').classList.add('show');
+}
+function closeSkillBuilder(){
+  $('sbOverlay').classList.remove('show');
+  $('sbPanel').classList.remove('show');
+}
+function sbGoStep(n){
+  _sbStep=n;
+  for(let i=0;i<4;i++){
+    const step=$('sbStep'+i),dot=$('sbDot'+i);
+    if(!step)continue;
+    step.classList.toggle('active',i===n);
+    dot.classList.toggle('active',i===n);
+    dot.classList.toggle('done',i<n);
+  }
+}
+function sbReset(){
+  $('sbDescInput').value='';
+  $('sbEditor').value='';
+  $('sbValResult').innerHTML='';
+  sbGoStep(0);
+  sbLoadDrafts();
+}
+
+async function sbLoadDrafts(){
+  const container=$('sbDraftList');
+  try{
+    const d=await api('GET','/api/skill-builder/drafts');
+    const drafts=d.drafts||[];
+    if(!drafts.length){container.innerHTML='';return;}
+    container.innerHTML='<div class="sb-label">已有草稿</div>'
+      +drafts.map(dr=>'<div class="sb-draft-item" onclick="sbLoadDraft(\''+esc(dr.name)+'\')">'
+        +'<span class="sb-draft-name">'+esc(dr.name)+'</span>'
+        +'<span class="sb-draft-desc">'+esc((dr.description||'').slice(0,40))+'</span>'
+        +'<span class="sb-draft-del" onclick="event.stopPropagation();sbDeleteDraft(\''+esc(dr.name)+'\')">删除</span>'
+        +'</div>').join('');
+  }catch(e){container.innerHTML='';}
+}
+
+async function sbLoadDraft(name){
+  try{
+    const d=await api('GET','/api/skill-builder/draft/'+encodeURIComponent(name));
+    if(d.content){
+      $('sbEditor').value=d.content;
+      sbGoStep(1);
+    }else{toast('草稿内容为空','error');}
+  }catch(e){toast('加载草稿失败','error');}
+}
+
+async function sbDeleteDraft(name){
+  if(!confirm('确定删除草稿 "'+name+'" 吗？'))return;
+  try{
+    await api('DELETE','/api/skill-builder/draft/'+encodeURIComponent(name));
+    toast('草稿已删除','success');
+    sbLoadDrafts();
+  }catch(e){toast('删除失败','error');}
+}
+
+async function sbGenerate(){
+  const desc=$('sbDescInput').value.trim();
+  if(!desc){toast('请先描述 Skill 功能','error');return;}
+  $('sbStep0').innerHTML='<div class="sb-loading">AI 正在生成 Skill 配置…</div>';
+  try{
+    const d=await api('POST','/api/skill-builder/generate',{description:desc});
+    // restore step 0 HTML
+    sbRestoreStep0();
+    if(d.content){
+      $('sbEditor').value=d.content;
+      sbGoStep(1);
+      toast('Skill 配置已生成','success');
+    }else{
+      toast('生成失败：'+(d.error||'未知错误'),'error');
+    }
+  }catch(e){
+    sbRestoreStep0();
+    toast('生成请求失败','error');
+  }
+}
+
+function sbRestoreStep0(){
+  $('sbStep0').innerHTML=
+    '<div id="sbDraftList" style="margin-bottom:16px"></div>'
+    +'<label class="sb-label">描述你想创建的 Skill 功能</label>'
+    +'<textarea class="sb-textarea" id="sbDescInput"'
+    +' placeholder="例如：我想查询每只债券的到期日和剩余期限，以表格形式展示持仓中即将到期的债券，按到期日排序"></textarea>'
+    +'<div class="sp-hint" style="margin-top:6px">用自然语言描述即可，AI 会帮你生成 Skill 配置</div>'
+    +'<div class="sb-actions">'
+    +'<button class="btn primary" onclick="sbGenerate()">AI 生成</button>'
+    +'<button class="btn ghost" onclick="sbGoStep(1)">手动编写</button>'
+    +'</div>';
+  sbLoadDrafts();
+}
+
+async function sbValidate(){
+  const content=$('sbEditor').value.trim();
+  if(!content){toast('内容不能为空','error');return;}
+  try{
+    const d=await api('POST','/api/skill-builder/validate',{content:content});
+    const v=d.validation||{};
+    const issues=v.issues||[];
+    let html='';
+    if(v.ok){
+      html='<div class="sb-issue" style="background:var(--green-bg,#e6f9ee);color:var(--green)">'
+        +'<span class="sb-i-icon">✓</span><span class="sb-i-msg">校验通过，可以发布</span></div>';
+      $('sbPublishBtn').disabled=false;
+    }else{
+      $('sbPublishBtn').disabled=true;
+    }
+    html+=issues.map(is=>'<div class="sb-issue '+esc(is.level)+'">'
+      +'<span class="sb-i-icon">'+(is.level==='error'?'✕':'⚠')+'</span>'
+      +'<span class="sb-i-msg">'+(is.field?'<b>'+esc(is.field)+'</b>：':'')+esc(is.message)+'</span>'
+      +'</div>').join('');
+    $('sbValResult').innerHTML=html;
+    sbGoStep(2);
+  }catch(e){toast('校验请求失败','error');}
+}
+
+async function sbSaveDraft(){
+  const content=$('sbEditor').value.trim();
+  if(!content){toast('内容不能为空','error');return;}
+  const nameMatch=content.match(/name:\s*(\S+)/);
+  const name=nameMatch?nameMatch[1]:'draft_'+Date.now();
+  try{
+    const d=await api('POST','/api/skill-builder/save-draft',{name:name,content:content});
+    if(d.ok){toast('草稿已保存','success');}
+    else{toast('保存失败：'+(d.error||''),'error');}
+  }catch(e){toast('保存失败','error');}
+}
+
+async function sbPublish(){
+  const content=$('sbEditor').value.trim();
+  if(!content)return;
+  try{
+    const d=await api('POST','/api/skill-builder/publish',{content:content});
+    if(d.ok){
+      $('sbSuccessName').textContent='Skill "'+esc(d.name)+'" 已发布';
+      sbGoStep(3);
+      toast('Skill 发布成功','success');
+    }else{
+      const v=d.validation||{};
+      const msgs=(v.issues||[]).map(i=>i.message).join('；');
+      toast('发布失败：'+(msgs||d.error||'校验未通过'),'error');
+    }
+  }catch(e){toast('发布请求失败','error');}
+}
+
+// ═══════════════════════════════════════════════
+//  Runtime Logging Settings
+// ═══════════════════════════════════════════════
+async function loadLogSettings(){
+  try{
+    const sel=$('cfg-log-mode');
+    if(!sel)return;
+    const d=await api('GET','/api/config');
+    const logCfg=(d.logging||{});
+    sel.value=logCfg.mode||'basic';
+  }catch(e){}
+  try{
+    const s=await api('GET','/api/logs/stats');
+    $('logStats').textContent='日志文件 '+s.file_count+'个，共 '+s.total_size_mb+'MB'
+      +(s.mode?'  (模式: '+s.mode+')':'');
+  }catch(e){$('logStats').textContent='';}
+}
+
+async function switchLogMode(){
+  const mode=$('cfg-log-mode').value;
+  try{
+    const r=await api('POST','/api/logs/mode',{mode:mode});
+    if(r.ok){toast('日志模式已切换为 '+mode,'success');}
+    else{toast('切换失败：'+(r.error||''),'error');}
+  }catch(e){toast('切换失败','error');}
+}
+
+async function cleanupLogs(){
+  if(!confirm('确定要清理过期日志文件吗？'))return;
+  try{
+    const r=await api('POST','/api/logs/cleanup');
+    if(r.ok){
+      toast('已清理 '+(r.deleted||0)+' 个过期日志文件','success');
+      loadLogSettings();
+    }else{toast('清理失败：'+(r.error||''),'error');}
+  }catch(e){toast('清理失败','error');}
+}
+
+</script>
 <script src="/static/echarts.min.js"></script>
 </body>
 </html>
