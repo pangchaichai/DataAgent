@@ -10,3 +10,4 @@ const ST={
 let streamEl=null, streamBuf='';
 let _pw=null, _pwBd=null, _pwN=0;
 let _upl=false;
+let _documentContext=null;

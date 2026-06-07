@@ -19,12 +19,36 @@ async function uploadFile(file){
     const r=await fetch('/api/upload',{method:'POST',body:fd,signal:ctrl.signal});
     const d=await r.json();
     if(d.ok){
-      showUploadConfirm(d);
+      if(d.file_kind==='document'){
+        showDocumentResult(d);
+      }else{
+        showUploadConfirm(d);
+      }
     }else{addSysMsg('上传失败：'+esc(d.error),'red');}
   }catch(e){
     if(e.name==='AbortError')addSysMsg('解析超时，请重试','red');
     else addSysMsg('上传异常：'+esc(e.message),'red');
   }finally{clearTimeout(timer);}
+}
+
+function showDocumentResult(d){
+  let html='<div class="bubble-outer da"><div class="avatar">DA</div><div class="bubble">';
+  html+='<b>📄 文档已解析：'+esc(d.filename)+'</b><br>';
+  html+='<span style="color:var(--muted)">类型：'+esc(d.file_type||'文档')
+    +'　字数：'+(d.word_count||0)
+    +(d.page_count?'　页数：'+d.page_count:'')
+    +(d.table_count?'　表格：'+d.table_count+'个':'')+'</span>';
+  if(d.text_preview){
+    html+='<div style="margin-top:8px;padding:8px 12px;background:var(--bg-card);border-radius:6px;'
+      +'font-size:13px;max-height:200px;overflow-y:auto;white-space:pre-wrap">'
+      +esc(d.text_preview)+'</div>';
+  }
+  html+='<div style="margin-top:8px;color:var(--muted);font-size:12px">'
+    +'文档内容已就绪，您可以在输入框中提问来分析此文档。</div>';
+  html+='</div></div>';
+  add(el(html));
+  _pendingUpload=null;
+  _documentContext=d;
 }
 
 function showUploadConfirm(d){

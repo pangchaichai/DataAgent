@@ -247,37 +247,75 @@ class LLMClient:
     # ── Provider 管理接口 ──────────────────────────────────────
 
     def test_connection(self, provider: str = None) -> dict:
-        """测试 LLM provider 连通性，返回状态和可用模型列表。"""
+        """测试 LLM provider 连通性：先测 /models，再测 /chat/completions。"""
         import requests as _req
         provider = provider or self.sql_gen_cfg.get('primary', 'enterprise_internal')
         cfg = self.providers.get(provider)
         if not cfg or not cfg.get('url'):
             return {"ok": False, "error": f"未配置 provider: {provider}"}
-        url = cfg["url"].rstrip("/") + "/models"
+        base_url = cfg["url"].rstrip("/")
         api_key = (
             os.environ.get(f"{provider.upper()}_API_KEY")
             or cfg.get('api_key', '')
         )
+        if api_key in self._PLACEHOLDER_KEYS:
+            api_key = ''
         headers = {'Content-Type': 'application/json'}
-        if api_key and api_key not in self._PLACEHOLDER_KEYS:
+        if api_key:
             headers['Authorization'] = f'Bearer {api_key}'
+
+        models_list = []
         try:
-            resp = _req.get(url, headers=headers, timeout=5)
+            resp = _req.get(f"{base_url}/models", headers=headers, timeout=5)
             if resp.status_code == 200:
-                models = resp.json().get("data", [])
-                return {
-                    "ok": True,
-                    "provider": provider,
-                    "models": [m["id"] for m in models],
-                    "configured_model": cfg.get("model", ""),
-                }
-            return {"ok": False, "error": f"HTTP {resp.status_code}"}
+                models_list = [m["id"] for m in resp.json().get("data", [])]
+            elif resp.status_code in (401, 403):
+                return {"ok": False, "error": "模型列表接口认证失败，请检查 API Key 配置"}
         except _req.ConnectionError:
             return {"ok": False, "error": f"无法连接 {cfg['url']}，请确认服务已启动"}
         except _req.Timeout:
             return {"ok": False, "error": "连接超时（5s）"}
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
+
+        # 实际测试 chat/completions 端点（用最小请求）
+        model = cfg.get("model", "")
+        chat_payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": "test"}],
+            "max_tokens": 5,
+        }
+        try:
+            chat_resp = _req.post(
+                f"{base_url}/chat/completions",
+                json=chat_payload, headers=headers, timeout=10,
+            )
+            if chat_resp.status_code in (401, 403):
+                return {
+                    "ok": False,
+                    "error": "模型列表可访问，但对话接口认证失败（HTTP "
+                             f"{chat_resp.status_code}），请检查 API Key 或模型权限配置",
+                    "models": models_list,
+                }
+            if chat_resp.status_code >= 500:
+                return {
+                    "ok": False,
+                    "error": f"对话接口服务端错误（HTTP {chat_resp.status_code}），请检查 LLM 服务状态",
+                    "models": models_list,
+                }
+        except _req.Timeout:
+            return {"ok": False, "error": "对话接口响应超时，但模型列表可访问", "models": models_list}
+        except _req.ConnectionError:
+            return {"ok": False, "error": f"无法连接 {cfg['url']}，请确认服务已启动"}
+        except Exception:
+            pass
+
+        return {
+            "ok": True,
+            "provider": provider,
+            "models": models_list,
+            "configured_model": model,
+        }
 
     def list_providers(self) -> list[dict]:
         """返回所有已配置的 provider 及其基本信息。"""

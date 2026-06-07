@@ -84,12 +84,18 @@ class TestConnectionCheck:
         """LM Studio 正常运行时应返回 ok=True 和模型列表"""
         import requests
 
-        class MockResp:
+        class MockModelsResp:
             status_code = 200
             def json(self):
                 return {"data": [{"id": "qwen/qwen3-8b"}, {"id": "llama3"}]}
 
-        monkeypatch.setattr(requests, 'get', lambda *a, **kw: MockResp())
+        class MockChatResp:
+            status_code = 200
+            def json(self):
+                return {"choices": [{"message": {"content": "ok"}}]}
+
+        monkeypatch.setattr(requests, 'get', lambda *a, **kw: MockModelsResp())
+        monkeypatch.setattr(requests, 'post', lambda *a, **kw: MockChatResp())
         result = client_with_lmstudio.test_connection('lmstudio')
         assert result['ok'] is True
         assert 'qwen/qwen3-8b' in result['models']

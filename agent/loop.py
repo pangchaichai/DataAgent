@@ -158,8 +158,11 @@ def run_agent_loop(
     from agent.tools_spec import TOOL_DEFINITIONS, ToolContext, dispatch_tool
 
     config_path = Path(__file__).resolve().parent.parent / "config.yaml"
-    with open(config_path, encoding="utf-8") as f:
-        config = yaml.safe_load(f)
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        config = {}
 
     tool_ctx = ToolContext(
         config=config,
@@ -173,15 +176,14 @@ def run_agent_loop(
         return
 
     tables = get_loaded_tables()
-    if not tables:
-        yield _text("请先上传数据文件（CSV/Excel），然后我就可以帮你分析了。")
-        yield _stream_end()
-        return
 
     # ── 构建 schema + skills 上下文 ──────────────────────────
-    from agent.context import extract_mention_tables
-    relevant = extract_mention_tables(user_message) if not pending else None
-    schema_ctx = build_schema_context(relevant_tables=relevant)
+    if tables:
+        from agent.context import extract_mention_tables
+        relevant = extract_mention_tables(user_message) if not pending else None
+        schema_ctx = build_schema_context(relevant_tables=relevant)
+    else:
+        schema_ctx = ""
     registry = skill_loader.load_registry()
     skills_desc = _build_skills_registry_text(registry)
 

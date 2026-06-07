@@ -503,14 +503,15 @@ select.sp-input{cursor:pointer;}
 
       <div class="sec open" id="sec-quick">
         <div class="sec-h" onclick="toggleSec('quick')">
-          <span class="sec-arr">▸</span>快捷操作
+          <span class="sec-arr">▸</span>一键执行
         </div>
         <div class="sec-bd">
+          <div style="padding:4px 4px 4px 8px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);margin-bottom:4px">点击直接发送指令</div>
           <div style="padding:4px 4px 4px 8px;display:flex;flex-direction:column;gap:4px;">
-            <button class="wq-btn" onclick="sendQuick('合规监控：检查主体集中度是否超标')" style="text-align:left">✅ 合规集中度检查</button>
-            <button class="wq-btn" onclick="sendQuick('生成产品运作报告，包括净值、持仓分布和信用评级分析')" style="text-align:left">📄 运作报告</button>
-            <button class="wq-btn" onclick="sendQuick('查询今日持仓情况，展示各产品持仓汇总')" style="text-align:left">📊 持仓汇总</button>
-            <button class="wq-btn" onclick="sendQuick('生成持仓分布图表')" style="text-align:left">📈 持仓图表</button>
+            <button class="wq-btn" onclick="sendQuick('合规监控：检查主体集中度是否超标')" style="text-align:left" title="点击直接执行">✅ 合规集中度检查</button>
+            <button class="wq-btn" onclick="sendQuick('生成产品运作报告，包括净值、持仓分布和信用评级分析')" style="text-align:left" title="点击直接执行">📄 运作报告</button>
+            <button class="wq-btn" onclick="sendQuick('查询今日持仓情况，展示各产品持仓汇总')" style="text-align:left" title="点击直接执行">📊 持仓汇总</button>
+            <button class="wq-btn" onclick="sendQuick('生成持仓分布图表')" style="text-align:left" title="点击直接执行">📈 持仓图表</button>
           </div>
         </div>
       </div>
@@ -545,10 +546,10 @@ select.sp-input{cursor:pointer;}
       <div class="inputbar" id="inputbar">
         <div class="hintbar" id="hint">请先在上方完成确认或选择后再继续</div>
         <div class="quick" id="quickBtns">
-          <button class="q-btn" onclick="fillExample('数据分析')" title="点击填入示例">📊 数据分析</button>
-          <button class="q-btn" onclick="fillExample('合规检查')" title="点击填入示例">✅ 合规检查</button>
-          <button class="q-btn" onclick="fillExample('报告生成')" title="点击填入示例">📄 报告生成</button>
-          <button class="q-btn" onclick="fillExample('图表')" title="点击填入示例">📈 图表</button>
+          <button class="q-btn" onclick="fillExample('数据分析')" title="填入示例文本到输入框，可编辑后发送">📊 数据分析</button>
+          <button class="q-btn" onclick="fillExample('合规检查')" title="填入示例文本到输入框，可编辑后发送">✅ 合规检查</button>
+          <button class="q-btn" onclick="fillExample('报告生成')" title="填入示例文本到输入框，可编辑后发送">📄 报告生成</button>
+          <button class="q-btn" onclick="fillExample('图表')" title="填入示例文本到输入框，可编辑后发送">📈 图表</button>
           <button class="q-btn" onclick="resetChat()">新对话</button>
         </div>
         <div class="inrow" id="inrow">

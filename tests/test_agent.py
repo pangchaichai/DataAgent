@@ -211,7 +211,8 @@ class TestAgentLoopBasic:
         from agent.skill_loader import SkillLoader
         return LLMClient('config.yaml'), SkillLoader(local_dir='skills/')
 
-    def test_loop_no_tables_yields_help(self):
+    def test_loop_no_tables_does_not_hard_block(self):
+        """无数据表时 Agent 不应硬拦截，而是继续执行（可能走 LLM 或报 LLM 错误）"""
         import tools.data_loader as dl
         from agent.loop import run_agent_loop
         dl._global_conn = None
@@ -220,9 +221,8 @@ class TestAgentLoopBasic:
 
         llm_client, skill_loader = self._get_components()
         events = list(run_agent_loop('查询持仓', llm_client, skill_loader))
-        assert len(events) >= 2
-        assert events[0]['type'] == 'text'
-        assert '上传' in str(events[0]['data'])
+        assert len(events) >= 1
+        assert events[-1]['type'] == 'stream_end'
 
     def test_loop_max_turns(self):
         from agent.loop import run_agent_loop

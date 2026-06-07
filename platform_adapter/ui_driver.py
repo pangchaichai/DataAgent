@@ -94,17 +94,14 @@ class BrowserDevDriver(UIDriver):
 
 class PyWebViewDriver(UIDriver):
     """
-    Windows 生产驱动
-    PyWebView 原生窗口，强制使用 WebView2（Edge Chromium 内核）
+    原生窗口驱动（Windows / macOS / Linux 均可用）
+    Windows 使用 WebView2（Edge Chromium 内核），macOS 使用 WebKit。
 
-    ★ 必须安装 WebView2 Runtime，否则会给出安装引导。
-      WebView2 Runtime 下载：https://developer.microsoft.com/microsoft-edge/webview2/
-      大多数 Windows 10/11 已预装，如未预装请下载「常青独立安装程序」。
+    Windows 注意：需安装 WebView2 Runtime（大多数 Win10/11 已预装）。
+    macOS 注意：需安装 pywebview（pip install pywebview）。
     """
 
     def is_available(self) -> bool:
-        if sys.platform != 'win32':
-            return False
         try:
             import webview  # noqa
             return True

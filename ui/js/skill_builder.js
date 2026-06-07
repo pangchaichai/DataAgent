@@ -106,14 +106,25 @@ async function sbValidate(){
   if(!content){toast('内容不能为空','error');return;}
   try{
     const d=await api('POST','/api/skill-builder/validate',{content:content});
-    const v=d;  // backend returns flat {ok, issues, error_count, warning_count}
-    const issues=v.issues||[];
+    if(d.error&&!d.issues){
+      $('sbValResult').innerHTML='<div class="sb-issue error"><span class="sb-i-icon">✕</span><span class="sb-i-msg">'+esc(d.error)+'</span></div>';
+      $('sbPublishBtn').disabled=true;
+      sbGoStep(2);
+      return;
+    }
+    const issues=d.issues||[];
+    const errors=issues.filter(i=>i.level==='error');
+    const warnings=issues.filter(i=>i.level==='warning');
     let html='';
-    if(v.ok){
+    if(d.ok&&errors.length===0){
       html='<div class="sb-issue" style="background:var(--green-bg,#e6f9ee);color:var(--green)">'
-        +'<span class="sb-i-icon">✓</span><span class="sb-i-msg">校验通过，可以发布</span></div>';
+        +'<span class="sb-i-icon">✓</span><span class="sb-i-msg">校验通过'
+        +(warnings.length>0?'（'+warnings.length+'个建议）':'')+'，可以发布</span></div>';
       $('sbPublishBtn').disabled=false;
     }else{
+      html='<div class="sb-issue error"><span class="sb-i-icon">✕</span>'
+        +'<span class="sb-i-msg">校验未通过（'+errors.length+'个错误'
+        +(warnings.length>0?'，'+warnings.length+'个建议':'')+'）</span></div>';
       $('sbPublishBtn').disabled=true;
     }
     html+=issues.map(is=>'<div class="sb-issue '+esc(is.level)+'">'
@@ -122,7 +133,11 @@ async function sbValidate(){
       +'</div>').join('');
     $('sbValResult').innerHTML=html;
     sbGoStep(2);
-  }catch(e){toast('校验请求失败','error');}
+  }catch(e){
+    $('sbValResult').innerHTML='<div class="sb-issue error"><span class="sb-i-icon">✕</span><span class="sb-i-msg">校验请求失败：'+esc(e.message||'网络错误')+'</span></div>';
+    $('sbPublishBtn').disabled=true;
+    sbGoStep(2);
+  }
 }
 
 async function sbSaveDraft(){
