@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-06-07T14:10:48.865516",
+  "timestamp": "2026-06-07T15:03:22.221324",
   "total": 311,
   "passed": 304,
   "failed": 5,
   "skipped": 0,
   "errors": 0,
   "exit_status": 1,
-  "duration_seconds": 3.84,
+  "duration_seconds": 14.42,
   "failed_tests": [
     {
       "nodeid": "tests/test_web_search.py::TestWebSearch::test_general_search_success",

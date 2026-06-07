@@ -4,22 +4,49 @@
 
 ---
 
-## 当前阶段：v1.6.1 Bug 修复 → Phase 5（Windows 验证）
+## 当前阶段：v2.0 完成 → Phase 4（待模板确认）/ Phase 5（Windows 打包）
 
-## v1.6.1 — Bug 修复 ✅ 完成（2026-06-07）
+## v2.0 UX 修复 ✅ 完成（2026-06-07）
 
-### 本次修复
+### Bug 修复
 - [x] **Issue 1**: SSE 流挂起 — 增加后台线程存活检测，心跳超时从 120s 改为 30s，线程死亡时自动推送 stream_end
-- [x] **Issue 1**: 错误事件格式修正 — 从 `{"type":"error","data":"str"}` 改为 `{"type":"error","data":{"message":"str"}}`
 - [x] **Issue 2**: Skill Builder 发布流程 — validate 端点响应格式修正（增加 `validation` 外层 key）
-- [x] **Issue 3**: 文档上传支持 — 新增 `tools/file_reader.py`（python-docx + pypdf），上传接口支持 .docx/.pdf/.txt，HTML 文件选择器更新
-- [x] **Issue 4**: 图表功能 — 每个数据表卡片新增「📊 图表」按钮，支持柱状/饼图/折线/散点图，客户端 ECharts 渲染
-- [x] **Issue 5**: Word 导出 — 实现 `tools/report_builder.py`（Markdown→Word），新增 `/api/report/export-word` 和 `/api/report/download/<file>` 端点，报告类消息自动显示"导出Word"按钮
+- [x] **Issue 3**: 文档上传支持 — file_reader.py 支持 .docx/.pdf/.txt，前端文件选择器更新
+- [x] **Issue 4**: 图表功能 — 每个数据表新增「📊 图表」按钮，支持柱状/饼/折线/散点图
+- [x] **Issue 5**: Word 导出 — report_builder.py Markdown→Word，下载端点，报告自动显示导出按钮
 - [x] **优化 2**: 设置按钮从右上角迁移至左侧边栏底部
-- [x] `agent/loop.py` config.yaml 加载增加 try/except 兜底
 
-### 评估：优化 1（会话处理中新开对话）
-当前架构为单全局会话（`_session` 字典 + 单流队列）。支持并行会话需重构为多租户会话隔离（每个会话独立 `_session_id`→状态映射）。评估：**合理但非当前优先级**，建议 Phase 5 稳健化阶段实现。工作量约 2 天，涉及 `session_store` 重构 + 前端会话切换逻辑。
+### 优化 1 评估（会话并行）
+单全局会话架构，建议 Phase 5 实现多租户隔离，工作量约 2 天。
+
+## v2.0 Evolution I-1~I-10 ✅ 完成（2026-06-06）
+
+> 详见 `docs/evolution-master-plan.md`
+
+| 迭代 | 内容 | 状态 |
+|------|------|------|
+| I-1 | 工程基建 + macOS + 本地 LLM（LM Studio）| ✅ 完成 |
+| I-1b | ETCLOVG Harness 加固（Schema 校验/SelfChecker/工具过滤/超时）| ✅ 完成 |
+| I-2 | 报告生成管线（Jinja2 + Word 导出 + 模板）| ✅ 完成 |
+| I-3 | 图表生成（chart_builder + generate_chart 工具）| ✅ 完成 |
+| I-3b | 上下文三级压缩 + 成本追踪 | ✅ 完成 |
+| I-4 | 数据持久化 + 智能上传两阶段确认 | ✅ 完成 |
+| I-5 | 前端增量改进（推荐 API + 欢迎面板）| ✅ 完成 |
+| I-5b | Hook 系统 + 审计 Hash Chain | ✅ 完成 |
+| I-6 | 文档解析（Word/PDF/TXT）+ 联网搜索（DuckDuckGo）| ✅ 完成 |
+| I-7 | Blueprint 拆分准备（api/ 6 模块 + session_store）| ⚠️ 部分（路由仍内联）|
+| I-8 | Plan-Execute 两阶段 Agent | ✅ 完成 |
+| I-9 | 计算器补齐（position_diff/leverage/liquidity）| ⚠️ 部分（未注册到工具枚举）|
+| I-10 | 前端 JS 模块化（ui/js/ 9 文件）| ⚠️ 部分（index.html 未引用）|
+
+### 已知遗留项
+- I-7：main.py 仍有 40+ 内联路由（1062 行），api/ Blueprint 模块未注册启用
+- I-9：3 个新计算器文件已创建但未添加到 run_calculator 工具的 enum
+- I-10：ui/js/ 9 个文件已创建但 index.html 仍为单体（2233 行内联 JS），未引用模块
+
+### UAT 修复 ✅
+- [x] macOS 客户端 + Skill Builder + 文档上传 + LLM 错误处理 + UI 改进
+- [x] Blueprint API 结构与 UX 特性对齐
 
 ## Phase R — Agent 内核重构 ✅ 完成（2026-06-04）
 - [x] R1: Agent 内核重构为 tool-calling Agent（5 工具 + function-calling + 暂停续跑）
@@ -62,13 +89,13 @@
 - [x] tools/compliance_audit.py（JSONL 审计日志，含 MD5 指纹）
 - [ ] skills/fund_nav_report/ 改为调用 calculators（模板待 C-02 确认后实现）
 
-## Phase 3 — 合规监控 + 参谈要点 ✅ 代码完成（待 Windows 联试验收）
+## Phase 3 — 合规监控 + 参谈要点 ✅ 验收通过（2026-06-07）
 - [x] tools/entity_manager.py（集团系 CRUD + 逆向索引 + 持久化）
 - [x] scheduler/task_manager.py（完整补跑检测 + 数据时效校验 + 运行记录）
 - [x] tools/notify.py（超标告警/数据过期/报告完成/任务失败 业务通知）
 - [x] skills/concentration_monitor/（SKILL.md calc_type:fixed + fixed_calculator）
 - [x] skills/meeting_report/（SKILL.md + template.md.j2 就绪）
-- [x] Phase 3 验收（等 Windows 3 项修复验证通过后一并验收）
+- [x] Phase 3 验收通过
 
 ## Phase 4 — 批量报告（进入条件：C-02/03/04 模板已确认）
 - [ ] skills/dept_weekly_report/ + template
