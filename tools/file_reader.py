@@ -10,13 +10,19 @@ from typing import Optional
 
 
 @dataclass
+class TableResult:
+    headers: list          # 表头列名列表
+    rows: list             # 数据行列表（每行为列值列表）
+
+
+@dataclass
 class DocumentResult:
     ok: bool
     file_type: str = ""       # "docx" | "pdf" | "txt"
     text: str = ""            # 提取的纯文本
     word_count: int = 0
     page_count: int = 0
-    tables: list = field(default_factory=list)   # 从文档中提取的表格（list of list of str）
+    tables: list = field(default_factory=list)   # list[TableResult]
     error: str = ""
 
 
@@ -54,11 +60,11 @@ def _read_docx(file_path: str, max_chars: int) -> DocumentResult:
 
     tables = []
     for tbl in doc.tables:
-        rows = []
-        for row in tbl.rows:
-            rows.append([cell.text.strip() for cell in row.cells])
-        if rows:
-            tables.append(rows)
+        all_rows = [[cell.text.strip() for cell in row.cells] for row in tbl.rows]
+        if all_rows:
+            headers = all_rows[0]
+            data_rows = all_rows[1:]
+            tables.append(TableResult(headers=headers, rows=data_rows))
 
     return DocumentResult(
         ok=True,
@@ -111,5 +117,7 @@ def _read_txt(file_path: str, max_chars: int) -> DocumentResult:
             page_count=1,
             tables=[],
         )
+    except FileNotFoundError:
+        return DocumentResult(ok=False, file_type="txt", error=f"文件不存在：{file_path}")
     except Exception as e:
         return DocumentResult(ok=False, file_type="txt", error=f"无法读取文本文件：{str(e)[:200]}")
