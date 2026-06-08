@@ -1,32 +1,11 @@
 {
-  "timestamp": "2026-06-07T15:03:22.221324",
-  "total": 311,
-  "passed": 304,
-  "failed": 5,
+  "timestamp": "2026-06-08T01:19:42.416614",
+  "total": 305,
+  "passed": 303,
+  "failed": 0,
   "skipped": 0,
   "errors": 0,
-  "exit_status": 1,
-  "duration_seconds": 14.42,
-  "failed_tests": [
-    {
-      "nodeid": "tests/test_web_search.py::TestWebSearch::test_general_search_success",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
-    },
-    {
-      "nodeid": "tests/test_web_search.py::TestWebSearch::test_news_search_success",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
-    },
-    {
-      "nodeid": "tests/test_web_search.py::TestWebSearch::test_max_results_clamped",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
-    },
-    {
-      "nodeid": "tests/test_web_search.py::TestWebSearch::test_ddgs_exception_returns_error",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
-    },
-    {
-      "nodeid": "tests/test_web_search.py::TestWebSearch::test_snippet_truncated_to_400_chars",
-      "message": "<ExceptionInfo ModuleNotFoundError(\"No module named 'duckduckgo_search'\") tblen=30>"
-    }
-  ]
+  "exit_status": 0,
+  "duration_seconds": 7.78,
+  "failed_tests": []
 }
