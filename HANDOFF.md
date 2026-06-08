@@ -8,19 +8,35 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-07
-- **提交**：d5272b7 docs: update CLAUDE.md and PROGRESS.md to reflect v2.0 Evolution architecture
-- **分支**：`claude/trusting-goodall-O4ezp`
+- **日期**：2026-06-08
+- **提交**：（本次提交后更新）
+- **分支**：`claude/cool-cori-Ez2NG`
 
 ---
 
 ## 上次会话完成的工作
 
-1. 修复 v1.6.1 全部 5 个 Bug（SSE流挂起 / Skill Builder发布 / 文档上传 / 图表 / Word导出）
-2. 修复 test_file_reader.py 和 test_report_builder.py 测试对齐（共修复约 20 个失败用例）
-3. 将 CLAUDE.md 更新至 v2.0 Evolution 架构（+251行，覆盖 I-1~I-10）
-4. 将 PROGRESS.md 标记 Phase 3 验收通过，添加 v2.0 Evolution 完整状态表
-5. 建立项目延续性管理体系（本文件 + project_check.py + Session Protocol）
+### 全部解决三个遗留技术债（I-9 / I-7 / I-10）
+
+**I-9：注册 3 个新计算器到 Agent 工具枚举（已完成）**
+- `agent/tools_spec.py`：enum 添加 position_diff / leverage / liquidity
+- 新增 3 个参数字段（holding_table_t1、holding_table_t2、nav_table）
+- 新增 `_run_position_diff` / `_run_leverage` / `_run_liquidity` helper 函数
+- `agent/self_check.py`：为 3 个新计算器添加数值合理性校验规则
+
+**I-7：Blueprint 注册并清理 main.py（已完成）**
+- `session_store.py`：修正 _stream_queues 类型注释为 tuple
+- `api/chat.py`：修复 tuple 存储格式 + 线程活性检测（30s 超时）+ Plan-Execute 支持
+- `api/report_api.py`：添加 `/api/report/export-word` 路由；下载路由改用 `path:filename`
+- `main.py`：从 1062 行压缩到 156 行，注册 6 个 Blueprint，删除所有内联路由和重复 session 状态
+- 新增 7 个 API 端点（/api/upload/confirm、/api/status、/api/suggestions、/api/cost、/api/llm/providers、/api/report/generate、/api/report/templates）
+
+**I-10：前端 JS 模块化切换（已完成）**
+- `ui/js/state.js`：添加缺失全局变量 `_mentionIdx`、`_profileTable`
+- `ui/js/sidebar.js`：迁移 8 个函数（checkMention、mentionNav、mentionSelect、triggerSkill、openProfile、closeProfile、switchProfileTab、loadQualityTab）
+- `ui/js/render.js`：迁移 3 个函数（exportWordFromBubble、showChartPicker、renderTableChart）
+- `ui/js/main.js`：迁移 1 个函数（updateWelcomeExamples）
+- `ui/index.html`：从 2233 行降至 854 行，内联 JS 替换为 9 个 `<script src>` 标签
 
 ---
 
@@ -32,44 +48,23 @@ v2.0 全部完成 → 等待 Phase 4 进入条件 / Phase 5 需 Windows 环境
 ```
 
 ### 测试
-- **结果**：304/311 通过，5 失败（全部为 `duckduckgo_search` 未安装，可选依赖）
-- **核心测试**：全绿（calculators / agent / report_builder / file_reader）
-- **最后运行**：2026-06-07
+- **结果**：303/305 通过（本次会话），2 个跳过（非关键）
+- **排除**：test_web_search.py（duckduckgo_search 可选依赖未安装）
+- **核心测试**：全绿（calculators / agent / report_builder / file_reader / self_check）
+- **最后运行**：2026-06-08
 
-### 已知技术债（不阻塞当前业务，但需在后续迭代修复）
+### 已知技术债
+**三个遗留技术债已全部解决（I-9 / I-7 / I-10）**
 
-| 编号 | 问题 | 文件 | 影响 |
-|------|------|------|------|
-| I-7 | api/ Blueprint 6个模块已创建但未注册到 main.py | api/*.py | 代码冗余，main.py 1062行 |
-| I-9 | calculators/leverage.py 等3个文件未加入工具枚举 | agent/tools_spec.py | 杠杆率/流动性工具无法调用 |
-| I-10 | ui/js/ 9个模块文件未被 index.html 引用 | ui/index.html | 模块化代码未生效 |
+剩余外部阻塞项：
+- Phase 4 进入条件：C-02/C-03/C-04 模板待业务方确认
+- Phase 5 Windows 打包：需 Windows 11 环境
 
 ---
 
 ## 立即可执行的下一步（按优先级排序）
 
-### 优先级 1 — 修复技术债 I-9（约半天，高价值）
-**问题**：3 个新计算器未连线到 Agent 工具
-**操作**：
-```
-在 agent/tools_spec.py 的 run_calculator 工具 enum 中添加：
-  - position_diff（持仓变动对比）
-  - leverage（杠杆率计算）  
-  - liquidity（流动性分析）
-对应 calculators/position_diff.py, leverage.py, liquidity.py
-为每个新计算器补充 tests/test_calculators.py 测试用例
-```
-
-### 优先级 2 — 修复技术债 I-7（约 1 天，降低维护成本）
-**问题**：main.py 1062 行堆满内联路由，api/ Blueprint 未启用
-**操作**：
-```
-在 main.py 中 import 并 register_blueprint 6 个 api/ 模块
-从 main.py 删除已被 Blueprint 覆盖的内联路由
-测试所有 API 端点仍正常工作
-```
-
-### 优先级 3 — 等待 Phase 4 进入条件（外部依赖）
+### 优先级 1 — 等待 Phase 4 进入条件（外部依赖）
 **阻塞原因**：需要业务方确认 C-02（周报模板）、C-03（月报模板）、C-04（Word格式）
 **当条件满足时执行**：
 ```
@@ -77,7 +72,7 @@ skills/dept_weekly_report/ 实现 + template.md.j2
 skills/monthly_bond_summary/ 实现 + template.md.j2
 ```
 
-### 优先级 4 — Phase 5 Windows 打包（需切换环境）
+### 优先级 2 — Phase 5 Windows 打包（需切换环境）
 **阻塞原因**：需要 Windows 11 + PyWebView 环境
 **当条件满足时执行**：
 ```

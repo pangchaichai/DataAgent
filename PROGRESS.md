@@ -34,15 +34,15 @@
 | I-5 | 前端增量改进（推荐 API + 欢迎面板）| ✅ 完成 |
 | I-5b | Hook 系统 + 审计 Hash Chain | ✅ 完成 |
 | I-6 | 文档解析（Word/PDF/TXT）+ 联网搜索（DuckDuckGo）| ✅ 完成 |
-| I-7 | Blueprint 拆分准备（api/ 6 模块 + session_store）| ⚠️ 部分（路由仍内联）|
+| I-7 | Blueprint 拆分准备（api/ 6 模块 + session_store）| ✅ 完成（2026-06-08）|
 | I-8 | Plan-Execute 两阶段 Agent | ✅ 完成 |
-| I-9 | 计算器补齐（position_diff/leverage/liquidity）| ⚠️ 部分（未注册到工具枚举）|
-| I-10 | 前端 JS 模块化（ui/js/ 9 文件）| ⚠️ 部分（index.html 未引用）|
+| I-9 | 计算器补齐（position_diff/leverage/liquidity）| ✅ 完成（2026-06-08）|
+| I-10 | 前端 JS 模块化（ui/js/ 9 文件）| ✅ 完成（2026-06-08）|
 
-### 已知遗留项
-- I-7：main.py 仍有 40+ 内联路由（1062 行），api/ Blueprint 模块未注册启用
-- I-9：3 个新计算器文件已创建但未添加到 run_calculator 工具的 enum
-- I-10：ui/js/ 9 个文件已创建但 index.html 仍为单体（2233 行内联 JS），未引用模块
+### 技术债清零（2026-06-08）
+- I-7：main.py 从 1062 行压缩到 156 行，6 个 Blueprint 全部注册，新增 7 个 API 端点
+- I-9：3 个新计算器已加入工具枚举，SelfChecker 新增对应校验规则
+- I-10：index.html 从 2233 行降至 854 行，12 个函数迁移到模块，全面模块化完成
 
 ### UAT 修复 ✅
 - [x] macOS 客户端 + Skill Builder + 文档上传 + LLM 错误处理 + UI 改进

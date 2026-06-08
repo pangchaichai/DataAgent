@@ -72,3 +72,27 @@ setInterval(async()=>{
     $('llmName').textContent=d.llm_name||'--';
   }catch(e){}
 },15000);
+
+function updateWelcomeExamples(tables){
+  const el=$('welcomeExamples');if(!el)return;
+  if(!tables.length){el.innerHTML='';return;}
+  const examples=[];
+  const hasHolding=tables.find(t=>t.type==='holding');
+  const hasNav=tables.find(t=>t.type==='nav');
+  if(hasHolding)examples.push(
+    {text:'@'+hasHolding.name+' 按主体统计持仓市值排名前10',icon:'📊'},
+    {text:'@'+hasHolding.name+' 检查主体集中度是否超标',icon:'✅'}
+  );
+  if(hasNav)examples.push(
+    {text:'@'+hasNav.name+' 最近一周净值变动如何',icon:'📈'}
+  );
+  if(tables.length>1)examples.push(
+    {text:'已加载的数据有哪些表？各表结构是什么？',icon:'🔍'}
+  );
+  if(!examples.length)examples.push({text:'帮我分析已加载的数据',icon:'💡'});
+  el.innerHTML='<div style="margin-top:12px;font-size:12px;color:var(--text-3)">试试这些：</div>'
+    +examples.slice(0,3).map(ex=>
+      '<div class="wex-item" onclick="sendQuick(\''+esc(ex.text)+'\')">'
+      +ex.icon+' '+esc(ex.text)+'</div>'
+    ).join('');
+}

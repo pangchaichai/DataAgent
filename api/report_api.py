@@ -45,15 +45,28 @@ def api_report_generate():
     return jsonify(response)
 
 
-@report_bp.route('/api/report/download/<filename>')
+@report_bp.route('/api/report/export-word', methods=['POST'])
+def api_export_word():
+    data = request.get_json(force=True) if request.is_json else {}
+    content = (data.get('content') or '').strip()
+    report_name = (data.get('report_name') or 'report').strip()
+    if not content:
+        return jsonify({"ok": False, "error": "内容为空"}), 400
+    from tools.report_builder import export_report_word
+    safe_name = re.sub(r'[^\w一-鿿\-]', '_', report_name)[:40]
+    result = export_report_word(content, safe_name)
+    return jsonify(result)
+
+
+@report_bp.route('/api/report/download/<path:filename>')
 def api_report_download(filename):
-    if not re.match(r'^[\w\-]+\.docx$', filename):
+    if re.search(r'[/\\]', filename):
         return jsonify({"error": "非法文件名"}), 400
-    output_dir = os.path.join(BASE_DIR, 'data', 'outputs')
+    output_dir = str(BASE_DIR / 'data' / 'outputs')
     file_path = os.path.join(output_dir, filename)
     if not os.path.isfile(file_path):
         return jsonify({"error": "文件不存在"}), 404
-    return send_from_directory(output_dir, filename, as_attachment=True)
+    return send_from_directory(output_dir, filename, as_attachment=True, download_name=filename)
 
 
 @report_bp.route('/api/report/templates')

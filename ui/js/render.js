@@ -239,3 +239,75 @@ function updatePlanStep(stepId,status){
     dot.style.color=status==='done'?'var(--green)':status==='failed'?'var(--red)':'var(--blue)';
   }
 }
+async function exportWordFromBubble(btn){
+  const bubble=btn.closest('.bubble-outer')?.querySelector('.bubble');
+  if(!bubble){toast('找不到报告内容','error');return;}
+  const content=bubble.innerText||bubble.textContent;
+  if(!content||content.length<10){toast('内容为空','error');return;}
+  btn.disabled=true;btn.textContent='导出中…';
+  try{
+    const r=await api('POST','/api/report/export-word',{content:content,report_name:'report'});
+    if(r.ok&&r.filename){
+      toast('Word 文档已生成：'+r.filename,'success');
+      const a=document.createElement('a');
+      a.href='/api/report/download/'+encodeURIComponent(r.filename);
+      a.download=r.filename;a.click();
+    }else{toast('导出失败：'+(r.error||'未知错误'),'error');}
+  }catch(e){toast('导出失败：'+e.message,'error');}
+  btn.disabled=false;btn.textContent='⬇ 导出 Word';
+}
+function showChartPicker(btn){
+  const card=btn.closest('.table-card');
+  if(!card)return;
+  const picker=card.querySelector('.chart-picker');
+  if(!picker)return;
+  if(picker.classList.contains('show')){picker.classList.remove('show');return;}
+  const types=[['柱状图','bar'],['折线图','line'],['饼图','pie'],['散点图','scatter']];
+  picker.innerHTML=types.map(([label,type])=>
+    '<button class="chart-type-btn" onclick="renderTableChart(this.closest(\'.table-card\'),\''+type+'\',this.closest(\'.table-card\').querySelector(\'.chart-area\'))">'+label+'</button>'
+  ).join('');
+  picker.classList.add('show');
+}
+function renderTableChart(card,type,area){
+  if(typeof echarts==='undefined'){toast('图表库未加载','error');return;}
+  const table=card.querySelector('table');
+  if(!table){toast('找不到数据表','error');return;}
+  const headers=Array.from(table.querySelectorAll('thead th')).map(th=>th.textContent.trim());
+  const rowEls=Array.from(table.querySelectorAll('tbody tr'));
+  const rows=rowEls.map(r=>Array.from(r.querySelectorAll('td')).map(td=>td.textContent.trim()));
+  if(!rows.length||headers.length<2){toast('数据不足，无法绘图','error');return;}
+  const numCols=[];
+  for(let c=1;c<headers.length;c++){
+    const vals=rows.map(r=>parseFloat((r[c]||'').replace(/,/g,'')));
+    if(vals.some(v=>!isNaN(v)))numCols.push(c);
+  }
+  if(!numCols.length){toast('无数值列，无法绘图','error');return;}
+  const cats=rows.map(r=>r[0]||'');
+  const id='ch_tbl_'+Math.random().toString(36).slice(2,8);
+  area.innerHTML='<div id="'+id+'" style="width:100%;height:280px"></div>';
+  requestAnimationFrame(()=>{
+    const dom=$(id);if(!dom)return;
+    let option;
+    if(type==='pie'){
+      const col=numCols[0];
+      const pieData=rows.map(r=>({name:r[0]||'',value:parseFloat((r[col]||'0').replace(/,/g,''))||0}));
+      option={tooltip:{trigger:'item'},series:[{type:'pie',data:pieData,radius:'60%'}]};
+    }else{
+      const series=numCols.map(c=>({
+        name:headers[c],type:type,
+        data:rows.map(r=>parseFloat((r[c]||'0').replace(/,/g,''))||0)
+      }));
+      option={tooltip:{trigger:'axis'},legend:{},
+        xAxis:{type:'category',data:cats,axisLabel:{rotate:30,fontSize:11}},
+        yAxis:{type:'value'},series};
+    }
+    try{
+      const ch=echarts.init(dom);ch.setOption(option);
+      const picker=card.querySelector('.chart-picker');
+      if(picker)picker.querySelectorAll('.chart-type-btn').forEach(b=>{
+        b.classList.toggle('active',b.textContent.includes(
+          type==='bar'?'柱':type==='line'?'折':type==='pie'?'饼':'散'));
+      });
+    }catch(e){console.error(e);}
+  });
+}

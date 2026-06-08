@@ -21,8 +21,8 @@ _session: dict = {
     "pending": None,
 }
 
-# SSE 流队列：stream_id → queue.Queue
-_stream_queues: dict[str, queue.Queue] = {}
+# SSE 流队列：stream_id → (queue.Queue, threading.Thread | None)
+_stream_queues: dict[str, tuple] = {}
 _stream_queues_lock = threading.Lock()
 
 

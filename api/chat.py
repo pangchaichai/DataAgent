@@ -33,7 +33,7 @@ def api_chat():
     q: queue.Queue = queue.Queue()
 
     with _stream_queues_lock:
-        _stream_queues[sid] = q
+        _stream_queues[sid] = (q, None)
 
     with _session_lock:
         if not _session.get("session_id"):
@@ -104,23 +104,31 @@ def api_chat():
         finally:
             q.put(None)
 
-    threading.Thread(target=run_agent_bg, daemon=True).start()
+    t = threading.Thread(target=run_agent_bg, daemon=True)
+    t.start()
+    with _stream_queues_lock:
+        if sid in _stream_queues:
+            _stream_queues[sid] = (q, t)
     return jsonify({"ok": True, "stream_id": sid})
 
 
 @chat_bp.route('/api/stream/<sid>')
 def api_stream(sid):
     with _stream_queues_lock:
-        q = _stream_queues.get(sid)
-    if q is None:
+        entry = _stream_queues.get(sid)
+    if entry is None:
         return jsonify({"error": "stream not found"}), 404
+    q, bg_thread = entry
 
     def generate():
         try:
             while True:
                 try:
-                    event = q.get(timeout=120)
+                    event = q.get(timeout=30)
                 except queue.Empty:
+                    if bg_thread is not None and not bg_thread.is_alive():
+                        yield f"data: {json.dumps({'type': 'stream_end', 'data': None}, ensure_ascii=False)}\n\n"
+                        break
                     yield ": keep-alive\n\n"
                     continue
                 if event is None:

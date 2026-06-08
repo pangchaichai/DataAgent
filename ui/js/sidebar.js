@@ -259,3 +259,140 @@ function chartFromTable(btn){
     yAxis:{type:'value'},series:[{type:'bar',data:vals,barMaxWidth:40}]};
   add(renderChart(opt));scrollBottom();
 }
+
+function checkMention(ta){
+  const popup=$('mentionPopup');
+  const val=ta.value,pos=ta.selectionStart;
+  const before=val.slice(0,pos);
+  const match=before.match(/@([^\s@]*)$/);
+  if(!match){popup.classList.remove('show');return;}
+  const query=match[1].toLowerCase();
+  const tables=(window._cachedTables||[]).filter(t=>
+    !query||t.name.toLowerCase().includes(query));
+  if(!tables.length){popup.classList.remove('show');return;}
+  _mentionIdx=-1;
+  popup.innerHTML=tables.slice(0,8).map(t=>
+    '<div class="mention-item" data-name="'+esc(t.name)+'" onclick="mentionSelect(\''+esc(t.name)+'\')">'
+    +'<span class="dot" style="background:'+(t.type==='holding'?'var(--green)':t.type==='nav'?'var(--blue)':'var(--text-3)')+'"></span>'
+    +'<span class="mi-name">'+esc(t.name)+'</span>'
+    +'<span class="mi-meta">'+t.rows+'行</span></div>'
+  ).join('');
+  popup.classList.add('show');
+}
+function mentionNav(dir){
+  const popup=$('mentionPopup');
+  const items=[...popup.querySelectorAll('.mention-item')];
+  if(!items.length)return;
+  items.forEach(i=>i.classList.remove('active'));
+  _mentionIdx=(_mentionIdx+dir+items.length)%items.length;
+  items[_mentionIdx].classList.add('active');
+}
+function mentionSelect(name){
+  const ta=$('input'),val=ta.value,pos=ta.selectionStart;
+  const before=val.slice(0,pos),after=val.slice(pos);
+  const atIdx=before.lastIndexOf('@');
+  ta.value=before.slice(0,atIdx)+'@'+name+' '+after;
+  ta.selectionStart=ta.selectionEnd=atIdx+name.length+2;
+  $('mentionPopup').classList.remove('show');
+  ta.focus();
+}
+function triggerSkill(name){
+  $('input').value='@skill:'+name+' ';
+  $('input').focus();
+}
+async function openProfile(tableName){
+  _profileTable=tableName;
+  $('profileOverlay').classList.add('show');
+  $('pmTitle').textContent=tableName;
+  $('pmTabStruct').classList.add('active');
+  $('pmTabQuality').classList.remove('active');
+  $('pmBody').style.display='';
+  $('pmBodyQuality').style.display='none';
+  $('pmBody').innerHTML='<div style="text-align:center;padding:30px;color:var(--text-3)">加载中…</div>';
+  $('pmBodyQuality').innerHTML='';
+  try{
+    const d=await api('GET','/api/tables/'+encodeURIComponent(tableName)+'/profile');
+    if(d.error){$('pmBody').innerHTML='<div style="color:var(--red)">'+esc(d.error)+'</div>';return;}
+    let html='<div style="margin-bottom:10px;font-size:13px;color:var(--text-2)">'
+      +d.row_count+'行 × '+d.columns.length+'列</div>';
+    html+='<div class="pm-col">';
+    html+='<div class="pm-hdr">列名</div><div class="pm-hdr">类型</div>'
+      +'<div class="pm-hdr">空值率</div><div class="pm-hdr">去重</div><div class="pm-hdr">样本值</div>';
+    (d.columns||[]).forEach(c=>{
+      const nullPct=Math.round((c.null_rate||0)*100);
+      const nullCls=nullPct>5?'pm-null':'pm-null ok';
+      html+='<div title="'+esc(c.name)+'">'+esc(c.name)+'</div>';
+      html+='<div style="color:var(--text-3)">'+esc(c.dtype)+'</div>';
+      html+='<div class="'+nullCls+'">'+nullPct+'%</div>';
+      html+='<div>'+(c.distinct_count||'-')+'</div>';
+      const samples=(c.samples||[]).join(', ')||(c.min!=null?c.min+'~'+c.max:'—');
+      html+='<div class="pm-samples" title="'+esc(samples)+'">'+esc(samples)+'</div>';
+    });
+    html+='</div>';
+    if(d.field_map&&Object.keys(d.field_map).length){
+      html+='<div style="margin-top:14px;font-size:12px;color:var(--text-2)">'
+        +'<b>字段映射：</b>'+Object.entries(d.field_map).map(([k,v])=>esc(k)+'→'+esc(v)).join('、')
+        +'</div>';
+    }
+    $('pmBody').innerHTML=html;
+  }catch(e){$('pmBody').innerHTML='<div style="color:var(--red)">加载失败：'+esc(e.message)+'</div>';}
+}
+function closeProfile(){$('profileOverlay').classList.remove('show');}
+function switchProfileTab(tab){
+  if(tab==='struct'){
+    $('pmTabStruct').classList.add('active');$('pmTabQuality').classList.remove('active');
+    $('pmBody').style.display='';$('pmBodyQuality').style.display='none';
+  }else{
+    $('pmTabStruct').classList.remove('active');$('pmTabQuality').classList.add('active');
+    $('pmBody').style.display='none';$('pmBodyQuality').style.display='';
+    loadQualityTab(_profileTable);
+  }
+}
+async function loadQualityTab(tableName){
+  const body=$('pmBodyQuality');
+  body.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-3)">分析中…</div>';
+  try{
+    const d=await api('GET','/api/tables/'+encodeURIComponent(tableName)+'/quality');
+    if(d.error){body.innerHTML='<div style="color:var(--red)">'+esc(d.error)+'</div>';return;}
+    const q=d.report||d;
+    const nullRates=q.null_rates||{};
+    const cols=Object.keys(nullRates);
+    const avgNull=cols.length?cols.reduce((s,k)=>s+nullRates[k],0)/cols.length:0;
+    const completeness=Math.round((1-avgNull)*100);
+    const compCls=completeness>=95?'good':completeness>=80?'warn':'bad';
+    const highNullCols=cols.filter(k=>nullRates[k]>0.05);
+    let html='<div class="pm-quality-grid">';
+    html+='<div class="pm-q-card"><h4>数据完整度</h4><div class="pm-q-val '+compCls+'">'+completeness+'%</div></div>';
+    html+='<div class="pm-q-card"><h4>总列数</h4><div class="pm-q-val">'+cols.length+'</div></div>';
+    html+='<div class="pm-q-card"><h4>高空值列</h4><div class="pm-q-val '+(highNullCols.length?'warn':'good')+'">'
+      +highNullCols.length+'</div></div>';
+    const critCount=(q.critical_issues||[]).length;
+    html+='<div class="pm-q-card"><h4>严重问题</h4><div class="pm-q-val '+(critCount?'bad':'good')+'">'
+      +critCount+'</div></div>';
+    html+='</div>';
+    if(highNullCols.length){
+      html+='<div style="margin-top:14px"><div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:6px">需关注列（空值率>5%）</div>';
+      highNullCols.sort((a,b)=>nullRates[b]-nullRates[a]).forEach(col=>{
+        const pct=Math.round(nullRates[col]*100);
+        html+='<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">'
+          +'<span style="flex:1;color:var(--text)">'+esc(col)+'</span>'
+          +'<span style="color:var(--orange)">'+pct+'% 空值</span></div>';
+      });
+      html+='</div>';
+    }
+    if(q.critical_issues&&q.critical_issues.length){
+      html+='<div style="margin-top:12px;padding:8px 10px;background:var(--red-bg);border-radius:6px;font-size:12px;color:var(--red)">';
+      q.critical_issues.forEach(c=>{html+='<div>✕ '+esc(c)+'</div>';});
+      html+='</div>';
+    }
+    if(q.warnings&&q.warnings.length){
+      html+='<div style="margin-top:12px;padding:8px 10px;background:var(--orange-bg);border-radius:6px;font-size:12px;color:var(--orange)">';
+      q.warnings.forEach(w=>{html+='<div>⚠ '+esc(w)+'</div>';});
+      html+='</div>';
+    }
+    if(!critCount&&!highNullCols.length&&!(q.warnings||[]).length){
+      html+='<div style="margin-top:14px;text-align:center;color:var(--green);font-size:13px">数据质量良好，无异常发现</div>';
+    }
+    body.innerHTML=html;
+  }catch(e){body.innerHTML='<div style="color:var(--text-3)">质量检查不可用</div>';}
+}

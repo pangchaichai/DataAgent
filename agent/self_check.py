@@ -44,6 +44,20 @@ class SelfChecker:
             CheckRule("ratio_pct", 0.0, 100.0, "评级占比应在 0-100%"),
             CheckRule("market_value", 0.0, None, "持仓市值不应为负"),
         ],
+        "position_diff": [
+            CheckRule("mv_t1", 0.0, None, "前期市值不应为负"),
+            CheckRule("mv_t2", 0.0, None, "后期市值不应为负"),
+        ],
+        "leverage": [
+            CheckRule("leverage_ratio", 0.0, 50.0, "杠杆率超出 0-50x 范围，请确认数据"),
+            CheckRule("total_assets", 0.0, None, "总资产不应为负"),
+            CheckRule("net_asset_value", 0.0, None, "净资产值不应为负"),
+        ],
+        "liquidity": [
+            CheckRule("liquid_ratio_pct", 0.0, 100.0, "流动性占比应在 0-100%"),
+            CheckRule("high_liquidity_ratio_pct", 0.0, 100.0, "高流动性占比应在 0-100%"),
+            CheckRule("total_assets", 0.0, None, "总资产不应为负"),
+        ],
     }
 
     def check(self, calculator: str, result: dict) -> list[str]:
@@ -98,4 +112,10 @@ class SelfChecker:
             return result.get("structure", [])
         elif calculator == "credit_distribution":
             return result.get("distribution", [])
+        elif calculator == "position_diff":
+            return result.get("changes", [])
+        elif calculator == "leverage":
+            return result.get("results", [])
+        elif calculator == "liquidity":
+            return result.get("results", [])
         return []

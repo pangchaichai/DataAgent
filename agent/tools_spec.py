@@ -86,12 +86,27 @@ TOOL_DEFINITIONS = [
                             "nav_metrics",
                             "asset_structure",
                             "credit_distribution",
+                            "position_diff",
+                            "leverage",
+                            "liquidity",
                         ],
                         "description": "要调用的固化计算器名称",
                     },
                     "holding_table": {
                         "type": "string",
                         "description": "持仓表名（可选，未指定则自动选最新持有表）",
+                    },
+                    "holding_table_t1": {
+                        "type": "string",
+                        "description": "前期持仓表名（position_diff 专用）",
+                    },
+                    "holding_table_t2": {
+                        "type": "string",
+                        "description": "后期持仓表名（position_diff 专用）",
+                    },
+                    "nav_table": {
+                        "type": "string",
+                        "description": "净值表名（leverage 专用，未指定则自动选最新净值表）",
                     },
                     "product_filter": {
                         "type": "array",
@@ -545,6 +560,12 @@ def _tool_run_calculator(args: dict, ctx: ToolContext) -> dict:
         result = _run_asset_structure(args, cfg, conn, holding_table)
     elif calc_name == "credit_distribution":
         result = _run_credit_distribution(args, cfg, conn, holding_table)
+    elif calc_name == "position_diff":
+        result = _run_position_diff(args, cfg, conn)
+    elif calc_name == "leverage":
+        result = _run_leverage(args, cfg, conn, holding_table)
+    elif calc_name == "liquidity":
+        result = _run_liquidity(args, cfg, conn, holding_table)
     else:
         return {"ok": False, "error": f"未知计算器：{calc_name}"}
 
@@ -699,6 +720,132 @@ def _run_credit_distribution(args, cfg, conn, holding_table):
         ],
         "count": len(results),
         "formula_version": "credit_distribution.v1",
+    }
+
+
+def _run_position_diff(args, cfg, conn):
+    """跨期持仓差异计算"""
+    from calculators.position_diff import calc_position_diff
+
+    c = cfg.get("concentration", {})
+    table_t1 = args.get("holding_table_t1", "") or _auto_select_table("holding")
+    table_t2 = args.get("holding_table_t2", "") or _auto_select_table("holding")
+
+    if table_t1 == table_t2:
+        return {"ok": False, "error": "前后两期持仓表相同，无法计算差异，请指定 holding_table_t1 和 holding_table_t2"}
+
+    results = calc_position_diff(
+        conn=conn,
+        table_t1=table_t1,
+        table_t2=table_t2,
+        market_value_field=c.get("market_value_field", "穿透后市值"),
+        date_t1=args.get("date_t1", ""),
+        date_t2=args.get("date_t2", ""),
+        product_filter=args.get("product_filter"),
+    )
+
+    return {
+        "ok": True,
+        "calculator": "position_diff",
+        "table_t1": table_t1,
+        "table_t2": table_t2,
+        "changes": [
+            {
+                "asset_code": r.asset_code,
+                "asset_name": r.asset_name,
+                "product": r.product_name,
+                "change_type": r.change_type,
+                "mv_t1": r.mv_t1,
+                "mv_t2": r.mv_t2,
+                "mv_delta": r.mv_delta,
+                "mv_delta_pct": r.mv_delta_pct,
+            }
+            for r in results
+        ],
+        "count": len(results),
+        "formula_version": "position_diff.v1",
+    }
+
+
+def _run_leverage(args, cfg, conn, holding_table):
+    """杠杆率计算"""
+    from calculators.leverage import calc_leverage
+
+    c = cfg.get("concentration", {})
+    nav_table = args.get("nav_table", "") or _auto_select_table("nav")
+
+    results = calc_leverage(
+        conn=conn,
+        holding_table=holding_table,
+        nav_table=nav_table,
+        market_value_field=c.get("market_value_field", "穿透后市值"),
+        threshold=cfg.get("leverage", {}).get("threshold", 2.0),
+        product_filter=args.get("product_filter"),
+    )
+
+    return {
+        "ok": True,
+        "calculator": "leverage",
+        "holding_table": holding_table,
+        "nav_table": nav_table,
+        "results": [
+            {
+                "product": r.product_name,
+                "total_assets": r.total_assets,
+                "net_asset_value": r.net_asset_value,
+                "leverage_ratio": r.leverage_ratio,
+                "threshold": r.threshold,
+                "is_breach": r.is_breach,
+            }
+            for r in results
+        ],
+        "breach_count": sum(1 for r in results if r.is_breach),
+        "formula_version": "leverage.v1",
+    }
+
+
+def _run_liquidity(args, cfg, conn, holding_table):
+    """流动性分析计算"""
+    from calculators.liquidity import calc_liquidity
+
+    c = cfg.get("concentration", {})
+    results = calc_liquidity(
+        conn=conn,
+        holding_table=holding_table,
+        market_value_field=c.get("market_value_field", "穿透后市值"),
+        category_field=args.get("category_field", "G06一级分类"),
+        threshold_liquid_pct=cfg.get("liquidity", {}).get("threshold_liquid_pct", 20.0),
+        product_filter=args.get("product_filter"),
+    )
+
+    return {
+        "ok": True,
+        "calculator": "liquidity",
+        "holding_table": holding_table,
+        "results": [
+            {
+                "product": r.product_name,
+                "total_assets": r.total_assets,
+                "liquid_ratio_pct": r.liquid_ratio_pct,
+                "high_liquidity_ratio_pct": r.high_liquidity_ratio_pct,
+                "illiquid_ratio_pct": r.illiquid_ratio_pct,
+                "threshold_liquid_pct": r.threshold_liquid_pct,
+                "is_breach": r.is_breach,
+                "bands": [
+                    {
+                        "tier": b.tier,
+                        "tier_label": b.tier_label,
+                        "market_value": b.market_value,
+                        "ratio_pct": b.ratio_pct,
+                        "security_count": b.security_count,
+                    }
+                    for b in r.bands
+                ],
+            }
+            for r in results
+        ],
+        "breach_count": sum(1 for r in results if r.is_breach),
+        "formula_version": "liquidity.v1",
     }
 
 
