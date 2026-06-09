@@ -134,6 +134,12 @@ async function saveSettings(){
   };
   const apikey=$('cfg-apikey').value.trim();
   if(apikey)body.api_key=apikey;
+  const provider=$('cfg-llm-provider');
+  if(provider&&provider.value)body.llm_provider=provider.value;
+  const llmUrl=$('cfg-llm-url').value.trim();
+  if(llmUrl)body.llm_url=llmUrl;
+  const llmModel=$('cfg-llm-model').value.trim();
+  if(llmModel)body.llm_model=llmModel;
   try{
     const r=await api('POST','/api/config',body);
     if(r.ok){

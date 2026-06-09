@@ -69,10 +69,12 @@ def api_config_write():
             cfg.setdefault('memory', {})['enabled'] = bool(data['memory']['enabled'])
         if 'scheduler' in data and 'enabled' in data['scheduler']:
             cfg.setdefault('scheduler', {})['enabled'] = bool(data['scheduler']['enabled'])
-        if data.get('llm_url') or data.get('llm_model') or data.get('api_key'):
+        if data.get('llm_url') or data.get('llm_model') or data.get('api_key') or data.get('llm_provider'):
             llm_block = cfg.setdefault('llm', {})
+            if data.get('llm_provider'):
+                llm_block.setdefault('sql_gen', {})['primary'] = data['llm_provider']
             primary = llm_block.get('sql_gen', {}).get('primary', 'deepseek')
-            provider_block = llm_block.setdefault(primary, llm_block.setdefault('deepseek', {}))
+            provider_block = llm_block.setdefault(primary, {})
             if data.get('api_key'):
                 provider_block['api_key'] = data['api_key']
             if data.get('llm_url'):

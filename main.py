@@ -48,9 +48,15 @@ def find_free_port() -> int:
 
 def load_config(path: str = None) -> dict:
     import yaml
-    cfg_path = path or str(BASE_DIR / 'config.yaml')
-    with open(cfg_path, encoding='utf-8') as f:
-        return yaml.safe_load(f)
+    from pathlib import Path
+    cfg_path = Path(path) if path else BASE_DIR / 'config.yaml'
+    if not cfg_path.exists():
+        cfg_path = BASE_DIR / 'config.example.yaml'
+    try:
+        with open(cfg_path, encoding='utf-8') as f:
+            return yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        return {}
 
 
 def wait_for_flask(port: int, timeout: float = 10.0):

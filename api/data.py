@@ -124,7 +124,10 @@ def api_upload_confirm():
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest_path = str(dest_dir / filename)
     import shutil
-    shutil.move(file_path, dest_path)
+    try:
+        shutil.move(file_path, dest_path)
+    except OSError as e:
+        return jsonify({"ok": False, "error": f"文件移动失败：{str(e)[:200]}"}), 500
 
     if not table_name:
         stem = Path(filename).stem

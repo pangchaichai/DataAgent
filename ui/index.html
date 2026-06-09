@@ -593,6 +593,7 @@ select.sp-input{cursor:pointer;}
       <div class="inputbar" id="inputbar" style="position:relative">
         <div class="mention-popup" id="mentionPopup"></div>
         <div class="hintbar" id="hint">请先在上方完成确认或选择后再继续</div>
+        <div id="suggestionsBar" style="display:none"></div>
         <div class="quick" id="quickBtns">
           <button class="q-btn" onclick="triggerUpload()" title="上传数据文件或文档">📂 上传</button>
           <button class="q-btn" onclick="sendQuick('帮我检查主体集中度是否超标')" title="直接执行合规检查">✅ 合规检查</button>
@@ -712,12 +713,25 @@ select.sp-input{cursor:pointer;}
     <div class="sp-section">
       <div class="sp-title">LLM 配置</div>
       <div class="sp-row">
+        <label>AI 提供方</label>
+        <select id="cfg-llm-provider" class="sp-input" onchange="onLLMProviderChange()">
+          <option value="deepseek">DeepSeek（远程）</option>
+          <option value="lmstudio">本地 LM Studio 🖥</option>
+          <option value="enterprise_internal">企业内网 LLM</option>
+        </select>
+      </div>
+      <div class="sp-row" style="gap:6px;align-items:center">
+        <span id="llm-status-dot" style="font-size:16px">⚪</span>
+        <span id="llm-provider-hint" class="sp-hint" style="flex:1;margin:0"></span>
+        <button class="sp-btn" onclick="testLLMConnection()" id="testConnBtn">测试</button>
+      </div>
+      <div class="sp-row">
         <label>服务地址</label>
         <input type="text" id="cfg-llm-url" class="sp-input" placeholder="https://api.deepseek.com/v1"/>
       </div>
       <div class="sp-row">
         <label>模型</label>
-        <input type="text" id="cfg-llm-model" class="sp-input" placeholder="deepseek-chat"/>
+        <input type="text" id="cfg-llm-model" class="sp-input" placeholder="deepseek-v4-flash"/>
       </div>
       <div class="sp-row">
         <label>API Key</label>
@@ -725,7 +739,6 @@ select.sp-input{cursor:pointer;}
       </div>
       <div class="sp-row" style="justify-content:space-between">
         <div id="apikeyStatus" class="sp-hint" style="flex:1"></div>
-        <button class="sp-btn" onclick="testLLMConnection()" id="testConnBtn">测试连接</button>
       </div>
       <div id="llmTestResult" class="sp-hint" style="margin-top:4px"></div>
     </div>
