@@ -136,6 +136,7 @@ def run_agent_loop(
     turn_count: int = 0,
     session_messages: list[dict] = None,
     pending: dict = None,
+    document_context: dict = None,
 ) -> Generator[dict, None, None]:
     """
     Agent 主循环（v1.5 tool-calling 重构版）。
@@ -218,8 +219,21 @@ def run_agent_loop(
             })
         # pending 已处理，不加新的 user message
     else:
-        # 普通新消息
-        session_messages.append({"role": "user", "content": user_message})
+        # 普通新消息；若有文档上下文则附加到消息中
+        if document_context and not pending:
+            filename = document_context.get('filename', '文档')
+            text_preview = document_context.get('text_preview', '')
+            word_count = document_context.get('word_count', 0)
+            page_count = document_context.get('page_count', 0)
+            doc_note = (
+                f"\n\n[用户已上传文档：{filename}"
+                + (f"，{page_count}页" if page_count else "")
+                + (f"，约{word_count}字" if word_count else "")
+                + f"]\n文档内容摘要：\n{text_preview}"
+            )
+            session_messages.append({"role": "user", "content": user_message + doc_note})
+        else:
+            session_messages.append({"role": "user", "content": user_message})
 
     # ── 场景化工具过滤（ETCLOVG T 层）────────────────────────
     # 在新消息上检测匹配的 Skill；续跑时沿用 pending 的上下文

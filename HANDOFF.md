@@ -10,13 +10,29 @@
 ## 最后更新
 - **日期**：2026-06-09
 - **提交**：（本次提交后更新）
-- **分支**：`claude/cool-cori-Ez2NG`
+- **分支**：`claude/sleepy-cori-5b5xow`
 
 ---
 
 ## 上次会话完成的工作
 
-### Windows 内测包构建 + 5 个缺陷修复
+### Windows 内测 UAT 修复 — 2 个新缺陷
+
+**1. 修复联网搜索被拒绝（prompts/system_prompt.txt）**
+- 原问题：系统提示词第一行"运行在企业内网环境中"导致 LLM 拒绝调用 web_search 工具
+- 修复：改为"部署在用户的本地设备上"；在核心能力列表中明确列出 web_search 工具；新增第 6 条准则，明确要求遇到公开信息查询时主动调用工具
+
+**2. 修复上传文档后追问无上下文（多文件 + agent/loop.py）**
+- 原问题：`sendMessage()` 只发送 `{message}` 不含文档信息；agent 不知道文档内容
+- 修复路径：
+  - `ui/js/chat.js`：发送消息时读取 `_documentContext` 全局变量并附加到 POST body
+  - `api/chat.py`：从请求中提取 `document_context`，加入 `loop_kwargs`
+  - `agent/loop.py`：`run_agent_loop()` 新增 `document_context` 参数，构造用户消息时将文档文件名、页数、字数、内容摘要附加到消息末尾
+  - `agent/executor.py`：`run_with_plan()` 同步透传 `document_context`
+
+### 前序会话（同日）完成的工作
+
+#### Windows 内测包构建 + 5 个缺陷修复
 
 **1. 创建 Windows 离线安装包（scripts/package_windows.py）**
 - 三阶段依赖解析：当前平台全量下载 → C 扩展替换为 Windows 版 → 扫描 METADATA 补充 Win-only 传递依赖
@@ -50,7 +66,7 @@ v2.0 全部完成 + Windows 内测包就绪 → 等待 Windows 内测反馈 / Ph
 ```
 
 ### 测试
-- **结果**：311/311 通过（含 env 变量），309/309 通过（无 env 变量），0 跳过
+- **结果**：309/309 通过，2 跳过
 - **DeepSeek 集成测试**：test_report_text_with_deepseek、test_sql_gen_with_deepseek 通过
 - **web_search 测试**：6/6 通过（duckduckgo-search 已可用）
 - **核心模块**：calculators 88-100%、chart_builder 100%、report_builder 81%
@@ -92,14 +108,12 @@ skills/monthly_bond_summary/ 实现 + template.md.j2
 ## 本次会话修改的文件清单
 
 ```
-scripts/package_windows.py    # 新建 — Windows 内测包构建脚本（三阶段依赖解析+清理+打包）
-ui/index.html                 # 添加上传确认对话框 HTML（ucFilename/ucRows 等 8 个元素）
-ui/js/upload.js               # 修复上传确认面板显示/隐藏联动
-.claude/settings.json         # 修复 hook: PreCommit 移除 + Stop 包装为数组
-config.yaml                   # 模型名改为 deepseek-v4-flash（测试用）
-config.example.yaml           # 同上
+prompts/system_prompt.txt     # 修复"企业内网"误导 + 添加 web_search 使用准则
+ui/js/chat.js                 # sendMessage() 附加 _documentContext 到 POST body
+api/chat.py                   # 提取 document_context 并传入 loop_kwargs
+agent/loop.py                 # run_agent_loop 新增 document_context 参数，注入消息
+agent/executor.py             # run_with_plan 透传 document_context
 HANDOFF.md                    # 会话交接更新
-PROGRESS.md                   # 进度更新
 ```
 
 ---

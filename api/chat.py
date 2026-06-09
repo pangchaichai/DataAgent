@@ -28,6 +28,7 @@ def api_chat():
     message = (data.get('message') or '').strip()
     if not message:
         return jsonify({"ok": False, "error": "消息为空"}), 400
+    document_context = data.get('document_context') or None
 
     sid = str(uuid.uuid4())
     q: queue.Queue = queue.Queue()
@@ -65,6 +66,7 @@ def api_chat():
             turn_count=current_turn,
             session_messages=session_msgs,
             pending=pending,
+            document_context=document_context,
         )
         if not pending and should_plan(message) and get_loaded_tables():
             plan = build_plan(

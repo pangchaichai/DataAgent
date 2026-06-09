@@ -44,9 +44,11 @@ async function sendMessage(){
   $('chatTitle').textContent=msg.slice(0,40);
   setSendMode('stream');setBusy(true);
   try{
+    const body={message:msg};
+    if(_documentContext){body.document_context=_documentContext;}
     const r=await fetch('/api/chat',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:msg}),
+      body:JSON.stringify(body),
     });
     const d=await r.json();
     if(!d.ok){setSendMode('idle');setBusy(false);addSysMsg(d.error||'请求失败','red');return;}

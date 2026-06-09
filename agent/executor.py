@@ -32,6 +32,7 @@ def run_with_plan(
     turn_count: int = 0,
     session_messages: Optional[list] = None,
     pending: Optional[dict] = None,
+    document_context: Optional[dict] = None,
 ) -> Generator[dict, None, None]:
     """
     将 Plan 包装执行：
@@ -62,6 +63,7 @@ def run_with_plan(
         turn_count=turn_count,
         session_messages=session_messages,
         pending=pending,
+        document_context=document_context,
     ):
         # 在 tool_start 事件时推送 plan_step 进度
         if event.get("type") == "tool_start":
