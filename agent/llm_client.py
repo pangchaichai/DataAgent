@@ -93,6 +93,16 @@ class LLMClient:
             'lmstudio': self.cfg.get('lmstudio', {}),
         }
 
+    def _resolve_api_key(self, provider_name: str, provider_cfg: dict) -> str:
+        """Resolve API key: env var overrides config only if non-placeholder."""
+        env_key = os.environ.get(f"{provider_name.upper()}_API_KEY", '')
+        cfg_key = provider_cfg.get('api_key', '')
+        if env_key and env_key not in self._PLACEHOLDER_KEYS:
+            return env_key.strip()
+        if cfg_key and cfg_key not in self._PLACEHOLDER_KEYS:
+            return cfg_key.strip()
+        return ''
+
     # ── 公开接口 ──────────────────────────────────────────────
 
     def generate_sql(self, prompt: str, schema_context: str = "") -> tuple[str, LLMResponse]:
@@ -254,12 +264,7 @@ class LLMClient:
         if not cfg or not cfg.get('url'):
             return {"ok": False, "error": f"未配置 provider: {provider}"}
         base_url = cfg["url"].rstrip("/")
-        api_key = (
-            os.environ.get(f"{provider.upper()}_API_KEY")
-            or cfg.get('api_key', '')
-        )
-        if api_key in self._PLACEHOLDER_KEYS:
-            api_key = ''
+        api_key = self._resolve_api_key(provider, cfg)
         headers = {'Content-Type': 'application/json'}
         if api_key:
             headers['Authorization'] = f'Bearer {api_key}'
@@ -465,7 +470,11 @@ class LLMClient:
     # ── 底层 HTTP 调用 ────────────────────────────────────────
 
     # Placeholder values that must never be sent as real API keys
-    _PLACEHOLDER_KEYS = frozenset({'你的DeepSeek_API_Key', '${DEEPSEEK_API_KEY}', 'YOUR_API_KEY'})
+    _PLACEHOLDER_KEYS = frozenset({
+        '你的DeepSeek_API_Key', '${DEEPSEEK_API_KEY}', 'YOUR_API_KEY',
+        'your_deepseek_api_key_here', 'your_api_key_here',
+        'sk-placeholder',
+    })
 
     def _call(self, provider_name: str, prompt: str,
               system: str = "", timeout: int = 30, max_tokens: int = 2000) -> LLMResponse:
@@ -477,9 +486,7 @@ class LLMClient:
 
         url = provider.get('url', '')
         model = provider.get('model', '')
-        api_key = os.environ.get(f"{provider_name.upper()}_API_KEY") or provider.get('api_key', '')
-        if api_key in self._PLACEHOLDER_KEYS:
-            api_key = ''
+        api_key = self._resolve_api_key(provider_name, provider)
 
         if not url or url.startswith('http://['):
             return LLMResponse(success=False, endpoint=provider_name, model=model,
@@ -518,8 +525,9 @@ class LLMClient:
                     token_count=usage.get('total_tokens', 0), elapsed_ms=elapsed_ms,
                 )
             elif resp.status_code in (401, 403):
+                detail = resp.text[:100] if resp.text else ''
                 return LLMResponse(success=False, endpoint=provider_name, model=model,
-                                   text="", error="api_key")
+                                   text="", error=f"api_key ({resp.status_code}: {detail})")
             elif resp.status_code >= 500:
                 return LLMResponse(success=False, endpoint=provider_name, model=model,
                                    text="", error=f"connection refused (HTTP {resp.status_code})")
@@ -552,12 +560,7 @@ class LLMClient:
 
         url = provider.get('url', '')
         model = provider.get('model', '')
-        api_key = (
-            os.environ.get(f"{provider_name.upper()}_API_KEY")
-            or provider.get('api_key', '')
-        )
-        if api_key in self._PLACEHOLDER_KEYS:
-            api_key = ''
+        api_key = self._resolve_api_key(provider_name, provider)
 
         if not url or url.startswith('http://['):
             return ChatResult(success=False, error="LLM 服务地址未配置")
@@ -612,7 +615,9 @@ class LLMClient:
                     token_count=usage.get('total_tokens', 0), model=model,
                 )
             elif resp.status_code in (401, 403):
-                return ChatResult(success=False, error="api_key",
+                detail = resp.text[:100] if resp.text else ''
+                return ChatResult(success=False,
+                                  error=f"api_key ({resp.status_code}: {detail})",
                                   elapsed_ms=elapsed_ms, model=model)
             elif resp.status_code >= 500:
                 return ChatResult(
@@ -644,9 +649,7 @@ class LLMClient:
 
         url = provider.get('url', '')
         model = provider.get('model', '')
-        api_key = os.environ.get(f"{provider_name.upper()}_API_KEY") or provider.get('api_key', '')
-        if api_key in self._PLACEHOLDER_KEYS:
-            api_key = ''
+        api_key = self._resolve_api_key(provider_name, provider)
 
         if not url or url.startswith('http://['):
             return iter([]), LLMResponse(success=False, endpoint=provider_name, model=model,

@@ -445,12 +445,8 @@ if not exist DataAgent\config.yaml (
     )
 )
 
-:: 检查 .env
-if not exist DataAgent\.env (
-    if exist DataAgent\.env.example (
-        copy DataAgent\.env.example DataAgent\.env >nul 2>nul
-    )
-)
+:: .env 仅在用户需要环境变量覆盖 config.yaml 时手动创建
+:: 不再自动复制 .env.example，避免占位符覆盖 config.yaml 中的真实 API Key
 
 :: 创建运行时需要的空目录
 if not exist DataAgent\data mkdir DataAgent\data
