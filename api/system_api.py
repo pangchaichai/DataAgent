@@ -27,7 +27,9 @@ def api_health():
     try:
         from agent.llm_client import LLMClient
         client = LLMClient(str(BASE_DIR / 'config.yaml'))
-        llm_name = client.sql_gen_cfg.get('model', 'deepseek-chat')
+        primary = client.sql_gen_cfg.get('primary', 'deepseek')
+        provider_cfg = client.providers.get(primary, {})
+        llm_name = provider_cfg.get('model', 'deepseek-chat')
     except Exception:
         pass
 
@@ -50,8 +52,10 @@ def api_status():
     try:
         from agent.llm_client import LLMClient
         client = LLMClient(str(BASE_DIR / 'config.yaml'))
-        key = client.sql_gen_cfg.get('api_key', '')
-        llm_ok = bool(key and not key.startswith('sk-placeholder'))
+        primary = client.sql_gen_cfg.get('primary', 'deepseek')
+        provider_cfg = client.providers.get(primary, {})
+        key = provider_cfg.get('api_key', '')
+        llm_ok = bool(key and key not in client._PLACEHOLDER_KEYS)
     except Exception:
         llm_ok = False
     from datetime import date
