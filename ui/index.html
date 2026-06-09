@@ -620,17 +620,17 @@ select.sp-input{cursor:pointer;}
                 z-index:1001;width:640px;max-height:80vh;overflow-y:auto;padding:24px;
                 background:var(--bg);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3)">
       <div style="font-size:16px;font-weight:600;margin-bottom:16px">确认上传数据</div>
-      <div style="margin-bottom:12px;color:var(--muted)">
-        文件名：<span id="ucFilename" style="color:var(--fg)">-</span>
+      <div style="margin-bottom:12px;color:var(--text-2)">
+        文件名：<span id="ucFilename" style="color:var(--text)">-</span>
       </div>
-      <div style="margin-bottom:12px;color:var(--muted)">
-        数据规模：<span id="ucRows" style="color:var(--fg)">-</span>
-        &nbsp;<span id="ucCols" style="color:var(--fg)">-</span>
+      <div style="margin-bottom:12px;color:var(--text-2)">
+        数据规模：<span id="ucRows" style="color:var(--text)">-</span>
+        &nbsp;<span id="ucCols" style="color:var(--text)">-</span>
       </div>
       <div style="margin-bottom:12px">
-        <label style="color:var(--muted);font-size:13px">表类型</label>
+        <label style="color:var(--text-2);font-size:13px">表类型</label>
         <select id="ucType" style="width:100%;margin-top:4px;padding:8px 12px;border:1px solid var(--border);
-          border-radius:6px;background:var(--bg-card);color:var(--fg);font-size:14px">
+          border-radius:6px;background:var(--bg-s);color:var(--text);font-size:14px">
           <option value="holding">持仓表 (holding)</option>
           <option value="nav">净值表 (nav)</option>
           <option value="rating_entity">主体评级 (rating_entity)</option>
@@ -640,25 +640,25 @@ select.sp-input{cursor:pointer;}
         </select>
       </div>
       <div style="margin-bottom:12px">
-        <label style="color:var(--muted);font-size:13px">数据日期</label>
+        <label style="color:var(--text-2);font-size:13px">数据日期</label>
         <input type="text" id="ucDate" placeholder="如 20260609"
           style="width:100%;margin-top:4px;padding:8px 12px;border:1px solid var(--border);
-          border-radius:6px;background:var(--bg-card);color:var(--fg);font-size:14px">
+          border-radius:6px;background:var(--bg-s);color:var(--text);font-size:14px">
       </div>
       <div style="margin-bottom:12px">
-        <label style="color:var(--muted);font-size:13px">表名</label>
+        <label style="color:var(--text-2);font-size:13px">表名</label>
         <input type="text" id="ucTableName"
           style="width:100%;margin-top:4px;padding:8px 12px;border:1px solid var(--border);
-          border-radius:6px;background:var(--bg-card);color:var(--fg);font-size:14px">
+          border-radius:6px;background:var(--bg-s);color:var(--text);font-size:14px">
       </div>
       <div style="margin-bottom:16px;max-height:200px;overflow-y:auto" id="ucPreview"></div>
       <div style="display:flex;gap:12px;justify-content:flex-end">
         <button onclick="cancelUploadConfirm()"
           style="padding:8px 20px;border:1px solid var(--border);border-radius:6px;
-          background:var(--bg-card);color:var(--fg);cursor:pointer">取消</button>
+          background:var(--bg-s);color:var(--text);cursor:pointer">取消</button>
         <button onclick="confirmUploadFile()"
           style="padding:8px 20px;border:none;border-radius:6px;
-          background:var(--accent);color:#fff;cursor:pointer">确认入库</button>
+          background:var(--blue);color:#fff;cursor:pointer">确认入库</button>
       </div>
     </div>
 

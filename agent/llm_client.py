@@ -612,15 +612,16 @@ class LLMClient:
                     token_count=usage.get('total_tokens', 0), model=model,
                 )
             elif resp.status_code in (401, 403):
-                return ChatResult(success=False, error="api_key", elapsed_ms=elapsed_ms)
+                return ChatResult(success=False, error="api_key",
+                                  elapsed_ms=elapsed_ms, model=model)
             elif resp.status_code >= 500:
                 return ChatResult(
-                    success=False, elapsed_ms=elapsed_ms,
+                    success=False, elapsed_ms=elapsed_ms, model=model,
                     error=f"connection refused (HTTP {resp.status_code})",
                 )
             else:
                 return ChatResult(
-                    success=False, elapsed_ms=elapsed_ms,
+                    success=False, elapsed_ms=elapsed_ms, model=model,
                     error=f"HTTP {resp.status_code}: {resp.text[:200]}",
                 )
         except requests.Timeout:

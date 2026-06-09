@@ -247,7 +247,7 @@ def run_agent_loop(
             yield _stream_end()
             return
         _llm_ms = (time.perf_counter() - _llm_t0) * 1000
-        _logger.log_llm_call('chat', getattr(llm_client, '_model', 'unknown'),
+        _logger.log_llm_call('chat', result.model or 'unknown',
                              result.success, duration_ms=_llm_ms)
 
         # O 层：成本追踪
@@ -265,7 +265,10 @@ def run_agent_loop(
                 pass
 
         if not result.success:
-            _logger.warning('llm', 'LLM 返回失败', {'error': result.error[:200]})
+            _logger.warning('llm', 'LLM 返回失败', {
+                'error': result.error[:200],
+                'model': result.model or 'unknown',
+            })
             yield _error(result.error)
             yield _stream_end()
             return
