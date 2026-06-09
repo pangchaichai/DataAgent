@@ -9,9 +9,9 @@
 | 主体名称 | 内部评级 | 理财限额(万) | 已占用(万) | 剩余可用(万) | 全穿透持仓(万) | 1年内 | 1-2年 | 2年以上 | 准入品种 |
 |:--------|:--------:|:-----------:|:---------:|:-----------:|:------------:|:-----:|:-----:|:------:|:------:|
 {% for row in entity_rows %}
-| {{ row.name }} | {{ row.rating }} | {{ row.total_limit }} | {{ row.used }} | {{ row.available }}{% if row.available < 0 %} ⚠️{% endif %} | {{ row.holding_total }} | {{ row.within_1y }} | {{ row.y1_2 }} | {{ row.over_2y }} | {{ row.policy }} |
+| {{ row.name }} | {{ row.rating }} | {{ row.total_limit }} | {{ row.used }} | {{ row.available_str }}{% if row.available < 0 %} ⚠️{% endif %} | {{ row.holding_total }} | {{ row.within_1y }} | {{ row.y1_2 }} | {{ row.over_2y }} | {{ row.policy }} |
 {% endfor %}
-| **{{ group_name }}合计** | — | **{{ total.total_limit }}** | **{{ total.used }}** | **{{ total.available }}** | **{{ total.holding_total }}** | **{{ total.within_1y }}** | **{{ total.y1_2 }}** | **{{ total.over_2y }}** | — |
+| **{{ group_name }}合计** | — | **{{ total.total_limit }}** | **{{ total.used }}** | **{{ total.available_str }}** | **{{ total.holding_total }}** | **{{ total.within_1y }}** | **{{ total.y1_2 }}** | **{{ total.over_2y }}** | — |
 
 ---
 
