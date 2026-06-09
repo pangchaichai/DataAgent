@@ -192,10 +192,12 @@ def run_agent_loop(
     if session_messages is None:
         session_messages = []
 
-    if not session_messages:
-        # 首条消息：加入 system prompt
-        system_prompt = _build_system_prompt(schema_ctx, skills_desc)
-        session_messages.append({"role": "system", "content": system_prompt})
+    # 每次请求都刷新 system prompt（表信息可能在上传后发生变化）
+    system_prompt = _build_system_prompt(schema_ctx, skills_desc)
+    if session_messages and session_messages[0].get("role") == "system":
+        session_messages[0]["content"] = system_prompt
+    else:
+        session_messages.insert(0, {"role": "system", "content": system_prompt})
 
     # 处理暂停续跑
     if pending:
