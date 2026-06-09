@@ -271,9 +271,9 @@ def _score_encoding(file_path: str, encoding: str) -> tuple[int, str]:
         if cjk == 0 and suspicious == 0:
             score = 10  # 纯 ASCII/英文，编码无关紧要
 
-        # 解码成功率：用 pandas 试读验证
+        # 解码成功率：用 pandas 试读验证（StringIO 已是 str，无需指定 encoding）
         try:
-            df = pd.read_csv(io.StringIO(text), encoding='utf-8', dtype=str,
+            df = pd.read_csv(io.StringIO(text), dtype=str,
                              nrows=5, keep_default_na=False, na_values=[''])
             # pandas 能成功解析 → +5 分
             score += 5
@@ -522,15 +522,33 @@ def load_file(
 
     if ext == '.csv':
         encoding = detect_encoding(file_path)
-        try:
-            df = pd.read_csv(file_path, encoding=encoding, dtype=str,
-                             keep_default_na=False, na_values=[''])
-        except (UnicodeDecodeError, LookupError):
-            # 兜底：UTF-8 + error replace
-            df = pd.read_csv(file_path, encoding='utf-8', dtype=str,
-                             errors='replace')
+        df = None
+        # 轮询候选编码：先用检测最优，再逐一尝试其他
+        candidates = [encoding] + [e for e in ['gb18030', 'utf-8', 'gbk', 'latin-1']
+                                    if e.lower() != encoding.lower()]
+        last_err = None
+        for enc in candidates:
+            try:
+                df = pd.read_csv(file_path, encoding=enc, dtype=str,
+                                 keep_default_na=False, na_values=[''])
+                encoding = enc
+                break
+            except (UnicodeDecodeError, LookupError) as e:
+                last_err = e
+                continue
+        if df is None:
+            # 最终兜底：encoding_errors='replace'（pandas 1.3+），保证不崩溃
+            try:
+                df = pd.read_csv(file_path, encoding='utf-8',
+                                 encoding_errors='replace', dtype=str,
+                                 keep_default_na=False, na_values=[''])
+            except TypeError:
+                # pandas < 1.3 不支持 encoding_errors，用 Python open 包裹
+                with open(file_path, encoding='utf-8', errors='replace') as fh:
+                    df = pd.read_csv(fh, dtype=str,
+                                     keep_default_na=False, na_values=[''])
             encoding = 'utf-8 (fallback)'
-            warnings.append("编码回退至 utf-8（errors=replace）")
+            warnings.append(f"编码检测失败（{last_err}），已用 utf-8+replace 兜底读取，请确认数据是否正确")
 
     elif ext in ('.xlsx', '.xls'):
         encoding = 'n/a'
