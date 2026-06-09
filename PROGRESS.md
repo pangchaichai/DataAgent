@@ -4,7 +4,24 @@
 
 ---
 
-## 当前阶段：v2.0 完成 → Phase 4（待模板确认）/ Phase 5（Windows 打包）
+## 当前阶段：v2.0 完成 + Windows 内测包就绪 → 等待内测反馈 / Phase 4 模板确认
+
+## Windows 内测包构建 ✅ 完成（2026-06-09）
+
+### 构建脚本
+- [x] `scripts/package_windows.py` — 三阶段依赖解析（全量 → 替换 Win 原生 → 扫描 Win-only 传递依赖）
+- [x] 自动清理 Linux wheel，包体 45.6 MB (44 deps)
+- [x] `dist/DataAgent-v2.0-beta1.zip` — 离线安装包
+
+### Bug 修复（5 项）
+- [x] **setup.bat**：CRLF 换行 + 去掉 chcp 65001 + 补充 Win-only dep + 路径修正
+- [x] **run.bat**：cd DataAgent + config 检测
+- [x] **上传确认对话框**：I-10 遗漏的 8 个 DOM 元素补回 ui/index.html + ui/js/upload.js 联动
+- [x] **.claude/settings.json**：PreCommit 移除 + Stop 数组化
+- [x] **Win-only 传递依赖**：Phase 3 METADATA 扫描自动发现 pythonnet/clr_loader/cffi/colorama
+
+### 测试
+- [x] 311/311 全通过（含 DeepSeek 集成测试），0 跳过
 
 ## v2.0 UX 修复 ✅ 完成（2026-06-07）
 

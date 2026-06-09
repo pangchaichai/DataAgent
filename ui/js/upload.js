@@ -65,6 +65,7 @@ function showUploadConfirm(d){
   let tbody=rows.map(r=>'<tr>'+r.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>').join('');
   $('ucPreview').innerHTML='<table class="preview-tbl"><thead>'+th+'</thead><tbody>'+tbody+'</tbody></table>';
   $('uploadConfirmOverlay').style.display='flex';
+  $('uploadConfirmPanel').style.display='block';
 }
 
 async function confirmUploadFile(){
@@ -77,6 +78,7 @@ async function confirmUploadFile(){
     table_name:$('ucTableName').value.trim(),
   };
   $('uploadConfirmOverlay').style.display='none';
+  $('uploadConfirmPanel').style.display='none';
   addSysMsg('正在入库：<b>'+esc(payload.table_name)+'</b>…','blue');
   try{
     const r=await fetch('/api/upload/confirm',{
@@ -96,6 +98,7 @@ async function confirmUploadFile(){
 
 function cancelUploadConfirm(){
   $('uploadConfirmOverlay').style.display='none';
+  $('uploadConfirmPanel').style.display='none';
   _pendingUpload=null;
   addSysMsg('已取消文件上传','orange');
   _upl=false;

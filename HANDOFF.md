@@ -8,7 +8,7 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-08
+- **日期**：2026-06-09
 - **提交**：（本次提交后更新）
 - **分支**：`claude/cool-cori-Ez2NG`
 
@@ -16,27 +16,29 @@
 
 ## 上次会话完成的工作
 
-### 全部解决三个遗留技术债（I-9 / I-7 / I-10）
+### Windows 内测包构建 + 5 个缺陷修复
 
-**I-9：注册 3 个新计算器到 Agent 工具枚举（已完成）**
-- `agent/tools_spec.py`：enum 添加 position_diff / leverage / liquidity
-- 新增 3 个参数字段（holding_table_t1、holding_table_t2、nav_table）
-- 新增 `_run_position_diff` / `_run_leverage` / `_run_liquidity` helper 函数
-- `agent/self_check.py`：为 3 个新计算器添加数值合理性校验规则
+**1. 创建 Windows 离线安装包（scripts/package_windows.py）**
+- 三阶段依赖解析：当前平台全量下载 → C 扩展替换为 Windows 版 → 扫描 METADATA 补充 Win-only 传递依赖
+- 自动清理 Linux wheel 避免 pip 回溯，包体从 102.5 MB 压缩到 45.6 MB
+- 生成 `dist/DataAgent-v2.0-beta1.zip`，含 44 个 deps、setup.bat、run.bat
 
-**I-7：Blueprint 注册并清理 main.py（已完成）**
-- `session_store.py`：修正 _stream_queues 类型注释为 tuple
-- `api/chat.py`：修复 tuple 存储格式 + 线程活性检测（30s 超时）+ Plan-Execute 支持
-- `api/report_api.py`：添加 `/api/report/export-word` 路由；下载路由改用 `path:filename`
-- `main.py`：从 1062 行压缩到 156 行，注册 6 个 Blueprint，删除所有内联路由和重复 session 状态
-- 新增 7 个 API 端点（/api/upload/confirm、/api/status、/api/suggestions、/api/cost、/api/llm/providers、/api/report/generate、/api/report/templates）
+**2. 修复 setup.bat / run.bat 4 个问题**
+- LF → CRLF 换行符（CMD 要求）
+- 去掉 chcp 65001（GBK 编码文件中途切 UTF-8 乱码）
+- 补充 pythonnet/clr_loader/cffi/colorama 4 个 Windows-only 传递依赖
+- 路径修正：cd DataAgent 后运行 python main.py；config 写到 DataAgent/ 子目录
 
-**I-10：前端 JS 模块化切换（已完成）**
-- `ui/js/state.js`：添加缺失全局变量 `_mentionIdx`、`_profileTable`
-- `ui/js/sidebar.js`：迁移 8 个函数（checkMention、mentionNav、mentionSelect、triggerSkill、openProfile、closeProfile、switchProfileTab、loadQualityTab）
-- `ui/js/render.js`：迁移 3 个函数（exportWordFromBubble、showChartPicker、renderTableChart）
-- `ui/js/main.js`：迁移 1 个函数（updateWelcomeExamples）
-- `ui/index.html`：从 2233 行降至 854 行，内联 JS 替换为 9 个 `<script src>` 标签
+**3. 修复上传确认对话框缺失（ui/index.html + ui/js/upload.js）**
+- I-10 模块化时遗漏的 8 个 DOM 元素（ucFilename/ucRows/ucCols/ucType/ucDate/ucTableName/ucPreview/uploadConfirmPanel）
+- 添加完整 HTML 确认面板 + JS 联动显示/隐藏
+
+**4. 修复 .claude/settings.json 两个 hook 错误**
+- PreCommit 不是有效 hook 事件 → 移除
+- Stop hook 值需为数组格式 → 包装为 [{...}]
+
+**5. 更新 config.yaml 模型名为 deepseek-v4-flash**
+- report_text 和 deepseek 两个 provider 配置处均改为 deepseek-v4-flash
 
 ---
 
@@ -44,67 +46,60 @@
 
 ### 阶段
 ```
-v2.0 全部完成 → 等待 Phase 4 进入条件 / Phase 5 需 Windows 环境
+v2.0 全部完成 + Windows 内测包就绪 → 等待 Windows 内测反馈 / Phase 4 进入条件
 ```
 
 ### 测试
-- **结果**：303/305 通过（本次会话），2 个跳过（非关键）
-- **排除**：test_web_search.py（duckduckgo_search 可选依赖未安装）
-- **核心测试**：全绿（calculators / agent / report_builder / file_reader / self_check）
-- **最后运行**：2026-06-08
+- **结果**：311/311 通过（含 env 变量），309/309 通过（无 env 变量），0 跳过
+- **DeepSeek 集成测试**：test_report_text_with_deepseek、test_sql_gen_with_deepseek 通过
+- **web_search 测试**：6/6 通过（duckduckgo-search 已可用）
+- **核心模块**：calculators 88-100%、chart_builder 100%、report_builder 81%
+- **最后运行**：2026-06-09
 
-### 已知技术债
-**三个遗留技术债已全部解决（I-9 / I-7 / I-10）**
-
-剩余外部阻塞项：
+### 已知外部阻塞项
 - Phase 4 进入条件：C-02/C-03/C-04 模板待业务方确认
-- Phase 5 Windows 打包：需 Windows 11 环境
+- Phase 5 PyInstaller 打包：需 Windows 11 环境执行
 
 ---
 
 ## 立即可执行的下一步（按优先级排序）
 
-### 优先级 1 — 等待 Phase 4 进入条件（外部依赖）
-**阻塞原因**：需要业务方确认 C-02（周报模板）、C-03（月报模板）、C-04（Word格式）
-**当条件满足时执行**：
+### 优先级 1 — Windows 内测验证
+- 在 Windows 上解压 `dist/DataAgent-v2.0-beta1.zip`，运行 setup.bat 安装
+- 编辑 `DataAgent/config.yaml` 填写 LLM API Key（model: deepseek-v4-flash）
+- 运行 run.bat，测试：上传 CSV / 自然语言查询 / 图表 / 报告导出
+- 如遇 AI 401/403 错误：检查 `http://127.0.0.1:<port>/api/llm/test` 端点返回
+- 反馈内测结果
+
+### 优先级 2 — 等待 Phase 4 进入条件（外部依赖）
 ```
 skills/dept_weekly_report/ 实现 + template.md.j2
 skills/monthly_bond_summary/ 实现 + template.md.j2
 ```
 
-### 优先级 2 — Phase 5 Windows 打包（需切换环境）
-**阻塞原因**：需要 Windows 11 + PyWebView 环境
-**当条件满足时执行**：
-```
-pip install -r requirements-prod.txt（Windows）
-PyInstaller 打包测试
-WebView2 Runtime 检测/引导安装
-最终验收
-```
-
 ---
 
-## 关键设计决策记录（本次会话定下）
+## 关键设计决策记录
 
 | 决策 | 原因 | 影响 |
 |------|------|------|
-| Phase 3 验收通过（不等 Windows） | Linux 上合规逻辑已验证 | Phase 4 解锁条件更新 |
-| I-7/I-9/I-10 标记为技术债而非阻塞 | 不影响当前核心功能 | 后续迭代处理 |
-| 建立 HANDOFF.md 交接机制 | 防止会话断档 | 所有后续会话都需更新本文件 |
+| 离线包采用 venv+whl 方案而非 PyInstaller | Linux 无法交叉编译 Windows exe | 内测用户需装 Python 3.11 |
+| 三阶段依赖解析 | Linux 会跳过 sys_platform=="win32" 的条件依赖 | Phase 3 扫描 METADATA 自动发现 Win-only 传递依赖 |
+| 清理 Linux wheel 仅保留 Windows/通用版 | 消除 pip 在 Windows 上的回溯 | 包体减半(102→46 MB) + 安装不再卡死 |
 
 ---
 
 ## 本次会话修改的文件清单
 
 ```
-CLAUDE.md              # v2.0 架构文档（大幅扩展）
-PROGRESS.md            # Phase 3 验收 + v2.0 状态表
-HANDOFF.md             # 新建（本文件）
-scripts/project_check.py  # 新建（一致性校验器）
-data/test_reports/latest_summary.json  # 测试摘要更新
-tools/file_reader.py   # TableResult dataclass + FileNotFoundError
-tools/report_builder.py  # ReportResult/WordResult dataclasses 重写
-ui/index.html          # v1.6.1 前端变更恢复（rebase 冲突后重新应用）
+scripts/package_windows.py    # 新建 — Windows 内测包构建脚本（三阶段依赖解析+清理+打包）
+ui/index.html                 # 添加上传确认对话框 HTML（ucFilename/ucRows 等 8 个元素）
+ui/js/upload.js               # 修复上传确认面板显示/隐藏联动
+.claude/settings.json         # 修复 hook: PreCommit 移除 + Stop 包装为数组
+config.yaml                   # 模型名改为 deepseek-v4-flash（测试用）
+config.example.yaml           # 同上
+HANDOFF.md                    # 会话交接更新
+PROGRESS.md                   # 进度更新
 ```
 
 ---

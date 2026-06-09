@@ -1,12 +1,10 @@
 {
   "hooks": {
-    "PreCommit": {
-      "command": "pytest tests/ -x -q --timeout=60",
-      "description": "运行快速测试套件，全绿才允许提交"
-    },
-    "Stop": {
-      "command": "python scripts/project_check.py; echo ''; echo '⚠️  会话结束前请确认：'; echo '  1. HANDOFF.md 已用末尾模板更新？'; echo '  2. PROGRESS.md 进度已更新？'; echo '  3. 所有变更已 git push？'",
-      "description": "会话结束时运行状态检查并提示交接清单"
-    }
+    "Stop": [
+      {
+        "command": "python scripts/project_check.py; echo ''; echo '⚠️  会话结束前请确认：'; echo '  1. HANDOFF.md 已用末尾模板更新？'; echo '  2. PROGRESS.md 进度已更新？'; echo '  3. 所有变更已 git push？'",
+        "description": "会话结束时运行状态检查并提示交接清单"
+      }
+    ]
   }
 }
