@@ -47,7 +47,9 @@ def api_skill_generate():
 
     try:
         llm = LLMClient(str(BASE_DIR / 'config.yaml'))
-        prompt = build_skill_generation_prompt(description)
+        from agent.context import build_schema_context
+        data_context = build_schema_context()
+        prompt = build_skill_generation_prompt(description, data_context=data_context)
         result = llm.chat(
             [{"role": "user", "content": prompt}],
             tools=None,

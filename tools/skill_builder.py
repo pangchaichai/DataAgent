@@ -81,6 +81,9 @@ class SkillDraft:
     calc_type: str = "exploratory"
     required_table_types: list[str] = field(default_factory=list)
     optional_table_types: list[str] = field(default_factory=list)
+    required_files: list[dict] = field(default_factory=list)   # v3新增
+    optional_files: list[dict] = field(default_factory=list)   # v3新增
+    external_sources: list[dict] = field(default_factory=list) # v3新增
     trigger_words: str = ""
     scenarios: str = ""
     prerequisites: str = ""
@@ -118,6 +121,32 @@ def generate_skill_md(draft: SkillDraft) -> str:
         lines.append('optional_table_types:')
         for t in draft.optional_table_types:
             lines.append(f'  - {t}')
+
+    if draft.required_files:
+        lines.append('required_files:')
+        for f in draft.required_files:
+            lines.append(f'  - semantic: {f.get("semantic", "")}')
+            if f.get('file_pattern'):
+                lines.append(f'    file_pattern: "{f["file_pattern"]}"')
+            if f.get('expected_fields'):
+                lines.append('    expected_fields:')
+                for ef in f['expected_fields']:
+                    lines.append(f'      - {ef}')
+
+    if draft.optional_files:
+        lines.append('optional_files:')
+        for f in draft.optional_files:
+            lines.append(f'  - semantic: {f.get("semantic", "")}')
+            if f.get('file_pattern'):
+                lines.append(f'    file_pattern: "{f["file_pattern"]}"')
+
+    if draft.external_sources:
+        lines.append('external_sources:')
+        for e in draft.external_sources:
+            lines.append(f'  - type: {e.get("type", "")}')
+            if e.get('purpose'):
+                lines.append(f'    purpose: "{e["purpose"]}"')
+            lines.append(f'    required: {str(e.get("required", False)).lower()}')
 
     lines.append('---')
     lines.append('')
@@ -159,29 +188,66 @@ def generate_skill_md(draft: SkillDraft) -> str:
 #  从对话描述生成草稿（供 LLM 调用）
 # ═══════════════════════════════════════════════════════════════
 
-def build_skill_generation_prompt(user_description: str) -> str:
+def build_skill_generation_prompt(user_description: str, data_context: str = "") -> str:
     """
     构建 LLM prompt，引导 LLM 从用户自然语言描述生成结构化 SkillDraft。
-    返回 prompt 文本，由 llm_client 调用。
+
+    data_context: build_schema_context() 的输出（当前已加载的真实表和列名）。
+    有数据上下文时，LLM 基于真实表/列生成 required_files；无时生成语义占位。
     """
+    if data_context:
+        data_section = f"""
+## 当前已加载的数据（请基于这些真实数据生成 Skill）
+{data_context}
+
+重要：
+- required_files 中的 file_pattern 应能匹配上面列出的实际表名
+- expected_fields 中的字段名应来自上面列出的实际列名
+- 不要编造不存在的表名或列名
+"""
+    else:
+        data_section = """
+## 当前无已加载数据
+请在 required_files 中描述用户需要上传的文件，使用语义化的 file_pattern（如 "周报*数据源*"），
+expected_fields 使用用户描述中提到的字段名（语义化）。
+"""
+
     return f"""你是 DataAgent 的 Skill 配置生成助手。用户用自然语言描述了一个新的数据分析场景，
 请将其转化为结构化的 Skill 配置。
-
+{data_section}
 用户描述：
 {user_description}
 
 请严格按以下 JSON 格式输出，不要添加其他内容：
 {{
-  "name": "小写字母+下划线，3-40字符，如 bond_maturity_check",
+  "name": "小写字母+下划线，3-40字符，如 weekly_report_gen",
   "description": "1-3句话描述功能和适用场景",
-  "trigger_words": "触发词，逗号分隔，如：到期、到期日、临近到期",
-  "calc_type": "exploratory 或 fixed（临时查询选 exploratory，合规/报告选 fixed）",
-  "required_table_types": ["holding 或 nav 或 rating_entity 等"],
+  "trigger_words": "触发词，逗号分隔，如：周报、理财周报",
+  "calc_type": "exploratory 或 fixed（临时查询/报告生成选 exploratory，合规计算选 fixed）",
+  "required_files": [
+    {{
+      "semantic": "数据的语义名称，如：周报数据源",
+      "file_pattern": "文件名模糊匹配模式，如：周报*数据源*",
+      "expected_fields": ["关键字段1", "关键字段2"]
+    }}
+  ],
+  "optional_files": [
+    {{
+      "semantic": "可选数据名称",
+      "file_pattern": "文件名模式"
+    }}
+  ],
+  "external_sources": [
+    {{
+      "type": "groups_yaml 或 web_search",
+      "purpose": "用途说明",
+      "required": false
+    }}
+  ],
   "scenarios": "适用场景的详细描述",
   "prerequisites": "需要哪些数据表和字段",
-  "steps": "执行步骤的 Markdown 描述",
-  "sql_examples": "SQL 查询示例（用 {{target_table}} 作占位符）",
-  "output_format": "输出格式说明",
+  "steps": "执行步骤的 Markdown 描述（自然语言，无需写 SQL）",
+  "output_format": "输出格式说明（表格/报告/CSV文件等）",
   "notes": "注意事项"
 }}"""
 
@@ -205,6 +271,9 @@ def parse_llm_skill_response(llm_output: str) -> SkillDraft | None:
         calc_type=data.get('calc_type', 'exploratory'),
         required_table_types=data.get('required_table_types', []),
         optional_table_types=data.get('optional_table_types', []),
+        required_files=data.get('required_files', []),
+        optional_files=data.get('optional_files', []),
+        external_sources=data.get('external_sources', []),
         trigger_words=data.get('trigger_words', ''),
         scenarios=data.get('scenarios', ''),
         prerequisites=data.get('prerequisites', ''),
