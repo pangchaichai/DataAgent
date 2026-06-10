@@ -535,6 +535,16 @@ select.sp-input{cursor:pointer;}
         </div>
       </div>
 
+      <div class="sec" id="sec-workdir">
+        <div class="sec-h" onclick="toggleSec('workdir')">
+          <span class="sec-arr">▸</span>工作目录
+          <span class="act" onclick="event.stopPropagation();refreshWorkdir()">刷新</span>
+        </div>
+        <div class="sec-bd">
+          <div id="workdirList"><div class="s-item" style="color:var(--text-3)">未配置</div></div>
+        </div>
+      </div>
+
       <div class="sec" id="sec-groups">
         <div class="sec-h" onclick="toggleSec('groups')">
           <span class="sec-arr">▸</span>集团系
@@ -794,6 +804,17 @@ select.sp-input{cursor:pointer;}
         </label>
       </div>
       <div id="spTaskList" style="margin-top:8px"></div>
+    </div>
+
+    <!-- 工作目录 -->
+    <div class="sp-section">
+      <div class="sp-title">工作目录</div>
+      <div class="sp-row">
+        <label>本地目录路径</label>
+        <input type="text" id="cfg-work-dir" class="sp-input"
+          placeholder="例如：D:\工作数据 或 /home/user/data"/>
+      </div>
+      <div class="sp-hint">配置后，侧边栏「工作目录」将列出该目录下的所有 CSV/Excel 文件，可按需加载为数据表。技能执行时若缺少所需数据，系统将自动在此目录中搜索候选文件。</div>
     </div>
 
     <!-- 运行日志 -->

@@ -103,9 +103,25 @@ def prepare_skill_for_execution(
 
     ext_warnings = _check_external_sources(ext_sources)
 
+    # ── 阶段1.5：缺必需数据时扫描工作目录 ────────────────
+    workdir_hints: dict[str, list[dict]] = {}
+    if missing_required:
+        try:
+            from tools.workdir_loader import scan_for_pattern
+            for dep in req_files:
+                sem = dep.get("semantic", "")
+                if sem in missing_required:
+                    candidates = scan_for_pattern(dep.get("file_pattern", ""))
+                    if candidates:
+                        workdir_hints[sem] = candidates
+        except Exception:
+            pass
+
     # ── 阶段2：构建结果 ────────────────────────────────────
     if missing_required:
-        msg = _format_block_message(skill_info.name, missing_required, req_files)
+        msg = _format_block_message(
+            skill_info.name, missing_required, req_files, workdir_hints
+        )
         return SkillPrepareResult(blocked=True, block_message=msg)
 
     enriched = _build_skill_note(
@@ -253,13 +269,14 @@ def _format_block_message(
     skill_name: str,
     missing_required: list[str],
     req_files: list[dict],
+    workdir_hints: dict[str, list[dict]] | None = None,
 ) -> str:
-    """生成缺数据时的用户提示文本。"""
+    """生成缺数据时的用户提示文本，若工作目录有候选文件则附加提示。"""
     lines = [f"技能「{skill_name}」需要以下数据才能执行：\n"]
     for sem in missing_required:
         dep = next((d for d in req_files if d.get("semantic") == sem), {})
         fields = dep.get("expected_fields", [])
-        hint = f"- 必需数据「{sem}」尚未上传"
+        hint = f"- 必需数据「{sem}」尚未加载"
         if dep.get("file_pattern"):
             kw = dep['file_pattern'].replace('*', '').replace('?', '')
             hint += f"（文件名包含「{kw}」）"
@@ -268,7 +285,16 @@ def _format_block_message(
             if len(fields) > 6:
                 hint += f" 等 {len(fields)} 个字段"
         lines.append(hint)
-    lines.append("\n请上传对应数据文件后，重新发送指令即可。")
+
+        candidates = (workdir_hints or {}).get(sem, [])
+        if candidates:
+            lines.append(f"\n  💡 工作目录中发现候选文件：")
+            for c in candidates[:3]:
+                lines.append(f"     • {c['filename']}（{c['size_kb']} KB，{c['mtime']}）")
+            lines.append(f"     → 请在左侧边栏「工作目录」中点击「加载」，再重新发送指令")
+
+    if not any((workdir_hints or {}).get(sem) for sem in missing_required):
+        lines.append("\n请上传对应数据文件后，重新发送指令即可。")
     return "\n".join(lines)
 
 

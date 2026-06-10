@@ -16,6 +16,25 @@
 
 ## 上次会话完成的工作
 
+### 文件上传升级（2026-06-10）
+
+**批量上传**：`fileInput` 已有 `multiple` 属性，`handleFiles()` 已支持数组，无需额外改动。
+
+**本地工作目录**（选项 B — 配置持久化）：
+1. `tools/workdir_loader.py`（新建）— 工作目录管理：`get_work_dir` / `list_workdir_files` / `scan_for_pattern`
+2. `api/data.py` — 3 个新端点：`GET /api/workdir/files` / `POST /api/workdir/preview` / `POST /api/workdir/load`（工作目录文件不移动，直接入库）
+3. `api/config_api.py` — config GET/POST 支持 `app.work_dir` 字段
+4. `agent/skill_preflight.py` — 阶段1.5：缺必需数据时自动扫描工作目录，在 `block_message` 中提示候选文件（未改 loop.py）
+5. `ui/js/sidebar.js` — "工作目录"侧边栏区块 + `loadWorkdir` / `loadWorkdirFile` / `refreshWorkdir`
+6. `ui/js/settings.js` — 加载/保存 `cfg-work-dir`
+7. `ui/js/upload.js` — `confirmUploadFile` 根据 `from_workdir` 分支走 `/api/workdir/load`
+8. `ui/index.html` — 工作目录侧边栏区块 + 设置面板输入框
+9. `tests/test_workdir_loader.py`（新建）— 9 个单测，341/341 全通过
+
+**两个 Skill 验收（Phase C 验收用例）**：
+- `skills/weekly_report_generator/SKILL.md`（新建）— 理财周报多模板生成器，Type C，5 个输出 CSV
+- `skills/meeting_report/SKILL.md`（替换）— 谈参要点 v3，含集团关系树解析 + 持仓总览动态表格
+
 ### Skill v3 Phase C — 需求文档直接导入（2026-06-10）
 
 **实施内容**：
@@ -71,16 +90,10 @@ v2.0 主线完成 + Windows 内测包就绪（branch: claude/sleepy-cori-5b5xow�
 
 ## 立即可执行的下一步（按优先级排序）
 
-### 优先级 1 — 创建两个验收用 Skill（Phase C 验收）
+### 优先级 1 — 合并分支
+- `feature/skill-data-awareness` → `claude/sleepy-cori-5b5xow`（本次所有改动已完成）
 
-使用 Phase C 的"从文档导入"功能：
-1. `skills/weekly_report_generator/SKILL.md` — 理财周报多模板生成器（用户需求文档已有）
-2. 替换 `skills/meeting_report/SKILL.md` — 谈参要点新版（用户确认：替换现有版本）
-
-### 优先级 2 — 合并分支
-- `feature/skill-data-awareness` → `claude/sleepy-cori-5b5xow`
-
-### 优先级 3 — Windows 内测继续
+### 优先级 2 — Windows 内测继续
 - 主线包 `dist/DataAgent-v2.0-beta1.zip` 继续验证
 
 ### 优先级 4 — Phase 4 进入条件（外部依赖）

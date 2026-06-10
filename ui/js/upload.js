@@ -70,18 +70,21 @@ function showUploadConfirm(d){
 
 async function confirmUploadFile(){
   if(!_pendingUpload)return;
-  const payload={
-    file_path:_pendingUpload.file_path,
-    filename:_pendingUpload.filename,
-    table_type:$('ucType').value,
-    date_tag:$('ucDate').value.trim(),
-    table_name:$('ucTableName').value.trim(),
-  };
+  const tableName=$('ucTableName').value.trim();
+  const tableType=$('ucType').value;
+  const dateTag=$('ucDate').value.trim();
   $('uploadConfirmOverlay').style.display='none';
   $('uploadConfirmPanel').style.display='none';
-  addSysMsg('正在入库：<b>'+esc(payload.table_name)+'</b>…','blue');
+  addSysMsg('正在入库：<b>'+esc(tableName)+'</b>…','blue');
+
+  const fromWorkdir=!!_pendingUpload.from_workdir;
+  const endpoint=fromWorkdir?'/api/workdir/load':'/api/upload/confirm';
+  const payload=fromWorkdir
+    ?{filename:_pendingUpload.filename,table_type:tableType,date_tag:dateTag,table_name:tableName}
+    :{file_path:_pendingUpload.file_path,filename:_pendingUpload.filename,table_type:tableType,date_tag:dateTag,table_name:tableName};
+
   try{
-    const r=await fetch('/api/upload/confirm',{
+    const r=await fetch(endpoint,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload)

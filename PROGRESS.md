@@ -182,6 +182,25 @@ external_sources:
 4. 未知类型数据（`table_type=unknown`）→ 仍可通过 `file_pattern` 被 Skill 关联
 5. 回归：`pytest tests/ -x -q` 全绿
 
+## 文件上传升级 ✅ 完成（2026-06-10）
+
+### 批量上传
+- [x] `ui/index.html`：`fileInput` 已有 `multiple` 属性，前端 `handleFiles()` 已支持多文件队列，无需额外改动
+
+### 本地工作目录（选项 B — 配置持久化）
+- [x] `tools/workdir_loader.py` — 新建：`get_work_dir()` / `list_workdir_files()` / `scan_for_pattern()`
+- [x] `api/data.py` — 新增 3 个端点：`GET /api/workdir/files` / `POST /api/workdir/preview` / `POST /api/workdir/load`
+- [x] `api/config_api.py` — GET/POST `/api/config` 支持 `app.work_dir` 字段
+- [x] `agent/skill_preflight.py` — 预检缺数据时自动扫描工作目录，提示候选文件（不改 loop.py）
+- [x] `ui/js/sidebar.js` — 新增"工作目录"侧边栏区块 + `loadWorkdir()` + `loadWorkdirFile()` 函数
+- [x] `ui/js/settings.js` — 加载/保存 `work_dir` 设置
+- [x] `ui/js/upload.js` — `confirmUploadFile()` 支持工作目录文件走 `/api/workdir/load` 分支
+- [x] `ui/index.html` — 新增工作目录侧边栏区块 + 设置面板工作目录输入框
+- [x] `tests/test_workdir_loader.py` — 9 个单测，341/341 全通过
+
+### 未来扩展方向（已评估，本次不实现）
+- 远程数据库 / 企业数据中台：引入 `DataSource` 抽象接口（`LocalFileDataSource` / `LocalDirDataSource` / `RemoteDBDataSource`），当前实现以兼容该方向的方式编写
+
 ---
 
 ## Phase 4 — 批量报告（进入条件：C-02/03/04 模板已确认）

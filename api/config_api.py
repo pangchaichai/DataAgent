@@ -31,6 +31,7 @@ def api_config_read():
         "memory": cfg.get('memory', {"enabled": False}),
         "scheduler": cfg.get('scheduler', {"enabled": True}),
         "app": cfg.get('app', {}),
+        "work_dir": cfg.get('app', {}).get('work_dir', ''),
         "api_key_set": api_key_set,
         "llm_url": provider_cfg.get('url', ''),
         "llm_model": provider_cfg.get('model', 'deepseek-chat'),
@@ -81,6 +82,8 @@ def api_config_write():
                 provider_block['url'] = data['llm_url']
             if data.get('llm_model'):
                 provider_block['model'] = data['llm_model']
+        if 'work_dir' in data:
+            cfg.setdefault('app', {})['work_dir'] = (data['work_dir'] or '').strip()
         try:
             tmp_path = cfg_path.with_suffix('.yaml.tmp')
             with open(tmp_path, 'w', encoding='utf-8') as f:

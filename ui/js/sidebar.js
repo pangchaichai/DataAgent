@@ -1,7 +1,7 @@
 // sidebar.js — Sidebar, sessions, tables, groups, skills, suggestions
 
 function toggleSidebar(){$('bodyWrap').classList.toggle('collapsed');}
-async function refreshSidebar(){loadSessions();loadTables();loadSkills();loadGroups();updateStatus();loadSuggestions();}
+async function refreshSidebar(){loadSessions();loadTables();loadSkills();loadGroups();loadWorkdir();updateStatus();loadSuggestions();}
 function toggleSec(name){const sec=$('sec-'+name);if(sec)sec.classList.toggle('open');}
 function openSec(name){const sec=$('sec-'+name);if(sec&&!sec.classList.contains('open'))sec.classList.add('open');}
 
@@ -162,6 +162,42 @@ async function createGroup(name){
   const r=await api('POST','/api/groups',{name,members:[]});
   if(r.ok){loadGroups();toast('已创建：'+name,'success');openSec('groups');}
   else toast('创建失败：'+(r.error||''),'error');
+}
+
+// Work Directory
+async function loadWorkdir(){
+  const list=$('workdirList');
+  try{
+    const d=await api('GET','/api/workdir/files');
+    if(!d.work_dir){
+      list.innerHTML='<div class="s-item" style="color:var(--text-3)">未配置（在设置中添加目录路径）</div>';
+      return;
+    }
+    const files=d.files||[];
+    if(!files.length){
+      list.innerHTML='<div class="s-item" style="color:var(--text-3)">目录为空（无 CSV/Excel 文件）</div>';
+      return;
+    }
+    list.innerHTML=files.map(f=>
+      '<div class="s-item">'
+      +'<span class="s-text" title="'+esc(f.filename)+'">'+esc(f.filename)+'</span>'
+      +'<span class="s-meta">'+f.size_kb+'KB</span>'
+      +'<span class="act" style="font-size:11px" onclick="loadWorkdirFile(\''+esc(f.filename)+'\')">加载</span>'
+      +'</div>'
+    ).join('');
+  }catch(e){
+    list.innerHTML='<div class="s-item" style="color:var(--text-3)">加载失败</div>';
+  }
+}
+function refreshWorkdir(){openSec('workdir');loadWorkdir();}
+
+async function loadWorkdirFile(filename){
+  addSysMsg('正在预览工作目录文件：<b>'+esc(filename)+'</b>…','blue');
+  try{
+    const d=await api('POST','/api/workdir/preview',{filename});
+    if(!d.ok){addSysMsg('预览失败：'+esc(d.error),'red');return;}
+    showUploadConfirm(d);
+  }catch(e){addSysMsg('预览请求失败：'+esc(e.message),'red');}
 }
 
 // Status & suggestions

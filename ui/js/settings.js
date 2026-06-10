@@ -27,6 +27,7 @@ async function loadSettings(){
     $('cfg-group-merge').checked=cc.use_group_merge!==false;
     $('cfg-memory').checked=!!(d.memory||{}).enabled;
     $('cfg-scheduler').checked=!!(d.scheduler||{}).enabled;
+    $('cfg-work-dir').value=d.work_dir||'';
     const keySet=d.api_key_set;
     $('apikeyStatus').textContent=keySet?'✓ API Key 已配置':'未配置';
     $('apikeyStatus').style.color=keySet?'var(--green)':'var(--text-3)';
@@ -131,6 +132,7 @@ async function saveSettings(){
     }},
     memory:{enabled:$('cfg-memory').checked},
     scheduler:{enabled:$('cfg-scheduler').checked},
+    work_dir:$('cfg-work-dir').value.trim(),
   };
   const apikey=$('cfg-apikey').value.trim();
   if(apikey)body.api_key=apikey;

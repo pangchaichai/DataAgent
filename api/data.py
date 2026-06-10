@@ -163,6 +163,138 @@ def api_upload_confirm():
     return jsonify(response_data)
 
 
+@data_bp.route('/api/workdir/files')
+def api_workdir_files():
+    from tools.workdir_loader import get_work_dir, list_workdir_files
+    work_dir = get_work_dir()
+    files = list_workdir_files()
+    return jsonify({
+        "work_dir": str(work_dir) if work_dir else "",
+        "files": files,
+    })
+
+
+@data_bp.route('/api/workdir/preview', methods=['POST'])
+def api_workdir_preview():
+    data = request.get_json(force=True) or {}
+    filename = (data.get('filename') or '').strip()
+    if not filename:
+        return jsonify({"ok": False, "error": "文件名不能为空"}), 400
+
+    from tools.workdir_loader import get_work_dir
+    work_dir = get_work_dir()
+    if not work_dir:
+        return jsonify({"ok": False, "error": "工作目录未配置"}), 400
+
+    file_path = work_dir / filename
+    if not file_path.exists() or not file_path.is_file():
+        return jsonify({"ok": False, "error": "文件不存在"}), 404
+
+    # Safety: ensure path is inside work_dir
+    try:
+        file_path.resolve().relative_to(work_dir.resolve())
+    except ValueError:
+        return jsonify({"ok": False, "error": "非法文件路径"}), 400
+
+    from tools.data_loader import auto_detect_table_type, detect_encoding, extract_date_from_filename
+    import pandas as pd
+    ext = file_path.suffix.lower()
+    try:
+        if ext == '.csv':
+            enc = detect_encoding(str(file_path))
+            df_preview = pd.read_csv(str(file_path), encoding=enc, dtype=str,
+                                     keep_default_na=False, nrows=3)
+            with open(str(file_path), 'rb') as _f:
+                row_estimate = sum(1 for _ in _f) - 1
+        else:
+            df_preview = pd.read_excel(str(file_path), dtype=str, nrows=3)
+            row_estimate = len(pd.read_excel(str(file_path), dtype=str))
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"文件读取失败：{str(e)[:200]}"}), 400
+
+    auto_type = auto_detect_table_type(df_preview, filename)
+    detected_date = extract_date_from_filename(filename)
+    stem = file_path.stem
+    import re as _re
+    safe_stem = _re.sub(r'[^a-zA-Z0-9一-鿿_\-]', '_', stem)
+
+    return jsonify({
+        "ok": True,
+        "file_path": str(file_path),
+        "filename": filename,
+        "file_kind": "data",
+        "from_workdir": True,
+        "detected_type": auto_type,
+        "detected_date": detected_date or "",
+        "columns": list(df_preview.columns),
+        "preview_rows": df_preview.values.tolist(),
+        "row_estimate": max(row_estimate, len(df_preview)),
+        "col_count": len(df_preview.columns),
+        "suggested_table_name": f"{auto_type}_{safe_stem}",
+    })
+
+
+@data_bp.route('/api/workdir/load', methods=['POST'])
+def api_workdir_load():
+    data = request.get_json(force=True) or {}
+    filename = (data.get('filename') or '').strip()
+    table_type = data.get('table_type', 'unknown')
+    date_tag = data.get('date_tag', '')
+    table_name = data.get('table_name', '').strip()
+
+    if not filename:
+        return jsonify({"ok": False, "error": "文件名不能为空"}), 400
+
+    from tools.workdir_loader import get_work_dir
+    work_dir = get_work_dir()
+    if not work_dir:
+        return jsonify({"ok": False, "error": "工作目录未配置"}), 400
+
+    file_path = work_dir / filename
+    if not file_path.exists():
+        return jsonify({"ok": False, "error": "文件不存在"}), 404
+
+    try:
+        file_path.resolve().relative_to(work_dir.resolve())
+    except ValueError:
+        return jsonify({"ok": False, "error": "非法文件路径"}), 400
+
+    if not table_name:
+        import re as _re
+        safe_stem = _re.sub(r'[^a-zA-Z0-9一-鿿_\-]', '_', file_path.stem)
+        table_name = f"{table_type}_{safe_stem}"
+
+    from tools.data_loader import load_file
+    try:
+        result = load_file(str(file_path), table_name,
+                           date_tag=date_tag or None,
+                           table_type=table_type or None)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"加载失败：{str(e)[:200]}"}), 500
+
+    from session_store import _session, _session_lock
+    with _session_lock:
+        _session["loaded_files"].append({
+            "path": str(file_path), "table_name": table_name,
+            "date_tag": date_tag or "", "table_type": table_type,
+            "from_workdir": True,
+        })
+
+    from tools.runtime_logger import get_logger as _get_log
+    _get_log().log_file_upload(filename, table_name, result.row_count, result.col_count)
+
+    response_data = {
+        "ok": True,
+        "table_name": table_name,
+        "row_count": result.row_count,
+        "col_count": result.col_count,
+    }
+    if result.quality_report:
+        from dataclasses import asdict
+        response_data["quality_report"] = asdict(result.quality_report)
+    return jsonify(response_data)
+
+
 @data_bp.route('/api/tables/<table_name>/profile')
 def api_table_profile(table_name):
     from tools.data_loader import get_connection, get_loaded_tables
