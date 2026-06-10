@@ -34,6 +34,7 @@ class SkillInfo:
     required_table_types: list[str] = field(default_factory=list)
     optional_table_types: list[str] = field(default_factory=list)
     skill_dir: str = ""               # Skill 目录路径（用于按需加载完整内容）
+    metadata: dict = field(default_factory=dict)  # 完整 frontmatter（v3新增）
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -132,6 +133,7 @@ class SkillLoader:
                 required_table_types=metadata.get('required_table_types', []),
                 optional_table_types=metadata.get('optional_table_types', []),
                 skill_dir=skill_dir,
+                metadata=metadata,
             ))
 
         return registry
