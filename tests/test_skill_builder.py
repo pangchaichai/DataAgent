@@ -10,11 +10,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from unittest.mock import MagicMock, patch
+
 from tools.skill_builder import (
     DRAFTS_DIR,
     SkillDraft,
+    build_import_prompt,
     delete_draft,
     generate_skill_md,
+    import_from_requirement_doc,
     list_drafts,
     load_draft,
     parse_llm_skill_response,
@@ -294,6 +298,102 @@ def test_publish_invalid_skill():
         result = publish_skill(DANGEROUS_SQL, skills_dir=tmpdir)
         assert not result['ok']
         assert 'validation' in result
+
+
+# ═══════════════════════════════════════════════════════════════
+#  需求文档导入测试（Phase C）
+# ═══════════════════════════════════════════════════════════════
+
+def test_build_import_prompt_with_data():
+    """有数据上下文时，prompt 应包含已加载数据信息"""
+    prompt = build_import_prompt("# 理财周报需求", data_context="表: weekly_data（100行）")
+    assert "理财周报需求" in prompt
+    assert "weekly_data" in prompt
+    assert "当前已加载的数据" in prompt
+
+
+def test_build_import_prompt_without_data():
+    """无数据上下文时，prompt 应引导语义化描述"""
+    prompt = build_import_prompt("# 谈参要点需求")
+    assert "谈参要点需求" in prompt
+    assert "当前无已加载数据" in prompt
+    assert "语义化" in prompt
+
+
+def test_import_empty_content():
+    """空内容应返回错误"""
+    result = import_from_requirement_doc("")
+    assert not result["ok"]
+    assert "为空" in result["error"]
+
+
+def test_import_too_large():
+    """超大内容应返回错误"""
+    result = import_from_requirement_doc("x" * 60000)
+    assert not result["ok"]
+    assert "过长" in result["error"]
+
+
+def test_import_success_with_mock_llm():
+    """mock LLM 返回合法 JSON 时，应成功生成 SKILL.md"""
+    mock_result = MagicMock()
+    mock_result.success = True
+    mock_result.text = '''{
+      "name": "weekly_report_gen",
+      "description": "理财周报多模板生成器\\n触发词：周报、理财周报",
+      "trigger_words": "周报,理财周报",
+      "calc_type": "exploratory",
+      "required_files": [{"semantic": "周报数据源", "file_pattern": "周报*数据源*", "expected_fields": ["统计日期", "组合代码"]}],
+      "optional_files": [],
+      "external_sources": [],
+      "scenarios": "生成理财周报",
+      "prerequisites": "上传周报数据源",
+      "steps": "1. 加载数据\\n2. 筛选分类\\n3. 输出CSV",
+      "output_format": "多个CSV文件",
+      "notes": ""
+    }'''
+
+    mock_llm = MagicMock()
+    mock_llm.chat.return_value = mock_result
+
+    with patch('agent.llm_client.LLMClient', return_value=mock_llm):
+        result = import_from_requirement_doc("# 理财周报需求文档\n\n...")
+        assert result["ok"]
+        assert result["name"] == "weekly_report_gen"
+        assert "required_files" in result["content"]
+        assert "周报数据源" in result["content"]
+        # cleanup draft
+        delete_draft("weekly_report_gen")
+
+
+def test_import_llm_failure():
+    """LLM 返回失败时，应返回错误"""
+    mock_result = MagicMock()
+    mock_result.success = False
+    mock_result.text = ""
+
+    mock_llm = MagicMock()
+    mock_llm.chat.return_value = mock_result
+
+    with patch('agent.llm_client.LLMClient', return_value=mock_llm):
+        result = import_from_requirement_doc("# 某需求文档")
+        assert not result["ok"]
+        assert "失败" in result["error"]
+
+
+def test_import_llm_bad_json():
+    """LLM 返回非法 JSON 时，应返回格式异常"""
+    mock_result = MagicMock()
+    mock_result.success = True
+    mock_result.text = "这不是JSON格式的响应"
+
+    mock_llm = MagicMock()
+    mock_llm.chat.return_value = mock_result
+
+    with patch('agent.llm_client.LLMClient', return_value=mock_llm):
+        result = import_from_requirement_doc("# 某需求文档")
+        assert not result["ok"]
+        assert "格式异常" in result["error"]
 
 
 # ═══════════════════════════════════════════════════════════════

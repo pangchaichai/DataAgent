@@ -16,65 +16,37 @@
 
 ## 上次会话完成的工作
 
-### Skill v3 Phase A — 数据感知预检（2026-06-10，branch: feature/skill-data-awareness）
-
-**架构决策（OCP）**：
-- 稳态/敏态边界明确：loop.py / skill_loader.py 是稳态核心，skill_preflight.py 是敏态扩展点
-- 不引入 Pipeline 框架（YAGNI），`prepare_skill_for_execution()` 内部线性分阶段，将来可零成本升级
-- 与 Hook 事件总线讨论后确认：Hook 适合旁路观测（审计/成本），不适合需要阻断执行流的预检场景
+### Skill v3 Phase C — 需求文档直接导入（2026-06-10）
 
 **实施内容**：
-1. 新建 `agent/skill_preflight.py`（单一入口 `prepare_skill_for_execution()`）
-   - 预检数据依赖（required_files / optional_files / external_sources）
-   - file_pattern 模糊匹配 + expected_fields 列校验 + 旧版 table_type 兼容
-   - 缺必需数据时阻断并告知用户；数据就绪时注入真实表名/列名映射
-2. `agent/skill_loader.py`：SkillInfo 加 `metadata: dict` 字段（一行）
-3. `agent/loop.py`：Skill 注入替换为 `prepare_skill_for_execution()` 调用（最后一次为 Skill 改 loop.py）
-4. 新建 `tests/test_skill_preflight.py`（16 个测试用例，全部通过）
+1. `tools/skill_builder.py` 新增两个函数：
+   - `build_import_prompt(doc_content, data_context)` — 构建 LLM 解析 prompt，引导从需求文档中提取 name/description/required_files/expected_fields/steps 等结构化信息
+   - `import_from_requirement_doc(content, data_context)` — 调用 LLM 解析需求文档，生成 SkillDraft → SKILL.md，自动存为草稿
+2. `api/skill_api.py` 新增 `POST /api/skill-builder/import` 端点，注入 `build_schema_context()` 数据上下文
+3. `ui/js/skill_builder.js` + `ui/index.html`：
+   - Step 0 新增"从文档导入"按钮
+   - `sbShowImport()` — 显示文档粘贴界面（textarea + 解析按钮 + 返回按钮）
+   - `sbImportDoc()` — 调用导入 API → 成功后进入 Step 1 编辑器
+4. `tests/test_skill_builder.py` 新增 7 个测试用例（prompt 构建 / 空内容 / 超大内容 / mock LLM 成功+失败+坏JSON）
 
-**测试结果**：325/325 通过，2 跳过（含所有原有测试，无回归）
-
----
-
-### Windows 内测 UAT 修复 — 2 个新缺陷
-
-**1. 修复联网搜索被拒绝（prompts/system_prompt.txt）**
-- 原问题：系统提示词第一行"运行在企业内网环境中"导致 LLM 拒绝调用 web_search 工具
-- 修复：改为"部署在用户的本地设备上"；在核心能力列表中明确列出 web_search 工具；新增第 6 条准则，明确要求遇到公开信息查询时主动调用工具
-
-**2. 修复上传文档后追问无上下文（多文件 + agent/loop.py）**
-- 原问题：`sendMessage()` 只发送 `{message}` 不含文档信息；agent 不知道文档内容
-- 修复路径：
-  - `ui/js/chat.js`：发送消息时读取 `_documentContext` 全局变量并附加到 POST body
-  - `api/chat.py`：从请求中提取 `document_context`，加入 `loop_kwargs`
-  - `agent/loop.py`：`run_agent_loop()` 新增 `document_context` 参数，构造用户消息时将文档文件名、页数、字数、内容摘要附加到消息末尾
-  - `agent/executor.py`：`run_with_plan()` 同步透传 `document_context`
+**测试结果**：332/332 通过，2 跳过（无回归）
 
 ### 前序会话（同日）完成的工作
 
-#### Windows 内测包构建 + 5 个缺陷修复
+#### Phase A — 数据感知预检
+- `agent/skill_preflight.py` 新建（prepare_skill_for_execution 单一入口）
+- `agent/skill_loader.py` 加 metadata 字段
+- `agent/loop.py` 替换为 preflight 调用
+- 16 个单测
 
-**1. 创建 Windows 离线安装包（scripts/package_windows.py）**
-- 三阶段依赖解析：当前平台全量下载 → C 扩展替换为 Windows 版 → 扫描 METADATA 补充 Win-only 传递依赖
-- 自动清理 Linux wheel 避免 pip 回溯，包体从 102.5 MB 压缩到 45.6 MB
-- 生成 `dist/DataAgent-v2.0-beta1.zip`，含 44 个 deps、setup.bat、run.bat
+#### Phase B — Skill Builder 数据感知
+- `tools/skill_builder.py` prompt 注入 data_context
+- `SkillDraft` 新增 required_files/optional_files/external_sources
+- `api/skill_api.py` generate 端点传 schema context
 
-**2. 修复 setup.bat / run.bat 4 个问题**
-- LF → CRLF 换行符（CMD 要求）
-- 去掉 chcp 65001（GBK 编码文件中途切 UTF-8 乱码）
-- 补充 pythonnet/clr_loader/cffi/colorama 4 个 Windows-only 传递依赖
-- 路径修正：cd DataAgent 后运行 python main.py；config 写到 DataAgent/ 子目录
-
-**3. 修复上传确认对话框缺失（ui/index.html + ui/js/upload.js）**
-- I-10 模块化时遗漏的 8 个 DOM 元素（ucFilename/ucRows/ucCols/ucType/ucDate/ucTableName/ucPreview/uploadConfirmPanel）
-- 添加完整 HTML 确认面板 + JS 联动显示/隐藏
-
-**4. 修复 .claude/settings.json 两个 hook 错误**
-- PreCommit 不是有效 hook 事件 → 移除
-- Stop hook 值需为数组格式 → 包装为 [{...}]
-
-**5. 更新 config.yaml 模型名为 deepseek-v4-flash**
-- report_text 和 deepseek 两个 provider 配置处均改为 deepseek-v4-flash
+#### Windows 内测 UAT 修复（2 项）
+- 联网搜索被拒绝（system_prompt.txt）
+- 上传文档后追问无上下文（chat.js + chat.py + loop.py + executor.py）
 
 ---
 
@@ -82,16 +54,14 @@
 
 ### 阶段
 ```
-Skill v3 数据感知改造 — Phase A 进行中（branch: feature/skill-data-awareness）
+Skill v3 Phase A/B/C 全部完成（branch: feature/skill-data-awareness）
+下一步：用 Phase C 的导入功能创建两个验收用 Skill
 v2.0 主线完成 + Windows 内测包就绪（branch: claude/sleepy-cori-5b5xow）
 ```
 
 ### 测试
-- **结果**：309/309 通过，2 跳过
-- **DeepSeek 集成测试**：test_report_text_with_deepseek、test_sql_gen_with_deepseek 通过
-- **web_search 测试**：6/6 通过（duckduckgo-search 已可用）
-- **核心模块**：calculators 88-100%、chart_builder 100%、report_builder 81%
-- **最后运行**：2026-06-09
+- **结果**：332/332 通过，2 跳过
+- **最后运行**：2026-06-10
 
 ### 已知外部阻塞项
 - Phase 4 进入条件：C-02/C-03/C-04 模板待业务方确认
@@ -101,21 +71,19 @@ v2.0 主线完成 + Windows 内测包就绪（branch: claude/sleepy-cori-5b5xow�
 
 ## 立即可执行的下一步（按优先级排序）
 
-### 优先级 1 — Skill v3 Phase C + 两个新 Skill（下一步）
+### 优先级 1 — 创建两个验收用 Skill（Phase C 验收）
 
-**Phase C — 需求文档直接导入**（用户可上传 .md 需求文档转为 Skill 草稿）
-- `tools/skill_builder.py` 新增 `import_from_requirement_doc(content, data_context)` 函数
-- `api/skill_api.py` 新增导入端点 `POST /api/skill-builder/import`
-- 前端 `skill_builder.js` 新增"从文档导入"入口
+使用 Phase C 的"从文档导入"功能：
+1. `skills/weekly_report_generator/SKILL.md` — 理财周报多模板生成器（用户需求文档已有）
+2. 替换 `skills/meeting_report/SKILL.md` — 谈参要点新版（用户确认：替换现有版本）
 
-**两个新 Skill（Phase C 后创建，作为验收用例）**
-- `skills/weekly_report_generator/` — 理财周报多模板生成器（用户需求文档已有）
-- `skills/meeting_report/SKILL.md` 替换 — 谈参要点新版（替换现有，用户需求文档已有）
+### 优先级 2 — 合并分支
+- `feature/skill-data-awareness` → `claude/sleepy-cori-5b5xow`
 
-### 优先级 2 — Windows 内测验证（并行）
-- 主线包 `dist/DataAgent-v2.0-beta1.zip` 继续验证（与 Skill v3 并行）
+### 优先级 3 — Windows 内测继续
+- 主线包 `dist/DataAgent-v2.0-beta1.zip` 继续验证
 
-### 优先级 3 — Phase 4 进入条件（外部依赖）
+### 优先级 4 — Phase 4 进入条件（外部依赖）
 - C-02/C-03/C-04 模板由业务方确认后开始
 
 ---
@@ -124,21 +92,22 @@ v2.0 主线完成 + Windows 内测包就绪（branch: claude/sleepy-cori-5b5xow�
 
 | 决策 | 原因 | 影响 |
 |------|------|------|
-| 离线包采用 venv+whl 方案而非 PyInstaller | Linux 无法交叉编译 Windows exe | 内测用户需装 Python 3.11 |
-| 三阶段依赖解析 | Linux 会跳过 sys_platform=="win32" 的条件依赖 | Phase 3 扫描 METADATA 自动发现 Win-only 传递依赖 |
-| 清理 Linux wheel 仅保留 Windows/通用版 | 消除 pip 在 Windows 上的回溯 | 包体减半(102→46 MB) + 安装不再卡死 |
+| Phase C 用 LLM 解析需求文档而非正则 | 需求文档格式多样，正则无法可靠提取 | 依赖 LLM 可用性，但 parse 失败有清晰错误提示 |
+| 导入 UI 用 textarea 粘贴而非文件上传 | 复用已有 Skill Builder 面板，避免改 upload 组件 | 用户需手动复制粘贴，后续可扩展为文件上传 |
+| OCP 分层：loop.py 稳态 / skill_preflight.py 敏态 | 新增 Skill 准备逻辑不改核心循环 | 所有 Skill 相关改进集中在 skill_preflight.py |
 
 ---
 
 ## 本次会话修改的文件清单
 
 ```
-prompts/system_prompt.txt     # 修复"企业内网"误导 + 添加 web_search 使用准则
-ui/js/chat.js                 # sendMessage() 附加 _documentContext 到 POST body
-api/chat.py                   # 提取 document_context 并传入 loop_kwargs
-agent/loop.py                 # run_agent_loop 新增 document_context 参数，注入消息
-agent/executor.py             # run_with_plan 透传 document_context
-HANDOFF.md                    # 会话交接更新
+tools/skill_builder.py        # 新增 build_import_prompt() + import_from_requirement_doc()
+api/skill_api.py               # 新增 POST /api/skill-builder/import 端点
+ui/js/skill_builder.js         # 新增 sbShowImport() + sbImportDoc() + Step0 按钮
+ui/index.html                  # Step0 新增"从文档导入"按钮
+tests/test_skill_builder.py    # 新增 7 个 Phase C 测试用例
+PROGRESS.md                    # Phase C 标记完成
+HANDOFF.md                     # 会话交接更新
 ```
 
 ---

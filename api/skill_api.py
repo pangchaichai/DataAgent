@@ -79,6 +79,22 @@ def api_skill_generate():
         return jsonify({"ok": False, "error": f"生成异常：{str(e)[:200]}"}), 500
 
 
+@skill_bp.route('/api/skill-builder/import', methods=['POST'])
+def api_skill_import():
+    data = request.get_json(force=True) if request.is_json else {}
+    content = (data.get('content') or '').strip()
+    if not content:
+        return jsonify({"ok": False, "error": "请提供需求文档内容"}), 400
+
+    from agent.context import build_schema_context
+    from tools.skill_builder import import_from_requirement_doc
+
+    data_context = build_schema_context()
+    result = import_from_requirement_doc(content, data_context=data_context)
+    status = 200 if result.get('ok') else 500
+    return jsonify(result), status
+
+
 @skill_bp.route('/api/skill-builder/validate', methods=['POST'])
 def api_skill_validate():
     data = request.get_json(force=True) if request.is_json else {}

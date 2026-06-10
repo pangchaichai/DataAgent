@@ -96,6 +96,7 @@ function sbRestoreStep0(){
     +'<div class="sp-hint" style="margin-top:6px">用自然语言描述即可，AI 会帮你生成 Skill 配置</div>'
     +'<div class="sb-actions">'
     +'<button class="btn primary" onclick="sbGenerate()">AI 生成</button>'
+    +'<button class="btn ghost" onclick="sbShowImport()">从文档导入</button>'
     +'<button class="btn ghost" onclick="sbGoStep(1)">手动编写</button>'
     +'</div>';
   sbLoadDrafts();
@@ -167,4 +168,37 @@ async function sbPublish(){
       toast('发布失败：'+(msgs||d.error||'校验未通过'),'error');
     }
   }catch(e){toast('发布请求失败','error');}
+}
+
+function sbShowImport(){
+  $('sbStep0').innerHTML=
+    '<div class="sb-label">从需求文档导入</div>'
+    +'<div class="sp-hint" style="margin-bottom:8px">粘贴完整的业务需求文档内容（Markdown 格式），AI 将自动解析为 Skill 配置</div>'
+    +'<textarea class="sb-textarea" id="sbImportInput" style="min-height:200px"'
+    +' placeholder="将需求文档内容粘贴到此处...\n\n支持的格式：\n- Markdown 需求文档\n- 包含执行步骤、字段映射、输出格式的业务描述\n- 含 {{file: xxx}} 标记的数据依赖说明"></textarea>'
+    +'<div class="sb-actions">'
+    +'<button class="btn primary" onclick="sbImportDoc()">解析导入</button>'
+    +'<button class="btn ghost" onclick="sbRestoreStep0()">返回</button>'
+    +'</div>';
+}
+
+async function sbImportDoc(){
+  const content=$('sbImportInput').value.trim();
+  if(!content){toast('请粘贴需求文档内容','error');return;}
+  $('sbStep0').innerHTML='<div class="sb-loading">AI 正在解析需求文档…</div>';
+  try{
+    const d=await api('POST','/api/skill-builder/import',{content:content});
+    if(d.ok&&d.content){
+      sbRestoreStep0();
+      $('sbEditor').value=d.content;
+      sbGoStep(1);
+      toast('需求文档已解析为 Skill 配置','success');
+    }else{
+      sbShowImport();
+      toast('解析失败：'+(d.error||'未知错误'),'error');
+    }
+  }catch(e){
+    sbShowImport();
+    toast('导入请求失败','error');
+  }
 }

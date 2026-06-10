@@ -285,6 +285,133 @@ def parse_llm_skill_response(llm_output: str) -> SkillDraft | None:
 
 
 # ═══════════════════════════════════════════════════════════════
+#  需求文档导入（Phase C）
+# ═══════════════════════════════════════════════════════════════
+
+def build_import_prompt(doc_content: str, data_context: str = "") -> str:
+    """构建 LLM prompt，从用户需求文档中提取 Skill 元数据。"""
+    if data_context:
+        data_section = f"""
+## 当前已加载的数据
+{data_context}
+
+如果需求文档中描述的字段能在上面的已加载数据中找到，请使用实际的表名和列名。
+"""
+    else:
+        data_section = """
+## 当前无已加载数据
+请根据文档描述使用语义化的 file_pattern 和 expected_fields。
+"""
+
+    return f"""你是 DataAgent 的 Skill 配置解析助手。用户提供了一份完整的业务需求文档，
+请从中提取结构化的 Skill 配置信息。
+
+{data_section}
+## 用户需求文档
+{doc_content}
+
+## 解析规则
+1. name：从标题/主题提取，转为小写字母+下划线格式（3-40字符）
+2. description：概括文档核心功能（1-3句话），包含触发词
+3. trigger_words：从文档标题和关键术语提取
+4. required_files：
+   - 从文档中寻找数据源描述（如"上传XX文件"、"需要XX数据"、"{{{{file: XX}}}}"标记）
+   - semantic 用中文语义名称
+   - file_pattern 用文件名模糊匹配模式（fnmatch 格式，如 "周报*数据源*"）
+   - expected_fields 从文档中的字段列表、表格、映射关系中提取关键字段名
+5. optional_files：文档中标注为"可选"或"如有"的数据源
+6. external_sources：文档中提到的非文件依赖（如集团关系查询→groups_yaml，网络搜索→web_search）
+7. steps：将文档的执行步骤转为 Markdown 格式（保留原文的业务逻辑，不简化）
+8. output_format：从文档的输出要求中提取
+9. notes：文档中的注意事项、特殊规则
+
+请严格按以下 JSON 格式输出，不要添加其他内容：
+{{
+  "name": "小写字母+下划线，3-40字符",
+  "description": "功能描述，包含触发词",
+  "trigger_words": "触发词，逗号分隔",
+  "calc_type": "exploratory",
+  "required_files": [
+    {{
+      "semantic": "数据语义名称",
+      "file_pattern": "文件名匹配模式",
+      "expected_fields": ["字段1", "字段2"]
+    }}
+  ],
+  "optional_files": [
+    {{
+      "semantic": "可选数据名称",
+      "file_pattern": "文件名模式"
+    }}
+  ],
+  "external_sources": [
+    {{
+      "type": "groups_yaml 或 web_search",
+      "purpose": "用途",
+      "required": false
+    }}
+  ],
+  "scenarios": "适用场景",
+  "prerequisites": "前提条件",
+  "steps": "完整执行步骤（Markdown，保留原文业务逻辑）",
+  "output_format": "输出格式说明",
+  "notes": "注意事项"
+}}"""
+
+
+def import_from_requirement_doc(
+    content: str,
+    data_context: str = "",
+) -> dict:
+    """
+    从用户的自然语言需求文档中提取 Skill 元数据并生成 SKILL.md。
+
+    返回:
+      {"ok": True, "name": ..., "content": ..., "draft": {...}}
+      {"ok": False, "error": ...}
+    """
+    if not content or not content.strip():
+        return {"ok": False, "error": "文档内容为空"}
+
+    if len(content) > 50000:
+        return {"ok": False, "error": "文档内容过长（超过 50000 字符），请精简后重试"}
+
+    from agent.llm_client import LLMClient
+    from session_store import BASE_DIR
+
+    try:
+        llm = LLMClient(str(BASE_DIR / 'config.yaml'))
+        prompt = build_import_prompt(content, data_context)
+        result = llm.chat(
+            [{"role": "user", "content": prompt}],
+            tools=None,
+        )
+        if not result.success or not result.text:
+            return {"ok": False, "error": "AI 解析失败，请重试"}
+
+        draft = parse_llm_skill_response(result.text)
+        if not draft:
+            return {"ok": False, "error": "AI 返回格式异常，请检查文档内容后重试"}
+
+        skill_content = generate_skill_md(draft)
+        save_draft(draft.name, skill_content)
+
+        return {
+            "ok": True,
+            "name": draft.name,
+            "content": skill_content,
+            "draft": {
+                "name": draft.name,
+                "description": draft.description,
+                "trigger_words": draft.trigger_words,
+                "calc_type": draft.calc_type,
+            },
+        }
+    except Exception as e:
+        return {"ok": False, "error": f"导入异常：{str(e)[:200]}"}
+
+
+# ═══════════════════════════════════════════════════════════════
 #  校验
 # ═══════════════════════════════════════════════════════════════
 

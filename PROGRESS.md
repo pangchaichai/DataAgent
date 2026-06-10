@@ -164,10 +164,16 @@ external_sources:
 - [x] `generate_skill_md` — 生成含 required_files 的 frontmatter
 - [x] `api/skill_api.py` — generate 端点调用 `build_schema_context()` 传给 LLM
 
-**Phase C — 需求文档直接导入**
-- [ ] `tools/skill_builder.py` — `import_from_requirement_doc()` 从 .md 解析 required_files
-- [ ] `api/skill_api.py` — 新增导入端点
-- [ ] 验收：用户上传需求文档 → 自动解析为 Skill 草稿
+**Phase C — 需求文档直接导入 ✅ 完成（2026-06-10）**
+- [x] `tools/skill_builder.py` — `import_from_requirement_doc()` + `build_import_prompt()` 从 .md 解析 required_files
+- [x] `api/skill_api.py` — 新增 `POST /api/skill-builder/import` 端点
+- [x] `ui/js/skill_builder.js` + `ui/index.html` — 新增"从文档导入"入口（Step 0）
+- [x] `tests/test_skill_builder.py` — 7 个新测试（prompt 构建 / 空内容 / 超大 / mock LLM 成功+失败+坏JSON）
+- [x] 测试：332/332 通过，2 跳过，无回归
+
+**后续 — 创建两个验收用 Skill**
+- [ ] `skills/weekly_report_generator/SKILL.md` — 理财周报多模板生成器
+- [ ] 替换 `skills/meeting_report/SKILL.md` — 谈参要点新版
 
 ### 测试要求
 1. 单测：`pytest tests/test_skill_preflight.py -x -v`
