@@ -158,10 +158,11 @@ external_sources:
 - [x] `agent/loop.py` — Skill 注入替换为 `prepare_skill_for_execution()` 调用
 - [x] `tests/test_skill_preflight.py` — 16 个单测，325/325 全通过
 
-**Phase B — Skill Builder 数据感知**
-- [ ] `tools/skill_builder.py` — `build_skill_generation_prompt()` 注入 `build_schema_context()` 输出
-- [ ] `api/skill_api.py` — generate 端点传递数据上下文
-- [ ] 验收：生成的 Skill 引用真实表名，而非编造
+**Phase B — Skill Builder 数据感知 ✅ 完成（2026-06-10，commit a1597ab）**
+- [x] `tools/skill_builder.py` — `build_skill_generation_prompt(data_context)` 注入已加载 schema
+- [x] `SkillDraft` — 新增 required_files / optional_files / external_sources 字段
+- [x] `generate_skill_md` — 生成含 required_files 的 frontmatter
+- [x] `api/skill_api.py` — generate 端点调用 `build_schema_context()` 传给 LLM
 
 **Phase C — 需求文档直接导入**
 - [ ] `tools/skill_builder.py` — `import_from_requirement_doc()` 从 .md 解析 required_files

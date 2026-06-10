@@ -101,15 +101,16 @@ v2.0 主线完成 + Windows 内测包就绪（branch: claude/sleepy-cori-5b5xow�
 
 ## 立即可执行的下一步（按优先级排序）
 
-### 优先级 1 — Skill v3 Phase B（下一步）
+### 优先级 1 — Skill v3 Phase C + 两个新 Skill（下一步）
 
-**目标**：Skill Builder 数据感知（解决"生成时编造表名"问题）
+**Phase C — 需求文档直接导入**（用户可上传 .md 需求文档转为 Skill 草稿）
+- `tools/skill_builder.py` 新增 `import_from_requirement_doc(content, data_context)` 函数
+- `api/skill_api.py` 新增导入端点 `POST /api/skill-builder/import`
+- 前端 `skill_builder.js` 新增"从文档导入"入口
 
-**改动范围**：
-- `tools/skill_builder.py`：`build_skill_generation_prompt()` 接收 `data_context` 参数（`build_schema_context()` 输出），注入到 LLM prompt 中；引导生成 `required_files` 而非硬编码 SQL
-- `api/skill_api.py`：`api_skill_generate()` 调用 `build_schema_context()` 传给 prompt
-
-**验收**：创建新 Skill 时，生成的 SKILL.md 中 `required_files` 引用真实已加载表的列名，不再编造
+**两个新 Skill（Phase C 后创建，作为验收用例）**
+- `skills/weekly_report_generator/` — 理财周报多模板生成器（用户需求文档已有）
+- `skills/meeting_report/SKILL.md` 替换 — 谈参要点新版（替换现有，用户需求文档已有）
 
 ### 优先级 2 — Windows 内测验证（并行）
 - 主线包 `dist/DataAgent-v2.0-beta1.zip` 继续验证（与 Skill v3 并行）
