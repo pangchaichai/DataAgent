@@ -16,6 +16,26 @@
 
 ## 上次会话完成的工作
 
+### Skill v3 Phase A — 数据感知预检（2026-06-10，branch: feature/skill-data-awareness）
+
+**架构决策（OCP）**：
+- 稳态/敏态边界明确：loop.py / skill_loader.py 是稳态核心，skill_preflight.py 是敏态扩展点
+- 不引入 Pipeline 框架（YAGNI），`prepare_skill_for_execution()` 内部线性分阶段，将来可零成本升级
+- 与 Hook 事件总线讨论后确认：Hook 适合旁路观测（审计/成本），不适合需要阻断执行流的预检场景
+
+**实施内容**：
+1. 新建 `agent/skill_preflight.py`（单一入口 `prepare_skill_for_execution()`）
+   - 预检数据依赖（required_files / optional_files / external_sources）
+   - file_pattern 模糊匹配 + expected_fields 列校验 + 旧版 table_type 兼容
+   - 缺必需数据时阻断并告知用户；数据就绪时注入真实表名/列名映射
+2. `agent/skill_loader.py`：SkillInfo 加 `metadata: dict` 字段（一行）
+3. `agent/loop.py`：Skill 注入替换为 `prepare_skill_for_execution()` 调用（最后一次为 Skill 改 loop.py）
+4. 新建 `tests/test_skill_preflight.py`（16 个测试用例，全部通过）
+
+**测试结果**：325/325 通过，2 跳过（含所有原有测试，无回归）
+
+---
+
 ### Windows 内测 UAT 修复 — 2 个新缺陷
 
 **1. 修复联网搜索被拒绝（prompts/system_prompt.txt）**
@@ -81,34 +101,15 @@ v2.0 主线完成 + Windows 内测包就绪（branch: claude/sleepy-cori-5b5xow�
 
 ## 立即可执行的下一步（按优先级排序）
 
-### 优先级 1 — Skill v3 Phase A 实施（branch: feature/skill-data-awareness）
+### 优先级 1 — Skill v3 Phase B（下一步）
 
-**1. 完善 `agent/skill_preflight.py`（草稿已在 WIP commit 中）**
-- 当前草稿实现了：FileMatch / PreflightResult / run_preflight / build_data_aware_skill_context
-- 需要审查后确认或调整
+**目标**：Skill Builder 数据感知（解决"生成时编造表名"问题）
 
-**2. 修改 `agent/skill_loader.py`（最小改动）**
-- SkillInfo dataclass 加一个字段：`metadata: dict = field(default_factory=dict)`
-- `load_registry()` 解析时将完整 frontmatter dict 存入 metadata
-- 目的：未来新增 frontmatter 字段时不再改 SkillInfo
+**改动范围**：
+- `tools/skill_builder.py`：`build_skill_generation_prompt()` 接收 `data_context` 参数（`build_schema_context()` 输出），注入到 LLM prompt 中；引导生成 `required_files` 而非硬编码 SQL
+- `api/skill_api.py`：`api_skill_generate()` 调用 `build_schema_context()` 传给 prompt
 
-**3. 修改 `agent/loop.py`（最小改动）**
-- 将当前硬编码的 skill 注入块（lines 248-260）替换为：
-  ```python
-  from agent.skill_preflight import prepare_skill_for_execution
-  prepare_result = prepare_skill_for_execution(skill_content, matched_skill_info, schema_ctx)
-  if prepare_result.blocked:
-      yield _text(prepare_result.block_message)
-      yield _stream_end()
-      return
-  session_messages[-1]["content"] += prepare_result.skill_note
-  ```
-- 这是 loop.py 为 Skill 功能做的**最后一次改动**
-
-**4. 新建 `tests/test_skill_preflight.py`**
-- 覆盖：无数据时 can_execute=False；有数据时 resolved_mapping 正确；file_pattern 模糊匹配
-
-**5. 验收后推送并合并**
+**验收**：创建新 Skill 时，生成的 SKILL.md 中 `required_files` 引用真实已加载表的列名，不再编造
 
 ### 优先级 2 — Windows 内测验证（并行）
 - 主线包 `dist/DataAgent-v2.0-beta1.zip` 继续验证（与 Skill v3 并行）

@@ -152,12 +152,11 @@ external_sources:
 
 ### 实施计划
 
-**Phase A — 预检模块（核心，当前进行）**
-- [x] `agent/skill_preflight.py` 新建（WIP 草稿已提交）
-- [ ] `agent/skill_loader.py` — SkillInfo 加 `metadata: dict` 字段（唯一改动）
-- [ ] `agent/loop.py` — Skill 注入替换为 `prepare_skill_for_execution()` 调用（唯一改动）
-- [ ] `tests/test_skill_preflight.py` — 新建单测
-- [ ] 验收：缺数据时给出明确提示；有数据时注入真实表名/列名映射
+**Phase A — 预检模块 ✅ 完成（2026-06-10，commit b3c878a）**
+- [x] `agent/skill_preflight.py` 新建（`prepare_skill_for_execution()` 单一入口）
+- [x] `agent/skill_loader.py` — SkillInfo 加 `metadata: dict` 字段（一行）
+- [x] `agent/loop.py` — Skill 注入替换为 `prepare_skill_for_execution()` 调用
+- [x] `tests/test_skill_preflight.py` — 16 个单测，325/325 全通过
 
 **Phase B — Skill Builder 数据感知**
 - [ ] `tools/skill_builder.py` — `build_skill_generation_prompt()` 注入 `build_schema_context()` 输出
