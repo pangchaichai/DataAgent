@@ -386,27 +386,77 @@ LLM 生成 SQL（探索式 A 类）时，system prompt 中注入的是**字典�
 
 ---
 
-## 六、Skills 系统（含数据源绑定，P0-1更新）
+## 六、Skills 系统（v3 数据感知版，2026-06-10 更新）
 
 ### 6.1 渐进式加载（不变）
 
-### 6.2 Skill 类型标注（新增）
+### 6.2 Skill 三类型划分（v3 扩展）
 
-SKILL.md frontmatter 新增 `calc_type` 字段，区分探索式/固化：
+| 类型 | `calc_type` | 特征 | SQL 角色 | 示例 |
+|------|-------------|------|----------|------|
+| **A. 固化计算** | `fixed` | 口径严格，合规/报告场景 | 无 SQL，调 `calculators/` 函数 | concentration_monitor |
+| **B. 探索式查询** | `exploratory` | 灵活统计，LLM 自主判断 | LLM 根据 schema 生成 SQL | position_query |
+| **C. 确定性数据管道** | `exploratory` | 用户已定义完整处理逻辑，Agent 忠实执行 | LLM 按用户步骤执行，不自由发挥 | 理财周报、谈参要点 |
 
+**SQL 在 Skill 中的地位**：SQL 示例是"参考提示"，不是必须项，也不直接执行。LLM 根据实际加载的 schema 自行生成最终 SQL。Skill 中没有 SQL 也能正常运行（`concentration_monitor` 即为例证）。
+
+SKILL.md frontmatter `calc_type` 字段：
 ```yaml
 ---
 name: concentration_monitor
-calc_type: fixed          # fixed=固化计算，exploratory=探索式
+calc_type: fixed          # fixed=固化计算，exploratory=探索式/数据管道
 fixed_calculator: calculators.concentration.calc_entity_concentration
-# calc_type=fixed 时：Agent 调用 fixed_calculator 指定的函数，禁止 LLM 生成 SQL
-# calc_type=exploratory 时：允许 LLM 生成 SQL（临时查询场景）
 ---
 ```
 
-### 6.3 数据源绑定（不变）
+### 6.3 SKILL.md 数据依赖声明（v3 新增，可选字段，向后兼容）
 
-### 6.4 @mention 边界定义（P2-6，新增）
+**用途**：Skill 执行前预检数据是否就绪，执行时注入真实表名/列名映射。无此字段的旧 Skill 行为不变。
+
+```yaml
+# 可选字段，所有旧 Skill 无需修改
+required_files:               # 必需数据文件
+  - semantic: "周报数据源"      # 用户可理解的语义名称
+    file_pattern: "周报*数据源*" # 模糊匹配已上传文件名（fnmatch 格式）
+    expected_fields:           # 期望存在的关键列（用于校验，非全量）
+      - 统计日期
+      - 组合代码
+      - 产品标签
+optional_files:               # 可选数据文件（缺失时警告，不阻断）
+  - semantic: "模板参考"
+    file_pattern: "周报*模板*"
+external_sources:             # 非数据库依赖（groups.yaml / web_search 等）
+  - type: groups_yaml
+    purpose: "集团成员列表"
+    required: false           # false=可选，true=必须
+```
+
+**无预定义数据的处理**：`file_pattern` 基于文件名模糊匹配，不依赖 `table_type` 分类。用户上传任何 CSV，表名匹配 `file_pattern` 即可关联，无需在代码中预定义表类型。
+
+### 6.4 Skill 执行架构（v3，OCP 分层）
+
+**稳态核心**（极低频改动）：`loop.py` / `tools_spec.py` / `data_loader.py`
+
+**单一入口**（敏态与稳态的分界线）：
+```python
+# agent/loop.py 唯一改动点，之后不再为 Skill 功能改 loop.py
+from agent.skill_preflight import prepare_skill_for_execution
+result = prepare_skill_for_execution(skill_content, skill_info, schema_ctx)
+if result.blocked:
+    yield _text(result.block_message); return
+session_messages[-1]["content"] += result.skill_note
+```
+
+**敏态模块**（高频迭代，新增需求改这里）：`agent/skill_preflight.py`
+- `run_preflight()` — 校验数据依赖
+- `build_data_aware_skill_context()` — 构建注入内容
+- `prepare_skill_for_execution()` — 对外唯一接口
+
+**扩展原则（YAGNI）**：不引入 Pipeline 框架。`prepare_skill_for_execution()` 内部线性分阶段，未来阶段 ≥3 时可零成本抽取为 pipeline。
+
+### 6.5 数据源绑定（不变）
+
+### 6.6 @mention 边界定义（P2-6，不变）
 
 ```
 规则1：@mention 可指定多张表（@表A @表B）
@@ -417,6 +467,8 @@ fixed_calculator: calculators.concentration.calc_entity_concentration
         例：「@持仓_0515，帮我查」→ 提取「持仓_0515」，逗号不计入表名
 规则4：@mention 的表不存在于已加载列表时，立即提示「表名不存在，已加载的表有：...」
 ```
+
+---
 
 ---
 
@@ -1006,3 +1058,5 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v2.0 I-10 | 前端 JS 模块化：ui/js/ 9 个文件（state/dom/render/chat/upload/sidebar/settings/skill_builder/main）| Evolution |
 | v2.0 UX | 综合 UX 优化：LLM 设置面板 + @mention 自动补全 + 数据质量弹窗 + 表结构剖析 | UX 优化 |
 | v2.0 UAT | UAT 修复 7 项：macOS 客户端 + Skill Builder + 文档上传 + LLM 错误处理 + UI 改进 | UAT 修复 |
+| v2.1 UAT | Windows 内测修复：联网搜索拒绝/文档上下文丢失/上传后表不可见/错误提示优化/自定义 Skill 不生效 | Windows 内测 |
+| v3.0 Skill | Skill 数据感知重构：三类 Skill 划分 / required_files 声明 / 预检模块 / 数据映射注入 / OCP 分层架构 | 架构改进 |

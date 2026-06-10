@@ -114,6 +114,70 @@
 - [x] skills/meeting_report/（SKILL.md + template.md.j2 就绪）
 - [x] Phase 3 验收通过
 
+## Skill v3 — 数据感知与自定义需求支持（进行中，branch: feature/skill-data-awareness）
+
+### 背景与问题
+Windows 内测发现 Skill 系统的根本缺陷：**工具与数据脱钩**。
+- Skill Builder 生成的 SQL 引用不存在的表/列名
+- `required_table_types` 声明从未在运行时校验
+- Skill 执行前无数据就绪检查，缺数据时静默失败
+
+### 三类 Skill 重新划分（扩展 CLAUDE.md 第六章）
+
+| 类型 | 特征 | SQL 角色 | 示例 |
+|------|------|----------|------|
+| **A. 固化计算** | 口径严格，合规/报告场景 | 无 SQL，调 calculator | concentration_monitor |
+| **B. 探索式查询** | 灵活统计，LLM 判断 | LLM 生成 SQL | position_query |
+| **C. 确定性数据管道** | 用户已定义完整处理逻辑 | LLM 按用户定义执行 | 理财周报、谈参要点 |
+
+### 架构决策（OCP 原则）
+- **稳态核心**：loop.py / llm_client.py / tools_spec.py / data_loader.py（改动极低频）
+- **单一入口**：`prepare_skill_for_execution()` 函数（loop.py 唯一改动点，未来不再改）
+- **敏态功能**：agent/skill_preflight.py（新建，所有 Skill 准备阶段逻辑集中于此）
+- **YAGNI**：当前不引入 Pipeline 框架；`prepare_skill_for_execution()` 内部线性分阶段，将来可零成本抽取为 pipeline
+
+### SKILL.md 新增可选 frontmatter 字段（向后兼容）
+```yaml
+required_files:
+  - semantic: "周报数据源"
+    file_pattern: "周报*数据源*"    # 模糊匹配已上传文件名
+    expected_fields: [统计日期, 组合代码, 产品标签]
+optional_files:
+  - semantic: "模板参考"
+    file_pattern: "周报*模板*"
+external_sources:
+  - type: groups_yaml
+    required: false
+```
+
+### 实施计划
+
+**Phase A — 预检模块（核心，当前进行）**
+- [x] `agent/skill_preflight.py` 新建（WIP 草稿已提交）
+- [ ] `agent/skill_loader.py` — SkillInfo 加 `metadata: dict` 字段（唯一改动）
+- [ ] `agent/loop.py` — Skill 注入替换为 `prepare_skill_for_execution()` 调用（唯一改动）
+- [ ] `tests/test_skill_preflight.py` — 新建单测
+- [ ] 验收：缺数据时给出明确提示；有数据时注入真实表名/列名映射
+
+**Phase B — Skill Builder 数据感知**
+- [ ] `tools/skill_builder.py` — `build_skill_generation_prompt()` 注入 `build_schema_context()` 输出
+- [ ] `api/skill_api.py` — generate 端点传递数据上下文
+- [ ] 验收：生成的 Skill 引用真实表名，而非编造
+
+**Phase C — 需求文档直接导入**
+- [ ] `tools/skill_builder.py` — `import_from_requirement_doc()` 从 .md 解析 required_files
+- [ ] `api/skill_api.py` — 新增导入端点
+- [ ] 验收：用户上传需求文档 → 自动解析为 Skill 草稿
+
+### 测试要求
+1. 单测：`pytest tests/test_skill_preflight.py -x -v`
+2. 无数据场景：触发 Skill → 明确提示缺什么文件
+3. 有数据场景：触发 Skill → 注入真实表名/列名 → LLM 正确执行
+4. 未知类型数据（`table_type=unknown`）→ 仍可通过 `file_pattern` 被 Skill 关联
+5. 回归：`pytest tests/ -x -q` 全绿
+
+---
+
 ## Phase 4 — 批量报告（进入条件：C-02/03/04 模板已确认）
 - [ ] skills/dept_weekly_report/ + template
 - [ ] skills/monthly_bond_summary/ + template

@@ -8,9 +8,9 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-09
+- **日期**：2026-06-10
 - **提交**：（本次提交后更新）
-- **分支**：`claude/sleepy-cori-5b5xow`
+- **分支**：`feature/skill-data-awareness`（从 `claude/sleepy-cori-5b5xow` 分出）
 
 ---
 
@@ -62,7 +62,8 @@
 
 ### 阶段
 ```
-v2.0 全部完成 + Windows 内测包就绪 → 等待 Windows 内测反馈 / Phase 4 进入条件
+Skill v3 数据感知改造 — Phase A 进行中（branch: feature/skill-data-awareness）
+v2.0 主线完成 + Windows 内测包就绪（branch: claude/sleepy-cori-5b5xow）
 ```
 
 ### 测试
@@ -80,18 +81,40 @@ v2.0 全部完成 + Windows 内测包就绪 → 等待 Windows 内测反馈 / Ph
 
 ## 立即可执行的下一步（按优先级排序）
 
-### 优先级 1 — Windows 内测验证
-- 在 Windows 上解压 `dist/DataAgent-v2.0-beta1.zip`，运行 setup.bat 安装
-- 编辑 `DataAgent/config.yaml` 填写 LLM API Key（model: deepseek-v4-flash）
-- 运行 run.bat，测试：上传 CSV / 自然语言查询 / 图表 / 报告导出
-- 如遇 AI 401/403 错误：检查 `http://127.0.0.1:<port>/api/llm/test` 端点返回
-- 反馈内测结果
+### 优先级 1 — Skill v3 Phase A 实施（branch: feature/skill-data-awareness）
 
-### 优先级 2 — 等待 Phase 4 进入条件（外部依赖）
-```
-skills/dept_weekly_report/ 实现 + template.md.j2
-skills/monthly_bond_summary/ 实现 + template.md.j2
-```
+**1. 完善 `agent/skill_preflight.py`（草稿已在 WIP commit 中）**
+- 当前草稿实现了：FileMatch / PreflightResult / run_preflight / build_data_aware_skill_context
+- 需要审查后确认或调整
+
+**2. 修改 `agent/skill_loader.py`（最小改动）**
+- SkillInfo dataclass 加一个字段：`metadata: dict = field(default_factory=dict)`
+- `load_registry()` 解析时将完整 frontmatter dict 存入 metadata
+- 目的：未来新增 frontmatter 字段时不再改 SkillInfo
+
+**3. 修改 `agent/loop.py`（最小改动）**
+- 将当前硬编码的 skill 注入块（lines 248-260）替换为：
+  ```python
+  from agent.skill_preflight import prepare_skill_for_execution
+  prepare_result = prepare_skill_for_execution(skill_content, matched_skill_info, schema_ctx)
+  if prepare_result.blocked:
+      yield _text(prepare_result.block_message)
+      yield _stream_end()
+      return
+  session_messages[-1]["content"] += prepare_result.skill_note
+  ```
+- 这是 loop.py 为 Skill 功能做的**最后一次改动**
+
+**4. 新建 `tests/test_skill_preflight.py`**
+- 覆盖：无数据时 can_execute=False；有数据时 resolved_mapping 正确；file_pattern 模糊匹配
+
+**5. 验收后推送并合并**
+
+### 优先级 2 — Windows 内测验证（并行）
+- 主线包 `dist/DataAgent-v2.0-beta1.zip` 继续验证（与 Skill v3 并行）
+
+### 优先级 3 — Phase 4 进入条件（外部依赖）
+- C-02/C-03/C-04 模板由业务方确认后开始
 
 ---
 
