@@ -63,4 +63,7 @@ def translate(error: Exception | str, details: str = "") -> str:
     for key, message in ERROR_TRANSLATIONS.items():
         if key.lower() in error_str:
             return message.format(details=details) if "{details}" in message else message
-    return "操作遇到异常，请截图发给管理员处理。"
+    brief = str(error)[:100] if error else ""
+    if brief:
+        return f"操作遇到异常：{brief}。如需进一步帮助，请输入「继续」或截图反馈。"
+    return "操作遇到异常，请输入「继续」重试，或截图反馈。"

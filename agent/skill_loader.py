@@ -44,17 +44,39 @@ def _parse_frontmatter(content: str) -> tuple[dict, str]:
     """
     解析 SKILL.md 的 YAML frontmatter。
     返回 (metadata_dict, body_text)。
+
+    若无标准 frontmatter，尝试从正文中提取 name/description。
     """
     # 匹配 ---\n...\n--- 格式
     match = re.match(r'^---\s*\n(.*?)\n---\s*\n?(.*)', content, re.DOTALL)
-    if not match:
-        return {}, content
-    try:
-        metadata = yaml.safe_load(match.group(1)) or {}
-    except yaml.YAMLError:
-        metadata = {}
-    body = match.group(2).strip()
-    return metadata, body
+    if match:
+        try:
+            metadata = yaml.safe_load(match.group(1)) or {}
+        except yaml.YAMLError:
+            metadata = {}
+        body = match.group(2).strip()
+        return metadata, body
+
+    # 无标准 frontmatter：尝试从正文提取元数据
+    metadata: dict = {}
+    # 尝试匹配标题行作为 name（支持 # / ## / 技能名称：等格式）
+    title_match = re.search(
+        r'(?:^|\n)\s*#*\s*(?:技能名称|名称|skill)\s*[：:]\s*(.+)',
+        content, re.IGNORECASE,
+    )
+    if title_match:
+        metadata['name'] = title_match.group(1).strip().rstrip('。.')
+
+    # 尝试提取描述（## 技能描述 / ## 描述 后的段落）
+    desc_match = re.search(
+        r'(?:^|\n)\s*#*\s*(?:技能描述|描述|description)\s*\n+(.*?)(?:\n\s*#|\Z)',
+        content, re.IGNORECASE | re.DOTALL,
+    )
+    if desc_match:
+        desc_text = desc_match.group(1).strip()
+        metadata['description'] = desc_text[:200]
+
+    return metadata, content
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -248,6 +248,17 @@ def run_agent_loop(
         matched_skill_info = None  # 续跑阶段不重新过滤
     active_tools = _filter_tools_for_context(TOOL_DEFINITIONS, matched_skill_info)
 
+    # ── 匹配到 Skill 时注入完整执行步骤 ──────────────────────
+    if matched_skill_info and not pending:
+        skill_content = skill_loader.load_full(matched_skill_name)
+        if skill_content:
+            skill_note = (
+                f"\n\n[系统提示：检测到与技能「{matched_skill_name}」匹配，"
+                f"请严格按照以下技能定义的步骤执行]\n\n{skill_content}"
+            )
+            if session_messages and session_messages[-1].get("role") == "user":
+                session_messages[-1]["content"] += skill_note
+
     # ── Tool-calling 循环 ──────────────────────────────────
     from agent.context import compress_messages
     _logger = _get_logger()
