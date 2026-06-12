@@ -1060,3 +1060,6 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v2.0 UAT | UAT 修复 7 项：macOS 客户端 + Skill Builder + 文档上传 + LLM 错误处理 + UI 改进 | UAT 修复 |
 | v2.1 UAT | Windows 内测修复：联网搜索拒绝/文档上下文丢失/上传后表不可见/错误提示优化/自定义 Skill 不生效 | Windows 内测 |
 | v3.0 Skill | Skill 数据感知重构：三类 Skill 划分 / required_files 声明 / 预检模块 / 数据映射注入 / OCP 分层架构 | 架构改进 |
+| v3.0 Skill-C | Skill Builder 需求文档导入：import_from_requirement_doc() / POST /api/skill-builder/import / 从文档导入 UI | 功能完善 |
+| v3.0 Skills | 验收用 Skill 创建：weekly_report_generator（理财周报 5 模板）/ meeting_report v3（谈参要点含集团关系树）| Skills 库 |
+| v2.2 Upload | 文件上传升级：批量上传 + 本地工作目录（workdir_loader / 侧边栏区块 / Skill 预检自动扫描）| 功能升级 |

@@ -171,9 +171,9 @@ external_sources:
 - [x] `tests/test_skill_builder.py` — 7 个新测试（prompt 构建 / 空内容 / 超大 / mock LLM 成功+失败+坏JSON）
 - [x] 测试：332/332 通过，2 跳过，无回归
 
-**后续 — 创建两个验收用 Skill**
-- [ ] `skills/weekly_report_generator/SKILL.md` — 理财周报多模板生成器
-- [ ] 替换 `skills/meeting_report/SKILL.md` — 谈参要点新版
+**后续 — 创建两个验收用 Skill ✅ 完成（2026-06-10，commit e390f5a）**
+- [x] `skills/weekly_report_generator/SKILL.md` — 理财周报多模板生成器（5 个输出 CSV，Type C）
+- [x] 替换 `skills/meeting_report/SKILL.md` — 谈参要点 v3（含集团关系树 + 动态持仓表）
 
 ### 测试要求
 1. 单测：`pytest tests/test_skill_preflight.py -x -v`
