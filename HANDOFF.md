@@ -9,8 +9,24 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：chore: 项目管理完整性审计与修复
+- **提交**：de22c41 chore: 项目管理完整性审计与修复，新增业务用户使用说明
 - **分支**：`claude/clever-meitner-fqsa3v`
+
+---
+
+## 上次会话完成的工作（2026-06-14，第四轮）
+
+### 自动状态同步机制
+
+**新建 `scripts/sync_project_state.py`**：
+- 自动运行 `pytest`，写入 `data/test_reports/latest_summary.json`
+- 自动更新 `START_HERE.md` 分支/测试状态行
+- 自动更新 `HANDOFF.md` "最后更新"块（日期/提交/分支）
+- 明确列出仍需 Claude 手动完成的叙述性内容
+
+**更新 `.claude/settings.json`**：
+- `Stop` hook：改为直接运行 `sync_project_state.py`（而非仅提示）
+- 新增 `PostToolUse` hook on `Bash`：git commit 后自动触发 `--no-test` 快速同步
 
 ---
 
@@ -188,6 +204,10 @@ docs/v3-evolution-final-plan.md    ← ★最终实施计划（本次产出，�
 ## 本次会话修改的文件清单
 
 ```
+scripts/sync_project_state.py      # 新建：项目状态自动同步脚本（运行测试+更新管理文档）
+.claude/settings.json              # 修改：Stop hook 改为自动执行，新增 PostToolUse hook
+
+# 上轮（第三轮）修改文件：
 requirements-dev.txt               # 修改：更新版本约束（固定版本 → >= 兼容范围）
 scripts/project_check.py           # 修改：清除已解决的 KNOWN_GAPS，改为 v3.0 演进任务列表
 START_HERE.md                      # 修改：全面更新至当前状态（分支/测试/阶段/下一步）
@@ -210,9 +230,9 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 
 ```markdown
 ## 最后更新
-- **日期**：<YYYY-MM-DD>
-- **提交**：<git log -1 --format="%h %s">
-- **分支**：`<git branch --show-current>`
+- **日期**：2026-06-14
+- **提交**：de22c41 chore: 项目管理完整性审计与修复，新增业务用户使用说明
+- **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作
 1. <具体做了什么>
