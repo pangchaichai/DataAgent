@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `d31f0b8` update traces and test report
 - `3bebf9a` remove old v2.0-beta1 zip, update traces
 - `09c290e` 移除 Claude Code PostToolUse hook（git hooks 已完整覆盖 sync 职责）
 - `de22c41` 项目管理完整性审计与修复，新增业务用户使用说明
