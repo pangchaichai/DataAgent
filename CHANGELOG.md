@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **✨ 新功能**
+- `6b1db91` Skills cleanup, export_data/list_tables tools, confidence annotations
 - `5ecad86` Skill cards, execute endpoint, fund_nav_report compliance fix
 - `02c7a14` 快速路径 + 执行追踪（Week 1 Day 1-4）
 - `d967fba` 完整项目管理机制 — git hooks + CHANGELOG + 自动同步

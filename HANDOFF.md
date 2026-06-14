@@ -9,7 +9,7 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：（待 commit 更新）
+- **提交**：6b1db91 feat(v3-week3): Skills cleanup, export_data/list_tables tools, confidence annotations
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
@@ -406,7 +406,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：5ecad86 feat(v3-week2): Skill cards, execute endpoint, fund_nav_report compliance fix
+- **提交**：6b1db91 feat(v3-week3): Skills cleanup, export_data/list_tables tools, confidence annotations
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作
