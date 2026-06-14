@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `63b45da` auto-update management docs after accc495
 - `3698607` auto-update management docs after 28bc664
 - `accc495` auto-update management docs after 0e49364
 - `28bc664` auto-update management docs after 842ebab
