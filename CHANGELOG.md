@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `71c757a` auto-update management docs after 9c5fa08
 - `c16d188` auto-update management docs after a514571
 - `9c5fa08` auto-update management docs after 369e7a0
 - `a514571` auto-update management docs after 6f05f18
