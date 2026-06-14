@@ -60,6 +60,7 @@ async function pollHealth(){
 }
 
 // Init
+AgentStatus.init();
 refreshSidebar();
 setTimeout(()=>$('input').focus(),200);
 pollHealth();

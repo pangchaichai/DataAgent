@@ -483,6 +483,99 @@ select.sp-input{cursor:pointer;}
 .toast.warning{background:var(--orange);}
 @keyframes toastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 @keyframes toastOut{to{opacity:0;transform:translateY(4px);}}
+
+/* ── Agent Status Bar — DA 小猫头鹰 ── */
+:root{--owl-body:#3B6FDB;--owl-belly:#EFF6FF;--owl-wing:#2558C8;--owl-glasses:#C0A060;}
+[data-theme="dark"]{--owl-body:#4B7FEB;--owl-belly:#1a2a4a;--owl-wing:#3565D5;--owl-glasses:#D4AF60;}
+.agent-status-bar{flex-shrink:0;background:var(--bg-s);border-top:1px solid var(--border);
+  overflow:hidden;position:relative;
+  transition:height .28s cubic-bezier(.4,0,.2,1),opacity .28s ease;}
+.asb-hidden{height:0;opacity:0;pointer-events:none;}
+.asb-visible{opacity:1;}
+.asb-hiding{opacity:0;}
+.asb-row{display:flex;align-items:center;gap:12px;padding:10px 16px;min-height:42px;}
+.asb-owl-wrap{flex-shrink:0;display:flex;align-items:center;}
+.asb-info{flex:1;min-width:0;}
+.asb-label{font-size:13px;font-weight:500;color:var(--text);line-height:1.4;}
+.asb-sublabel{font-size:11px;color:var(--text-3);margin-top:2px;}
+.asb-dots{display:flex;gap:4px;align-items:center;}
+.asb-dots span{width:6px;height:6px;border-radius:50%;background:var(--blue);opacity:.3;
+  animation:asbDot 1.2s ease infinite;}
+.asb-dots span:nth-child(2){animation-delay:.2s;}
+.asb-dots span:nth-child(3){animation-delay:.4s;}
+@keyframes asbDot{0%,80%,100%{opacity:.3;transform:scale(.8);}40%{opacity:1;transform:scale(1.1);}}
+.asb-top-row{display:flex;align-items:center;gap:10px;padding:8px 16px 4px;
+  font-size:12px;color:var(--text-2);}
+.asb-mode-tag{background:var(--blue-bg);color:var(--blue);
+  border:1px solid rgba(37,99,235,.25);border-radius:4px;
+  padding:1px 6px;font-size:11px;font-weight:500;}
+.asb-cur-step{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.asb-elapsed{color:var(--text-3);font-size:11px;white-space:nowrap;}
+.asb-timeline-wrap{position:relative;padding:4px 16px 10px;overflow:hidden;}
+.asb-timeline{display:flex;align-items:center;position:relative;padding-top:32px;}
+.asb-owl-slide{position:absolute;top:-2px;left:0;
+  transition:left .5s cubic-bezier(.34,1.56,.64,1);z-index:5;line-height:0;}
+.asb-step{display:flex;flex-direction:column;align-items:center;flex:1;
+  min-width:52px;position:relative;}
+.asb-step-dot{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);
+  background:var(--bg);display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:600;color:var(--text-3);transition:all .25s ease;z-index:2;}
+.asb-step.running .asb-step-dot{border-color:var(--blue);background:var(--blue-bg);
+  color:var(--blue);animation:asbStepPulse 1.4s ease infinite;}
+.asb-step.done .asb-step-dot{border-color:var(--green);
+  background:var(--green-bg);color:var(--green);}
+.asb-step.failed .asb-step-dot{border-color:var(--red);
+  background:var(--red-bg);color:var(--red);}
+.asb-step-name{font-size:10px;color:var(--text-3);margin-top:3px;text-align:center;
+  max-width:60px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.asb-step.running .asb-step-name{color:var(--blue);font-weight:500;}
+.asb-step.done .asb-step-name{color:var(--green);}
+.asb-step-line{flex:1;height:2px;background:var(--border);
+  align-self:flex-start;margin-top:11px;transition:background .3s;}
+.asb-step-line.done{background:var(--green);}
+.asb-done-green .asb-label{color:var(--green);}
+.asb-done-orange .asb-label{color:var(--orange);}
+.asb-done-yellow .asb-label{color:#ca8a04;}
+.asb-done-red .asb-label{color:var(--red);}
+.asb-done-grey .asb-label{color:var(--text-3);}
+.asb-done-icon{font-size:14px;margin-right:3px;}
+.asb-close{flex-shrink:0;background:none;border:none;color:var(--text-3);
+  cursor:pointer;font-size:13px;padding:4px 6px;border-radius:4px;line-height:1;}
+.asb-close:hover{background:var(--bg-hover);color:var(--text);}
+.asb-waiting .asb-label{color:var(--blue);}
+.asb-pulse-ring{width:28px;height:28px;border-radius:50%;border:2px solid var(--blue);
+  animation:asbPulseRing 1.5s ease infinite;flex-shrink:0;}
+@keyframes asbPulseRing{0%,100%{opacity:.3;transform:scale(.9);}50%{opacity:1;transform:scale(1);}}
+@keyframes asbStepPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.3);}
+  50%{box-shadow:0 0 0 4px rgba(37,99,235,0);}}
+.da-owl{overflow:visible;display:block;}
+.owl-thinking{animation:owlFloat 2s ease-in-out infinite;}
+.owl-working{animation:owlWork .7s ease-in-out infinite;}
+.owl-waiting{animation:owlPulseGlow 1.6s ease infinite;}
+.owl-success{animation:owlCelebrate .7s ease;}
+.owl-failed{animation:owlShake .5s ease;}
+.owl-hard,.owl-partial{animation:owlFloat 3s ease-in-out infinite;}
+.owl-stopped{opacity:.6;}
+@keyframes owlFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+@keyframes owlWork{0%,100%{transform:rotate(0deg);}25%{transform:rotate(-5deg);}75%{transform:rotate(5deg);}}
+@keyframes owlJump{
+  0%{transform:translateY(0) scaleX(1) scaleY(1);}
+  25%{transform:translateY(-14px) scaleX(.9) scaleY(1.15);}
+  55%{transform:translateY(-9px) scaleX(1.05) scaleY(.95);}
+  80%{transform:translateY(-2px) scaleX(.98) scaleY(1.03);}
+  100%{transform:translateY(0) scaleX(1) scaleY(1);}}
+@keyframes owlCelebrate{
+  0%{transform:translateY(0) rotate(0deg);}
+  30%{transform:translateY(-16px) rotate(-15deg);}
+  65%{transform:translateY(-8px) rotate(10deg);}
+  100%{transform:translateY(0) rotate(0deg);}}
+@keyframes owlShake{
+  0%,100%{transform:translateX(0);}20%{transform:translateX(-5px);}
+  40%{transform:translateX(5px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
+@keyframes owlPulseGlow{
+  0%,100%{filter:drop-shadow(0 0 0px var(--blue));}
+  50%{filter:drop-shadow(0 0 6px var(--blue));}}
 </style>
 </head>
 <body>
@@ -599,6 +692,8 @@ select.sp-input{cursor:pointer;}
         </div>
         <button class="scroll-btn" id="scrollBtn" onclick="scrollBottom()">↓ 最新消息</button>
       </div>
+
+      <div id="agentStatusBar" class="agent-status-bar asb-hidden"></div>
 
       <div class="inputbar" id="inputbar" style="position:relative">
         <div class="mention-popup" id="mentionPopup"></div>
@@ -935,6 +1030,7 @@ select.sp-input{cursor:pointer;}
 <script src="/static/js/settings.js"></script>
 <script src="/static/js/skill_builder.js"></script>
 <script src="/static/js/main.js"></script>
+<script src="/static/js/agent_status.js"></script>
 <script src="/static/echarts.min.js"></script>
 </body>
 </html>

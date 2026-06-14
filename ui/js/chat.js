@@ -31,6 +31,7 @@ function stopStream(){
   if(ST._es){ST._es.close();ST._es=null;}
   finPW();endStream();
   addSysMsg('已停止','orange');
+  if(typeof AgentStatus!=='undefined')AgentStatus.onStop();
 }
 
 // Send message
@@ -43,6 +44,7 @@ async function sendMessage(){
   addUserBubble(msg);
   $('chatTitle').textContent=msg.slice(0,40);
   setSendMode('stream');setBusy(true);
+  if(typeof AgentStatus!=='undefined')AgentStatus.onNewMessage();
   try{
     const body={message:msg};
     if(_documentContext){body.document_context=_documentContext;}
@@ -92,6 +94,7 @@ function handleChunk(chunk){
         +'<span class="p-label">'+esc((d||'').slice(0,100))+'</span>';
       _pwBd.appendChild(line);_pwN++;updatePWLabel();
     }
+    if(typeof AgentStatus!=='undefined')AgentStatus.onThinking(d||'');
     scrollBottom();
   }
   else if(t==='tool_start'){
@@ -105,6 +108,7 @@ function handleChunk(chunk){
         +'<span class="p-st running">…</span>';
       _pwBd.appendChild(line);_pwN++;updatePWLabel();
     }
+    if(typeof AgentStatus!=='undefined')AgentStatus.onToolStart(d.tool,d.label);
     scrollBottom();
   }
   else if(t==='tool_end'){
@@ -117,13 +121,16 @@ function handleChunk(chunk){
         if(st){st.className='p-st warn';st.textContent='↻';}if(icon)icon.textContent='↻';
       }
     }
+    if(typeof AgentStatus!=='undefined')AgentStatus.onToolEnd(d.success);
   }
   else if(t==='plan'){
     finPW();breakStream();
     const card=renderPlanCard(d);add(card);
+    if(typeof AgentStatus!=='undefined')AgentStatus.onPlan(d);
   }
   else if(t==='plan_step'){
     updatePlanStep(d.step_id,d.status);
+    if(typeof AgentStatus!=='undefined')AgentStatus.onPlanStep(d.step_id,d.status,d.name);
   }
   else if(t==='plan_done'){}
   else if(t==='table'){breakStream();add(renderTable(d));}
@@ -131,19 +138,25 @@ function handleChunk(chunk){
   else if(t==='confirm'){
     finPW();breakStream();ST.locked=true;lockInput(true);
     const card=renderConfirm(d);add(card);
+    if(typeof AgentStatus!=='undefined')AgentStatus.onConfirm();
     requestAnimationFrame(()=>card.querySelector('.btn.primary')?.focus());
   }
   else if(t==='ask'){
     finPW();breakStream();ST.locked=true;lockInput(true);
     const card=renderAsk(d);add(card);
+    if(typeof AgentStatus!=='undefined')AgentStatus.onAsk(d.question);
     requestAnimationFrame(()=>card.querySelector('.btn.opt')?.focus());
   }
-  else if(t==='error'){finPW();breakStream();addSysMsg(esc(d.message||d),'red');}
+  else if(t==='error'){
+    finPW();breakStream();addSysMsg(esc(d.message||d),'red');
+    if(typeof AgentStatus!=='undefined')AgentStatus.onError(d.message||String(d));
+  }
   else if(t==='chart'){ST.pendingCharts.push(d);}
   else if(t==='stream_end'){
     if(ST._es){ST._es.close();ST._es=null;}
     finPW();endStream();refreshSidebar();
     ST.pendingCharts.forEach(opt=>renderChart(opt));ST.pendingCharts=[];
+    if(typeof AgentStatus!=='undefined')AgentStatus.onStreamEnd();
   }
 }
 function breakStream(){if(streamEl)streamEl.classList.remove('streaming');streamEl=null;}
@@ -156,9 +169,14 @@ function endStream(){
 // Confirm / Ask actions
 async function doConfirm(confirmed){
   ST.locked=false;lockInput(false);
+  if(typeof AgentStatus!=='undefined')AgentStatus.onResume();
   await api('POST','/api/confirm',{confirmed});
   if(!confirmed)addSysMsg('已取消本次操作','orange');
   else{$('input').value='确认继续';sendMessage();}
 }
-function doAsk(choice){ST.locked=false;lockInput(false);$('input').value=choice;sendMessage();}
+function doAsk(choice){
+  ST.locked=false;lockInput(false);
+  if(typeof AgentStatus!=='undefined')AgentStatus.onResume();
+  $('input').value=choice;sendMessage();
+}
 function sendQuick(cmd){$('input').value=cmd;sendMessage();}

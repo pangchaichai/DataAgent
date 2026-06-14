@@ -9,12 +9,45 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：待提交（docs: v3.0 evolution final plan + project deliverable updates）
+- **提交**：feat: DA 小猫头鹰任务状态动画组件
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
 
-## 上次会话完成的工作（2026-06-13 ~ 2026-06-14）
+## 上次会话完成的工作（2026-06-14，第二轮）
+
+### DA 小猫头鹰任务进度动画组件（已完整实现）
+
+新增 Agent 任务状态栏，位于输入框上方，随任务进度动态展示卡通猫头鹰（DA）角色。
+
+**实现内容**：
+
+1. **`ui/js/agent_status.js`（新建，~230行）**
+   - IIFE 模块，公开 API：`init / onNewMessage / onThinking / onPlan / onPlanStep / onToolStart / onToolEnd / onError / onConfirm / onAsk / onStreamEnd / onStop / onResume / dismiss`
+   - 内联 SVG 猫头鹰：耳羽/头/身/腹/眼白/瞳孔高光/金属眼镜框+鼻桥/橙色喙/蓝色领结/翅膀
+   - 5 种展示模态：thinking（漂浮+dots）/ planned（时间轴）/ executing（猫头鹰跳至当前步骤）/ simple（单工具）/ done（彩色完成状态）
+   - 6 种完成状态：success（绿✓）/ hard（橙≈）/ partial（黄?）/ failed（红✗）/ stopped（灰⏸）/ waiting（蓝脉冲）
+   - CSS transition 驱动猫头鹰在时间轴上平滑移动，每步触发 owlJump 动画
+
+2. **`ui/index.html`（修改）**
+   - 新增 CSS：`--owl-body/belly/wing/glasses` 变量 + 深色主题适配
+   - 新增 7 个 @keyframes：owlFloat / owlWork / owlJump / owlCelebrate / owlShake / owlPulseGlow / asbDot
+   - 新增时间轴/状态栏全部 CSS 类（`.asb-*`, `.da-owl.*`）
+   - 在 chat-outer 与 inputbar 之间插入 `<div id="agentStatusBar" class="agent-status-bar asb-hidden"></div>`
+   - 在 main.js 之后插入 `<script src="/static/js/agent_status.js"></script>`
+
+3. **`ui/js/chat.js`（修改）**
+   - `sendMessage()` → `AgentStatus.onNewMessage()`
+   - `stopStream()` → `AgentStatus.onStop()`
+   - `handleChunk()` 所有事件分支末尾追加对应 AgentStatus 调用
+   - `doConfirm()` / `doAsk()` → `AgentStatus.onResume()`
+
+4. **`ui/js/main.js`（修改）**
+   - Init 块中加 `AgentStatus.init()`
+
+---
+
+## 上次会话完成的工作（2026-06-13 ~ 2026-06-14，第一轮）
 
 ### v3.0 演进方案综合评估与最终实施计划
 
@@ -125,9 +158,13 @@ docs/v3-evolution-final-plan.md    ← ★最终实施计划（本次产出，�
 ## 本次会话修改的文件清单
 
 ```
-docs/v3-evolution-final-plan.md    # 新建：v3.0 最终实施计划（~500行）
+ui/js/agent_status.js              # 新建：DA 小猫头鹰任务状态动画 IIFE 模块（~230行）
+ui/index.html                      # 修改：猫头鹰 CSS 变量 + keyframes + asb-* 类 + HTML div + script 标签
+ui/js/chat.js                      # 修改：所有 SSE 事件分支追加 AgentStatus 调用
+ui/js/main.js                      # 修改：init 块加 AgentStatus.init()
 HANDOFF.md                         # 更新：会话交接状态同步
-PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段
+docs/v3-evolution-final-plan.md    # 新建：v3.0 最终实施计划（~500行，上轮完成）
+PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（上轮完成）
 ```
 
 ---
