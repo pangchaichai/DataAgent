@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `df211ee` auto-update management docs after f459559
 - `a1735c9` auto-update management docs after 85f9e49
 - `f459559` auto-update management docs after 9043b50
 - `85f9e49` auto-update management docs after e60086f
