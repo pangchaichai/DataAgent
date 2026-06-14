@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-06-14T10:14:47.863315",
+  "timestamp": "2026-06-14T10:14:58.135073",
   "total": 379,
   "passed": 377,
   "failed": 0,
   "skipped": 0,
   "errors": 0,
   "exit_status": 0,
-  "duration_seconds": 9.45,
+  "duration_seconds": 9.07,
   "failed_tests": []
 }
