@@ -223,12 +223,35 @@ external_sources:
 | 置信度标注 | APPROVE | 集中 Week 3 交付 |
 | fund_nav_report | P0 修复 | 合规风险：B类场景违规用LLM SQL |
 
-### 下一步：按 v3-evolution-final-plan.md Week 1 开始实施
-- [ ] agent/fast_path.py — 确定性快速路径
-- [ ] agent/execution_tracker.py — JSONL 写入端
-- [ ] agent/loop.py — fast_path 集成入口
-- [ ] agent/skill_loader.py — SkillInfo 新增 fixed_calculator + default_args
-- [ ] Week 1 回归测试全绿
+### v3.0 Week 1 — 快速路径 + 执行追踪 ✅ 完成（2026-06-14）
+✅ 已测（L1+L2+L3通过，L4待UAT）— 测试：`tests/test_fast_path.py`（11 个测试）
+
+- [x] `agent/fast_path.py` — 确定性快速路径（跳过 LLM，直接调用固化计算）
+- [x] `agent/execution_tracker.py` — JSONL 写入端（`data/traces/`）
+- [x] `agent/loop.py` — `try_fast_path` 集成入口
+- [x] `skills/concentration_monitor/SKILL.md` — 新增 `default_args` 字段
+- [x] `tests/test_fast_path.py` — 11 个测试全绿（352/352 通过）
+
+---
+
+## v3.0 Week 2 — Skill 卡片 + fund_nav_report 合规修复（进行中）
+
+### 测试计划
+- [ ] 迭代测试计划：`data/test_plans/20260614_v3_week2_skill_cards_and_nav_fix.md`
+
+### 功能开发
+- [ ] `api/skill_api.py` — `GET /api/skills/status`（批量 preflight，30s 缓存）
+- [ ] `api/skill_api.py` — `POST /api/skills/<name>/execute`（复用 SSE 流）
+- [ ] `ui/js/sidebar.js` — Skill 卡片（描述+就绪状态+执行按钮）
+- [ ] `ui/js/chat.js` — `executeSkill()`（复用 SSE 事件流）
+- [ ] `sidebar.js` 表名点击 → `openProfile(tableName)`
+- [ ] `skills/fund_nav_report/SKILL.md` — `calc_type` 改 `fixed`，串联 3 个 calculator
+
+### 测试执行
+- [ ] L1 单元测试：`tests/test_skill_api.py`（新建，覆盖端点逻辑 + 缓存 + 快速路径命中）
+- [ ] L2 功能测试：`/api/skills/status` 就绪/缺数据场景；`/api/skills/<name>/execute` 有效/无效名
+- [ ] L3 集成测试：`executeSkill → SSE → Agent loop → fast_path`（fund_nav_report LLM 调用次数为 0）
+- [ ] L4 UAT：见测试计划 U4-01 ~ U4-06（Windows 内测时业务方确认）
 
 ---
 
