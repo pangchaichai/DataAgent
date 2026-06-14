@@ -48,12 +48,29 @@ def git(cmd: list) -> str:
         return ""
 
 
+SYNC_COMMIT_PATTERN = r"^chore\(sync\):"
+
+
 def get_git_state() -> dict:
+    """返回最后一个有意义提交的 git 状态（跳过 sync 提交）。"""
+    branch = git(["rev-parse", "--abbrev-ref", "HEAD"])
+    # 找最近的非 sync 提交
+    meaningful = git([
+        "log", "-1", "--format=%h|%s|%ad", "--date=short",
+        "--invert-grep", f"--grep={SYNC_COMMIT_PATTERN[1:]}"  # 去掉 ^ 前缀
+    ])
+    if "|" in meaningful:
+        parts = meaningful.split("|", 2)
+        h, s, d = parts[0], parts[1], parts[2] if len(parts) > 2 else ""
+    else:
+        h = git(["log", "-1", "--format=%h"])
+        s = git(["log", "-1", "--format=%s"])
+        d = git(["log", "-1", "--format=%ad", "--date=short"])
     return {
-        "branch":          git(["rev-parse", "--abbrev-ref", "HEAD"]),
-        "commit_hash":     git(["log", "-1", "--format=%h"]),
-        "commit_subject":  git(["log", "-1", "--format=%s"]),
-        "commit_date":     git(["log", "-1", "--format=%ad", "--date=short"]),
+        "branch":          branch,
+        "commit_hash":     h,
+        "commit_subject":  s,
+        "commit_date":     d,
         "dirty":           bool(git(["status", "--porcelain"])),
     }
 
@@ -269,11 +286,11 @@ def build_changelog() -> str:
         if len(parts) < 3:
             continue
         h, date, subject = parts[0], parts[1], parts[2]
-        # 跳过纯管理性提交（无实质内容）
+        # 跳过管理性提交（sync 自动提交 + 纯日志提交）
         clean_subj = subject.lower()
-        if any(skip in clean_subj for skip in [
+        if re.match(r"chore\(sync\):", subject) or any(skip in clean_subj for skip in [
             "update test report", "update handoff", "同步状态",
-            "chore: update test", "chore: 更新 handoff"
+            "chore: update test", "chore: 更新 handoff", "auto-update management"
         ]):
             continue
         emoji, label, clean = _classify_commit(subject)

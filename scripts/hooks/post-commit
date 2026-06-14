@@ -5,16 +5,22 @@
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-# 同步管理文档（静默运行，不阻断流程）
+# ── 防止级联：若本次提交本身就是 sync 提交，直接退出 ─────────────────────────
+SUBJECT=$(git log -1 --format="%s")
+if echo "$SUBJECT" | grep -qE "^chore\(sync\):"; then
+    exit 0
+fi
+
+# ── 同步管理文档（静默运行，不阻断流程）──────────────────────────────────────
 python scripts/sync_project_state.py --quiet 2>/dev/null || exit 0
 
-# 若有更新，新建一个管理文档提交（--no-verify 阻止递归触发）
+# ── 若有更新，新建管理提交（仍会触发本钩子，但上面的检查会立即退出）──────────
 CHANGED=$(git diff --name-only -- HANDOFF.md START_HERE.md \
           data/test_reports/latest_summary.json CHANGELOG.md 2>/dev/null)
 if [ -n "$CHANGED" ]; then
     git add -- HANDOFF.md START_HERE.md \
         data/test_reports/latest_summary.json CHANGELOG.md 2>/dev/null || true
-    git commit --no-verify -q \
-        -m "chore(sync): auto-update management docs after $(git log -2 --format='%h' | tail -1)" \
+    git commit -q \
+        -m "chore(sync): auto-update management docs after $(git log -1 --format='%h' HEAD~1)" \
         2>/dev/null || true
 fi
