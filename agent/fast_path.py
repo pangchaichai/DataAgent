@@ -110,7 +110,7 @@ def run_fast_path(
     else:
         text = _format_multi_result(calc_names, all_results, tables)
 
-    yield {"type": "text", "data": text}
+    yield {"type": "text", "data": text, "confidence": "auditable"}
 
     _log_trace(skill_info.name, "+".join(calc_names), user_message, True, total_ms)
     yield {"type": "stream_end", "data": None}

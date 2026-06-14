@@ -238,6 +238,17 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 .msg-action-btn:hover{background:var(--bg-hover);color:var(--text);}
 [data-theme="dark"] .msg-action-btn{box-shadow:0 1px 4px rgba(0,0,0,.4);}
 
+/* 置信度标签 */
+.conf-tag{display:inline-flex;align-items:center;padding:1px 7px;border-radius:3px;
+  font-size:10px;font-weight:500;margin-left:8px;vertical-align:middle;
+  white-space:nowrap;cursor:default;}
+.conf-tag.conf-auditable{background:#F0FDF4;color:#16A34A;border:1px solid #BBF7D0;}
+.conf-tag.conf-verify{background:#FFF7ED;color:#D97706;border:1px solid #FED7AA;}
+.conf-tag.conf-ai_generated{background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;}
+[data-theme="dark"] .conf-tag.conf-auditable{background:#052e16;color:#4ade80;border-color:#166534;}
+[data-theme="dark"] .conf-tag.conf-verify{background:#2c1a00;color:#fbbf24;border-color:#92400e;}
+[data-theme="dark"] .conf-tag.conf-ai_generated{background:#1e293b;color:#94a3b8;border-color:#334155;}
+
 .bubble{width:100%;padding:10px 14px;border-radius:10px;font-size:13.5px;
   line-height:1.7;word-wrap:break-word;overflow-wrap:break-word;}
 .bubble.user{max-width:min(78%,720px);background:var(--bg-user);color:var(--text);
@@ -722,7 +733,7 @@ select.sp-input{cursor:pointer;}
         </div>
         <div class="inrow" id="inrow">
           <textarea id="input" rows="2"
-            placeholder="输入分析需求… @表名 指定数据表，Enter 发送，Shift+Enter 换行"
+            placeholder="输入分析需求，如「检查集中度」「持仓前10」… Enter 发送，Shift+Enter 换行"
             oninput="autoResize(this)"
             onkeydown="onKey(event)"></textarea>
           <button class="send" id="sendBtn" onclick="sendMessage()">发送</button>

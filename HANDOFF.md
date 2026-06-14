@@ -9,8 +9,73 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：5ecad86 feat(v3-week2): Skill cards, execute endpoint, fund_nav_report compliance fix
+- **提交**：（待 commit 更新）
 - **分支**：`claude/clever-meitner-fqsa3v`
+
+---
+
+## 上次会话完成的工作（2026-06-14，第七轮）
+
+### v3.0 Week 3 — Skills 修复 + 新工具 + 置信度标注
+
+**删除 `skills/client_meeting_report/`**：与 `meeting_report` 完全重复，整目录移除
+
+**更新 `skills/meeting_report/SKILL.md`**：
+- 吸收 client_meeting_report 触发词：`客户合作情况、准入投放、业务合作报告` + `拜访材料`
+- 新增 Step 5 `request_confirmation`（在汇总后要求用户确认再输出完整报告）
+
+**更新 `skills/partnership_summary/SKILL.md`**：
+- 将非正式"人工确认节点"改为正式 Step 4 `request_confirmation` 工具调用步骤
+
+**扩展 `agent/skill_preflight.py`**：
+- 新增 `_skill_dir(skill_name)` 工具函数：返回 skills/{name} 目录 Path
+- 新增 `template_file` 存在性检查：frontmatter 有 `template_file` 字段时，若文件不存在则返回 `blocked=True`
+- 影响：`monthly_bond_summary`（缺模板）将正确阻断；`dept_weekly_report`（有模板）不受影响
+
+**扩展 `agent/tools_spec.py`**：
+- 新增 `list_tables` 工具：调用 `tools.data_loader.get_loaded_tables()` 返回已加载表元数据
+- 新增 `export_data` 工具：直接用 `ctx.duckdb_conn.execute()` 绕过 SQLGuard，写 CSV 到 `data/outputs/`
+- dispatch_map 新增两个入口
+
+**更新 `agent/loop.py`**：
+- `_text(text, confidence=None)` 新增可选参数；有值时在 SSE 事件中附加 `confidence` 字段
+- LLM 文本回复设 `confidence="ai_generated"`
+
+**更新 `agent/fast_path.py`**：
+- `run_fast_path` yield 的 text 事件携带 `confidence="auditable"`
+
+**更新 `ui/js/chat.js`**：
+- `handleChunk` text 分支：第一个文本块初始化 `streamConf = chunk.confidence`，后续块累积
+- `breakStream()` 结束时若有 `streamConf`，在气泡末尾追加 `.conf-tag` span
+
+**更新 `ui/js/state.js`**：
+- 新增模块级变量 `streamConf`（置信度追踪）
+
+**更新 `ui/index.html`**：
+- 新增 `.conf-tag.conf-auditable / .conf-verify / .conf-ai_generated` CSS（含深色主题）
+- placeholder 去技术化：移除 `@表名` 技术术语，改为自然语言示例
+
+**新建 `tests/test_week3.py`（14 个测试，全绿）**：
+- L1-01~L1-08：Skills 合并/preflight 模板检查/新工具/置信度字段
+- L2-01~L2-03：`/api/skills/status` 反映 Week 3 变更
+
+**测试结果**：383 通过，2 跳过，0 失败（新增 14 个）
+
+---
+
+## 立即可执行的下一步（Week 4）
+
+### 优先级排序
+1. **tools_spec.py 拆分**（Day 3）：拆为 `agent/tool_defs.py` + `agent/tool_dispatch.py`，保留转发层
+2. **简化仪表盘**（Day 1-2）：消息流内嵌版，复用 Process Wrapper 位置，步骤列表+高亮+数据源
+3. **欢迎面板统一**（Day 3 追加）：合并 index.html 和 resetChat() 两份面板为 `buildWelcomePanel()`
+4. **Header 重组**（Day 3 追加）：移除 RAM/Token，新增"AI 就绪/N 张表"显示
+5. **端到端联调**（Day 4）：持仓+净值真实数据完整流程
+6. **文档更新**（Day 5）：CLAUDE.md / PROGRESS.md / HANDOFF.md
+
+### 参考资料
+- 演进方案：`docs/v3-evolution-final-plan.md` Week 4 章节
+- 测试计划：需在 Day 1 写 `data/test_plans/20260614_v3_week4_*.md`（T1-T4 关卡）
 
 ---
 

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import fnmatch
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from agent.skill_loader import SkillInfo, _parse_frontmatter
 from tools.data_loader import _loaded_tables, get_connection, get_loaded_tables
@@ -75,6 +76,17 @@ def prepare_skill_for_execution(
     has_new_fields = bool(req_files or opt_files or ext_sources)
     if not has_new_fields:
         req_files, opt_files = _legacy_table_types_to_files(skill_info)
+
+    # ── 阶段0：模板文件存在性检查 ──────────────────────────
+    template_file = metadata.get("template_file", "")
+    if template_file:
+        skill_dir = _skill_dir(skill_info.name)
+        if skill_dir and not (skill_dir / template_file).exists():
+            msg = (
+                f"Skill「{skill_info.name}」需要模板文件「{template_file}」，"
+                f"但该文件不存在于 {skill_dir}。请联系管理员配置模板后再使用。"
+            )
+            return SkillPrepareResult(blocked=True, block_message=msg)
 
     tables = get_loaded_tables()
     table_names = [t["name"] for t in tables]
@@ -134,6 +146,16 @@ def prepare_skill_for_execution(
 # ═══════════════════════════════════════════════════════════════
 #  内部实现
 # ═══════════════════════════════════════════════════════════════
+
+def _skill_dir(skill_name: str) -> Path | None:
+    """返回 Skill 目录路径（基于 session_store.BASE_DIR/skills/）"""
+    try:
+        from session_store import BASE_DIR
+        d = BASE_DIR / "skills" / skill_name
+        return d if d.is_dir() else None
+    except Exception:
+        return None
+
 
 def _legacy_table_types_to_files(
     skill_info: SkillInfo,

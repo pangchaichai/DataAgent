@@ -7,7 +7,7 @@ const ST={
   pendingCharts:[],
   pendingPlanSteps:[],
 };
-let streamEl=null, streamBuf='';
+let streamEl=null, streamBuf='', streamConf=null;
 let _pw=null, _pwBd=null, _pwN=0;
 let _upl=false;
 let _documentContext=null;

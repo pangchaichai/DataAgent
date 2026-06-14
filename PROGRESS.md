@@ -260,6 +260,34 @@ external_sources:
 
 ---
 
+## v3.0 Week 3 — Skills 修复 + 新工具 + 置信度标注 ✅ 已测（L1+L2+L3 通过，L4 待 UAT）
+
+### 测试计划
+- [x] 迭代测试计划：`data/test_plans/20260614_v3_week3_skills_fix_tools_confidence.md`（执行结果已填写）
+
+### 功能开发
+- [x] `skills/client_meeting_report/` — 整目录删除（与 meeting_report 重复）
+- [x] `skills/meeting_report/SKILL.md` — 合并 client_meeting_report 触发词，新增 Step 5 `request_confirmation`
+- [x] `skills/partnership_summary/SKILL.md` — 将非正式确认节点改为正式 Step 4 `request_confirmation`
+- [x] `agent/skill_preflight.py` — 新增 `_skill_dir()` + `template_file` 存在性检查（缺失时阻断）
+- [x] `agent/tools_spec.py` — 新增 `list_tables` 工具 + `export_data` 工具（直连 DuckDB 绕过 SQLGuard）
+- [x] `agent/loop.py` — `_text(text, confidence=None)` 支持置信度字段；LLM 回复 → `confidence="ai_generated"`
+- [x] `agent/fast_path.py` — text 事件携带 `confidence="auditable"`
+- [x] `ui/js/chat.js` — text 分支追踪 `streamConf`，流结束时追加 `.conf-tag` 标签
+- [x] `ui/js/state.js` — 新增 `streamConf` 全局变量
+- [x] `ui/index.html` — `.conf-tag` CSS（3种颜色+深色主题）；placeholder 去技术化
+
+### 测试执行
+- [x] L1 单元测试：`tests/test_week3.py` 14 个测试全绿（Skills合并/preflight模板检查/新工具/置信度字段）
+- [x] L2 功能测试：`/api/skills/status` 反映 Week 3 变更（L2-01~L2-03 全通过）
+- [x] L3 集成测试：fast_path confidence="auditable" 已通过（test_fast_path_emits_auditable）
+- [ ] L4 UAT：见测试计划 U4-07 ~ U4-11（业务方手动验收）
+
+### 全量回归
+- [x] 383 通过，2 跳过，0 失败（2026-06-14）
+
+---
+
 ## v3.0 Week 3 — Skills 修复 + 新工具 + 置信度（待开始）
 
 ### 计划内容

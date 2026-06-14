@@ -333,6 +333,49 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_tables",
+            "description": (
+                "列出当前会话中已加载的所有数据表及其元数据（表名、行数、列数、类型、日期）。"
+                "在不确定有哪些可用数据时先调用此工具，避免引用不存在的表。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "export_data",
+            "description": (
+                "将指定数据表导出为 CSV 文件，返回下载路径供用户下载。"
+                "适用于用户需要将查询结果或分析数据导出到本地的场景。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "table_name": {
+                        "type": "string",
+                        "description": "要导出的表名（必须是已加载的表）",
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": "导出文件名（不含扩展名，如 holding_export）。留空则自动生成。",
+                    },
+                    "sql": {
+                        "type": "string",
+                        "description": "可选：导出前执行的过滤 SQL（SELECT 语句），结果写入 CSV。留空则导出全表。",
+                    },
+                },
+                "required": ["table_name"],
+            },
+        },
+    },
 ]
 
 
@@ -483,6 +526,8 @@ def dispatch_tool(name: str, args: dict, ctx: ToolContext) -> dict:
         "render_chart": _tool_render_chart,
         "read_document": _tool_read_document,
         "web_search": _tool_web_search,
+        "list_tables": _tool_list_tables,
+        "export_data": _tool_export_data,
     }
     handler = dispatch_map.get(name)
     if handler is None:
@@ -1094,6 +1139,71 @@ def _tool_web_search(args: dict, ctx: ToolContext) -> dict:
             }
             for r in resp.results
         ],
+    }
+
+
+def _tool_list_tables(args: dict, ctx: ToolContext) -> dict:
+    """列出已加载的所有数据表及元数据"""
+    from tools.data_loader import get_loaded_tables
+    tables = get_loaded_tables()
+    return {
+        "ok": True,
+        "count": len(tables),
+        "tables": tables,
+    }
+
+
+def _tool_export_data(args: dict, ctx: ToolContext) -> dict:
+    """将数据表（或 SQL 查询结果）导出为 CSV 文件"""
+    import csv
+    import datetime
+
+    from session_store import BASE_DIR
+    from tools.data_loader import get_loaded_tables
+
+    table_name = args.get("table_name", "").strip()
+    if not table_name:
+        return {"ok": False, "error": "table_name 不能为空"}
+
+    loaded = [t["name"] for t in get_loaded_tables()]
+    if table_name not in loaded:
+        return {"ok": False, "error": f"表「{table_name}」未加载，已加载表：{loaded}"}
+
+    # 导出不经过 SQLGuard（写文件的受控操作，非 Agent 自由查询）
+    sql = (args.get("sql") or "").strip()
+    if not sql:
+        sql = f'SELECT * FROM "{table_name}" LIMIT 50000'
+
+    try:
+        rel = ctx.duckdb_conn.execute(sql)
+        columns = [desc[0] for desc in rel.description]
+        rows = rel.fetchall()
+    except Exception as e:
+        return {"ok": False, "error": f"查询失败：{e}"}
+
+    filename = (args.get("filename") or "").strip()
+    if not filename:
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{table_name}_export_{ts}"
+    if not filename.endswith(".csv"):
+        filename += ".csv"
+
+    output_dir = BASE_DIR / "data" / "outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    out_path = output_dir / filename
+
+    with out_path.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(columns)
+        writer.writerows(rows)
+
+    return {
+        "ok": True,
+        "file_path": str(out_path),
+        "filename": filename,
+        "row_count": len(rows),
+        "columns": columns,
+        "message": f"已导出 {len(rows)} 行数据到 {filename}",
     }
 
 

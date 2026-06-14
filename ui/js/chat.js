@@ -72,7 +72,7 @@ function handleChunk(chunk){
     finPW();
     if(!d)return;
     if(!streamEl){
-      streamBuf='';
+      streamBuf='';streamConf=chunk.confidence||null;
       const row=document.createElement('div');
       row.className='msg-row';
       row.innerHTML='<div class="agent-avatar">DA</div>'
@@ -83,6 +83,7 @@ function handleChunk(chunk){
         +'</div></div>';
       streamEl=row.querySelector('.bubble.agent');add(row);
     }
+    if(chunk.confidence)streamConf=chunk.confidence;
     streamBuf+=d;streamEl.innerHTML=renderMd(streamBuf);scrollBottom();
   }
   else if(t==='thinking'){
@@ -159,7 +160,19 @@ function handleChunk(chunk){
     if(typeof AgentStatus!=='undefined')AgentStatus.onStreamEnd();
   }
 }
-function breakStream(){if(streamEl)streamEl.classList.remove('streaming');streamEl=null;}
+function breakStream(){
+  if(streamEl){
+    streamEl.classList.remove('streaming');
+    if(streamConf){
+      const tag=document.createElement('span');
+      tag.className='conf-tag conf-'+streamConf;
+      const CONF_LABELS={auditable:'✓ 已审计',verify:'~ 需核实',ai_generated:'✧ AI生成'};
+      tag.textContent=CONF_LABELS[streamConf]||streamConf;
+      streamEl.appendChild(tag);
+    }
+  }
+  streamEl=null;streamConf=null;
+}
 function endStream(){
   breakStream();streamBuf='';ST.streamId=null;
   setSendMode('idle');setBusy(false);

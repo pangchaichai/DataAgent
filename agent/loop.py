@@ -43,8 +43,11 @@ def _sse_event(event_type: str, data) -> dict:
     return {"type": event_type, "data": data}
 
 
-def _text(text: str) -> dict:
-    return _sse_event("text", text)
+def _text(text: str, confidence: str | None = None) -> dict:
+    evt = _sse_event("text", text)
+    if confidence:
+        evt["confidence"] = confidence
+    return evt
 
 
 def _table(data: dict) -> dict:
@@ -316,7 +319,7 @@ def run_agent_loop(
 
         # 流式输出文本内容
         if result.text:
-            yield _text(result.text)
+            yield _text(result.text, confidence="ai_generated")
 
         # 无 tool_calls → 最终回答
         if not result.tool_calls:
