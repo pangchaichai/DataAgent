@@ -9,7 +9,7 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：f3468ff feat: 项目状态自动同步机制（sync_project_state.py + hooks）
+- **提交**：ce4e9b6 feat: 完整项目管理机制 — git hooks + CHANGELOG + 自动同步
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
@@ -231,7 +231,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：f3468ff feat: 项目状态自动同步机制（sync_project_state.py + hooks）
+- **提交**：ce4e9b6 feat: 完整项目管理机制 — git hooks + CHANGELOG + 自动同步
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作

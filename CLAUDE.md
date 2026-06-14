@@ -1,7 +1,8 @@
-# DataAgent — Claude Code 主引导文件 v2.1
+# DataAgent — Claude Code 主引导文件 v2.2
 
 > 版本历史见文末"改进记录"表格。
-> **测试指南**：完整测试策略见 `TESTING.md`。每次迭代后须按该文件第四章流程执行测试。
+> **测试指南**：完整测试策略见 `TESTING.md`。
+> **自动化机制**：`scripts/sync_project_state.py` 在每次 git commit 后自动维护管理文档。
 
 ---
 
@@ -22,22 +23,38 @@
         - 是否有未提交变更或技术债需要先处理
 ```
 
-### 会话结束（提交代码之前必须做）
+### 会话结束（git commit 前必须做，commit 后自动触发）
 
 ```
-步骤 1：更新 HANDOFF.md（用文件末尾的"会话交接模板"填写）
-        必填字段：最后更新日期/提交哈希、完成的工作、下一步、修改文件清单
-步骤 2：更新 PROGRESS.md（将本次完成的 [ ] 改为 [x]，新增遗留项）
-步骤 3：若本次新增/修改了架构文件，同步更新 CLAUDE.md 对应章节
-步骤 4：运行 pytest tests/ -x -q 确认测试全绿（或记录已知失败）
-步骤 5：git add + commit + push（commit 消息包含本次核心变更摘要）
-步骤 6：告知用户：本次完成了什么，下次从哪里开始（1-2 句话）
+【Claude 负责 — 叙述性内容，需要判断】
+步骤 1：写 HANDOFF.md「上次会话完成的工作」段落 + 「立即可执行的下一步」
+        （最后更新块的日期/提交/分支 → commit 后自动填写，无需手动）
+步骤 2：更新 PROGRESS.md（将完成的 [ ] 改为 [x]，新增遗留项）
+步骤 3：若有架构变更，更新 CLAUDE.md 对应章节
+步骤 4：git add + commit + push
+        ↑ 提交后自动执行（git hooks + Claude PostToolUse）：
+          • pre-commit  → pytest -x + ruff（失败则阻断提交）
+          • post-commit → sync_project_state.py：
+                          更新 HANDOFF.md 最后更新块 / START_HERE.md /
+                          latest_summary.json / CHANGELOG.md
+步骤 5：告知用户：本次完成了什么，下次从哪里开始（1-2 句话）
+
+【首次克隆时运行一次】
+python scripts/install_hooks.py    # 安装 pre-commit / post-commit git 钩子
 ```
+
+### 自动维护的文档（无需手动更新）
+| 文档 | 自动更新时机 | 更新内容 |
+|------|------------|---------|
+| `HANDOFF.md` "最后更新"块 | 每次 git commit | 日期/提交哈希/分支 |
+| `START_HERE.md` 状态行 | 每次 git commit | 分支名/测试结果 |
+| `CHANGELOG.md` | 每次 git commit | 追加本次提交（按类型分组）|
+| `data/test_reports/latest_summary.json` | 每次 git commit | 时间戳；运行测试时更新数值 |
 
 ### 违反协议的后果
-- 跳过 HANDOFF.md 更新 → 下次会话无法定位状态，必须重新阅读大量材料
-- 跳过 PROGRESS.md 更新 → 阶段进度断档，Phase 验收条件不准确
-- 跳过提交 → 下次会话找不到本次工作
+- 跳过 HANDOFF.md 叙述更新 → 下次会话无法定位状态
+- 跳过 PROGRESS.md 更新 → 阶段进度断档
+- 使用 `--no-verify` 跳过 pre-commit → 必须在 HANDOFF.md 记录原因
 
 ---
 

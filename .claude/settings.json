@@ -1,16 +1,10 @@
 {
   "hooks": {
-    "Stop": [
-      {
-        "command": "python scripts/sync_project_state.py",
-        "description": "会话结束自动同步：运行测试 → 更新 latest_summary.json / START_HERE.md / HANDOFF.md 最后更新块"
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Bash",
-        "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'git commit' && python scripts/sync_project_state.py --no-test || true",
-        "description": "git commit 后自动同步管理文档（不重跑测试，仅更新状态字段）"
+        "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'git commit' && python scripts/sync_project_state.py --quiet || true",
+        "description": "git commit 后自动同步管理文档（HANDOFF/START_HERE/CHANGELOG）"
       }
     ]
   }

@@ -1,0 +1,36 @@
+#!/bin/bash
+# DataAgent git pre-commit hook — 质量门禁
+# 安装方式：python scripts/install_hooks.py
+# 跳过方式：git commit --no-verify（需明确决策，禁止日常使用）
+
+set -e
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+echo "🔍 [pre-commit] 运行质量检查..."
+
+# ── 1. 代码 lint（ruff，快速）──────────────────────────────────────────────
+if command -v ruff &>/dev/null; then
+    ruff check . --quiet 2>&1
+    if [ $? -ne 0 ]; then
+        echo "❌ ruff 检查失败，请修复后重试（或 git commit --no-verify 跳过）"
+        exit 1
+    fi
+    echo "  ✅ ruff lint 通过"
+fi
+
+# ── 2. 单元测试（-x：遇第一个失败即停止）──────────────────────────────────
+python -m pytest tests/ -x -q --no-header --tb=short \
+    --ignore=tests/test_web_search.py 2>&1
+# 注：跳过 web_search 测试（需网络，CI 中可能超时）
+
+STATUS=$?
+if [ $STATUS -ne 0 ]; then
+    echo "❌ 测试失败，提交已阻断。请修复后重提交。"
+    echo "   如确认是环境问题可用 git commit --no-verify 跳过（需在 HANDOFF.md 记录原因）"
+    exit 1
+fi
+
+echo "  ✅ 测试通过"
+echo "✅ [pre-commit] 质量检查全部通过"
+exit 0

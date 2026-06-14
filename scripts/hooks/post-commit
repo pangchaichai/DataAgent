@@ -1,0 +1,18 @@
+#!/bin/bash
+# DataAgent git post-commit hook — 提交后自动同步管理文档
+# 安装方式：python scripts/install_hooks.py
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+# 静默运行，不阻断流程（管理文档更新失败不影响提交）
+python scripts/sync_project_state.py --no-test --quiet 2>&1
+
+# 若有更新的管理文档，自动 amend 追加（不改变提交消息）
+CHANGED=$(git diff --name-only HANDOFF.md START_HERE.md \
+          data/test_reports/latest_summary.json CHANGELOG.md 2>/dev/null)
+if [ -n "$CHANGED" ]; then
+    git add HANDOFF.md START_HERE.md \
+        data/test_reports/latest_summary.json CHANGELOG.md 2>/dev/null || true
+    git commit --amend --no-edit --no-verify -q 2>/dev/null || true
+fi
