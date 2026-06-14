@@ -9,7 +9,7 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：bf24e59 chore: update test report and traces (post-session auto-files)
+- **提交**：d4ba98d feat(dist): add v3.0-beta1 release packages to dist/
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
@@ -478,7 +478,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：bf24e59 chore: update test report and traces (post-session auto-files)
+- **提交**：d4ba98d feat(dist): add v3.0-beta1 release packages to dist/
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作

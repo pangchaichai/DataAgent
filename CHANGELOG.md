@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **✨ 新功能**
+- `d4ba98d` add v3.0-beta1 release packages to dist/
 - `3677446` add macOS bundle script, update Windows to v3.0-beta1
 - `23986d6` Split tools_spec, unify welcome panel, refactor header
 - `6b1db91` Skills cleanup, export_data/list_tables tools, confidence annotations
