@@ -5,12 +5,13 @@
 ## [Unreleased]
 
 ### 2026-06-14
+**🔧 维护**
+- `9d66f9d` auto-update management docs after ace38a1
+- `de22c41` 项目管理完整性审计与修复，新增业务用户使用说明
 **✨ 新功能**
 - `d967fba` 完整项目管理机制 — git hooks + CHANGELOG + 自动同步
 - `f3468ff` 项目状态自动同步机制（sync_project_state.py + hooks）
 - `14422cf` DA 小猫头鹰任务状态动画组件
-**🔧 维护**
-- `de22c41` 项目管理完整性审计与修复，新增业务用户使用说明
 **📖 文档更新**
 - `d7f8466` v3.0 evolution final plan + project deliverable updates
 
