@@ -51,10 +51,39 @@ python scripts/install_hooks.py    # 安装 pre-commit / post-commit git 钩子
 | `CHANGELOG.md` | 每次 git commit | 追加本次提交（按类型分组）|
 | `data/test_reports/latest_summary.json` | 每次 git commit | 时间戳；运行测试时更新数值 |
 
+### 迭代测试关卡（Iteration Testing Gate）— 新功能/阶段迭代时强制执行
+
+【迭代开始前（编码前）— 测试设计关卡】
+```
+步骤 T1：分析本次迭代的变更范围和影响面
+步骤 T2：按四层测试框架（L1单元/L2功能/L3集成/L4 UAT）设计测试用例
+步骤 T3：写出迭代测试计划到 data/test_plans/YYYYMMDD_{迭代名}.md
+         （模板见 TESTING.md 第十章）
+步骤 T4：确认已有测试对变更影响面的覆盖情况，补充缺口
+⚠️ 没有测试计划，不得开始写功能代码
+```
+
+【迭代完成后（提交前）— 测试执行关卡】
+```
+步骤 T5：运行全量测试套件（pytest tests/ -v），确认无回归
+步骤 T6：对照测试计划逐条确认：L1~L3 用例全部实现并通过
+步骤 T7：在 data/test_plans/ 下的迭代测试计划中填写执行结果
+步骤 T8：UAT 场景（L4）写入测试计划"待验收"栏，等待业务方/用户确认
+步骤 T9：在 PROGRESS.md 迭代条目旁标注测试状态：
+         ✅ 已测（L1+L2+L3通过，L4待UAT）或 ⚠️ 部分覆盖（说明原因）
+⚠️ 测试未通过或存在P0/P1缺口，不得标记迭代为"完成"
+```
+
+【违反规则的后果】
+- 跳过测试计划（T1-T4）→ PROGRESS.md 不得标记该迭代完成
+- L1/L2/L3 有失败 → 不得提交，先修复
+- 使用 `--no-verify` 跳过 pre-commit → 必须在 HANDOFF.md 记录原因且补写测试
+
 ### 违反协议的后果
 - 跳过 HANDOFF.md 叙述更新 → 下次会话无法定位状态
 - 跳过 PROGRESS.md 更新 → 阶段进度断档
 - 使用 `--no-verify` 跳过 pre-commit → 必须在 HANDOFF.md 记录原因
+- 跳过迭代测试计划（T1-T4）→ 该迭代不得标记完成
 
 ---
 
