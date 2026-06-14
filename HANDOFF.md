@@ -9,7 +9,7 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：0f42b1f chore(sync): auto-update management docs after f8eaa96
+- **提交**：1293354 chore(sync): fix post-commit hook (new commit vs amend) + update management docs
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
@@ -231,7 +231,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：0f42b1f chore(sync): auto-update management docs after f8eaa96
+- **提交**：1293354 chore(sync): fix post-commit hook (new commit vs amend) + update management docs
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作
