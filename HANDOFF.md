@@ -9,8 +9,38 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：feat: DA 小猫头鹰任务状态动画组件
+- **提交**：chore: 项目管理完整性审计与修复
 - **分支**：`claude/clever-meitner-fqsa3v`
+
+---
+
+## 上次会话完成的工作（2026-06-14，第三轮）
+
+### 项目管理完整性审计与修复
+
+**问题发现与修复**：
+
+1. **依赖版本过时（requirements-dev.txt）**
+   - `sqlglot==23.12.2` → `>=23.0.0`（已验证 30.11.0 可用）
+   - `duckdb==0.10.3` → `>=1.0.0`（已验证 1.5.3）
+   - `pandas==2.2.2` → `>=2.2.0`（已验证 3.0.3）
+   - 其余过旧固定版本均改为 `>=` 兼容约束
+
+2. **project_check.py 陈旧技术债清除**
+   - 移除已解决的 KNOWN_GAPS（I-7/I-9/I-10 早于 2026-06-08 修复）
+   - 替换为 v3.0 演进下一步行动列表
+
+3. **START_HERE.md 大幅更新**
+   - 更新至当前分支和正确测试结果
+   - 补充 v3.0 演进状态和 Skill v3 完成状态
+
+4. **新建 docs/user-guide.md**
+   - 面向投资业务人员的完整使用说明（约 300 行）
+   - 涵盖：启动、上传、查询、Skills 详解、图表、导出、设置、FAQ、数据安全
+
+5. **测试全绿**
+   - 修复缺失依赖（sqlglot / duckduckgo-search / rank_bm25）
+   - 最终结果：341 通过，2 跳过，0 失败
 
 ---
 
@@ -158,11 +188,18 @@ docs/v3-evolution-final-plan.md    ← ★最终实施计划（本次产出，�
 ## 本次会话修改的文件清单
 
 ```
+requirements-dev.txt               # 修改：更新版本约束（固定版本 → >= 兼容范围）
+scripts/project_check.py           # 修改：清除已解决的 KNOWN_GAPS，改为 v3.0 演进任务列表
+START_HERE.md                      # 修改：全面更新至当前状态（分支/测试/阶段/下一步）
+docs/user-guide.md                 # 新建：面向业务用户的完整使用说明文档（~300行）
+data/test_reports/latest_summary.json  # 修改：更新测试结果（341通过，2跳过，0失败）
+HANDOFF.md                         # 更新：本轮工作记录
+
+# 上轮（第二轮）修改文件：
 ui/js/agent_status.js              # 新建：DA 小猫头鹰任务状态动画 IIFE 模块（~230行）
 ui/index.html                      # 修改：猫头鹰 CSS 变量 + keyframes + asb-* 类 + HTML div + script 标签
 ui/js/chat.js                      # 修改：所有 SSE 事件分支追加 AgentStatus 调用
 ui/js/main.js                      # 修改：init 块加 AgentStatus.init()
-HANDOFF.md                         # 更新：会话交接状态同步
 docs/v3-evolution-final-plan.md    # 新建：v3.0 最终实施计划（~500行，上轮完成）
 PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（上轮完成）
 ```

@@ -1,39 +1,47 @@
-# DataAgent 开发环境依赖（Linux / Mac / Claude Code 环境）
+# DataAgent 开发环境依赖（Linux / macOS / Claude Code 环境）
 # 安装命令：pip install -r requirements-dev.txt
 #
 # 说明：
-#   本文件只包含 Linux 开发环境所需依赖，不含 Windows 专属库
+#   本文件只包含 Linux/macOS 开发环境所需依赖，不含 Windows 专属库
 #   Windows 生产环境请使用 requirements-prod.txt
+#
+# 版本策略：
+#   核心数据引擎使用 >= 以兼容环境差异（DuckDB/pandas/sqlglot 已验证 1.x/3.x/30.x）
+#   Web 框架使用 >= 保持灵活性
 
 # ── Web 框架（开发/生产共用）──────────────────────────────
-flask==3.0.3
-flask-cors==4.0.1
+flask>=3.0.3
+flask-cors>=4.0.1
 
 # ── 数据引擎（开发/生产共用）──────────────────────────────
-duckdb==0.10.3
-pandas==2.2.2
-openpyxl==3.1.2
+duckdb>=1.0.0          # 已验证 1.5.3
+pandas>=2.2.0          # 已验证 3.0.3
+openpyxl>=3.1.0
 
 # ── 数据处理（开发/生产共用）──────────────────────────────
-chardet==5.2.0
-pyyaml==6.0.1
-jinja2==3.1.4
-python-docx==1.1.2
-requests==2.32.3
-sqlglot==23.12.2
+chardet>=5.0.0         # 已验证 7.4.3
+pyyaml>=6.0.1
+jinja2>=3.1.4
+python-docx>=1.1.0     # 已验证 1.2.0
+requests>=2.32.0
+sqlglot>=23.0.0        # 已验证 30.11.0（API 兼容 23+）
 
 # ── 定时任务（开发/生产共用）──────────────────────────────
-schedule==1.2.1
+schedule>=1.2.0
 
 # ── 开发调试辅助 ──────────────────────────────────────────
-pytest==8.2.0
-pytest-cov==5.0.0
+pytest>=8.0.0
+pytest-cov>=5.0.0
 
-# ── 原生窗口（可选，macOS 用户若想用客户端模式需安装）────
-# pip install pywebview    → macOS 客户端模式（自动检测，未安装则回退浏览器）
-# winotify==1.1.0          → Windows toast 通知，见 requirements-prod.txt
-# pyinstaller==6.6.0       → Windows 打包用，见 requirements-prod.txt
-psutil>=5.9.0
-rank_bm25>=0.2.2
-pypdf>=3.0           # PDF 文档解析（I-6）
-duckduckgo-search>=6.0  # 联网搜索（I-6）
+# ── 可选功能依赖 ───────────────────────────────────────────
+psutil>=5.9.0              # 进程内存监控
+rank_bm25>=0.2.2           # 跨会话记忆检索（默认关闭）
+pypdf>=3.0                 # PDF 文档解析
+duckduckgo-search>=6.0     # 联网搜索
+
+# ── 原生窗口（可选）────────────────────────────────────────
+# macOS 客户端模式（未安装则自动回退浏览器模式）：
+#   pip install pywebview
+# Windows 专属（见 requirements-prod.txt）：
+#   winotify==1.1.0    → toast 通知
+#   pyinstaller==6.6.0 → 打包为 .exe

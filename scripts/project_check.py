@@ -64,14 +64,12 @@ CRITICAL_FILES = [
     ("platform_adapter/notify_driver.py", "通知驱动"),
 ]
 
-# ── 已知技术债（明确标注，避免被误报为错误）──────────────────────────────────
-KNOWN_GAPS = [
-    ("I-7",  "api/ Blueprint 6个模块未注册到 main.py",
-     "api/chat.py, data.py, config_api.py, skill_api.py, report_api.py, system_api.py"),
-    ("I-9",  "calculators 3个新文件未加入 run_calculator 工具枚举",
-     "agent/tools_spec.py 需添加: position_diff, leverage, liquidity"),
-    ("I-10", "ui/js/ 9个模块文件未被 index.html 引用",
-     "index.html 仍为单体 2233行内联 JS"),
+# ── v3.0 演进任务（按优先级，参照 docs/v3-evolution-final-plan.md）────────────
+V3_NEXT_STEPS = [
+    ("P0-W1", "fast_path.py",          "确定性快速路径（concentration_monitor <1s 响应）"),
+    ("P0-W1", "execution_tracker.py",  "执行追踪 JSONL 写入端"),
+    ("P0-W2", "fund_nav_report 修复",  "合规修复：B类场景违规使用 LLM SQL → 改调 calculators"),
+    ("P0-W2", "Skill 卡片 UI",         "侧边栏 Skill 条目改为卡片 + 一键执行按钮"),
 ]
 
 # ── Phase 4 进入条件（外部阻塞项）─────────────────────────────────────────────
@@ -207,11 +205,11 @@ def main():
     print_section("当前阶段")
     print(f"  {check_phase()}")
 
-    # ── 已知技术债 ──────────────────────────────────────────────────────────
-    print_section("已知技术债（不阻塞业务，但需修复）")
-    for tag, problem, detail in KNOWN_GAPS:
-        print(f"  ⚠️  [{tag}] {problem}")
-        print(f"       → {detail}")
+    # ── v3.0 演进下一步 ──────────────────────────────────────────────────────
+    print_section("v3.0 演进下一步（参照 docs/v3-evolution-final-plan.md）")
+    for tag, task, desc in V3_NEXT_STEPS:
+        print(f"  [{tag}] {task}")
+        print(f"       → {desc}")
 
     # ── Phase 4 阻塞项 ────────────────────────────────────────────────────────
     print_section("Phase 4 进入条件（外部阻塞，等待业务方）")
