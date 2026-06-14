@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `3b87502` auto-update management docs after e7bac00
 - `80c8443` auto-update management docs after 70e079b
 - `e7bac00` auto-update management docs after 5d69cf1
 - `70e079b` auto-update management docs after 746d5e5
