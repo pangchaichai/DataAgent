@@ -9,7 +9,7 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：6b1db91 feat(v3-week3): Skills cleanup, export_data/list_tables tools, confidence annotations
+- **提交**：23986d6 feat(v3-week4): Split tools_spec, unify welcome panel, refactor header
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
@@ -478,7 +478,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：6b1db91 feat(v3-week3): Skills cleanup, export_data/list_tables tools, confidence annotations
+- **提交**：23986d6 feat(v3-week4): Split tools_spec, unify welcome panel, refactor header
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作
