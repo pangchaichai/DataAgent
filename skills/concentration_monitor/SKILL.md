@@ -10,6 +10,11 @@ required_table_types:
   - holding
 optional_table_types:
   - user_product_mapping
+default_args:
+  market_value_field: "穿透后市值"
+  threshold_entity: 10.0
+  threshold_single_bond: 10.0
+  use_group_merge: true
 ---
 
 ## 重要：本 Skill 使用固化计算，不允许 LLM 生成 SQL

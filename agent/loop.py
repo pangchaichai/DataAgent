@@ -261,6 +261,18 @@ def run_agent_loop(
             if session_messages and session_messages[-1].get("role") == "user":
                 session_messages[-1]["content"] += f"\n\n{prep.skill_note}"
 
+    # ── 快速路径：固化计算直接执行，跳过 LLM ────────────────────
+    if matched_skill_info and not pending:
+        from agent.fast_path import can_fast_path, run_fast_path
+        if can_fast_path(matched_skill_info):
+            yield from run_fast_path(
+                skill_info=matched_skill_info,
+                tool_ctx=tool_ctx,
+                tables=tables,
+                user_message=user_message,
+            )
+            return
+
     # ── Tool-calling 循环 ──────────────────────────────────
     from agent.context import compress_messages
     _logger = _get_logger()

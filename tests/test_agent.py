@@ -389,8 +389,9 @@ class TestToolCallingLoop:
         ])
 
         from agent.loop import run_agent_loop
+        # 使用不匹配任何固化 Skill 的消息，确保走 LLM 路径
         events1 = list(run_agent_loop(
-            "查集中度", mock1, skill_loader,
+            "分析持仓数据口径", mock1, skill_loader,
             session_messages=None, pending=None,
         ))
 
@@ -414,7 +415,7 @@ class TestToolCallingLoop:
         # 重建 session_messages（从 events1 中提取消息无法做到，用简化方式）
         msgs = [
             {"role": "system", "content": "你是 DataAgent。"},
-            {"role": "user", "content": "查集中度"},
+            {"role": "user", "content": "分析持仓数据口径"},
             {"role": "assistant", "content": "需要确认", "tool_calls": [
                 {"id": "tc_ask", "type": "function",
                  "function": {"name": "ask_user", "arguments": '{"question":"用穿透后还是半穿透口径？","options":["穿透后","半穿透"]}'}}
@@ -467,12 +468,13 @@ class TestToolCallingLoop:
         session_msgs: list[dict] = []
 
         mock1 = MockChatLLM([
-            _make_chat_result(text="A产品的集中度是5%，未超标。", tool_calls=[]),
+            _make_chat_result(text="A产品的持仓市值最高。", tool_calls=[]),
         ])
 
         from agent.loop import run_agent_loop
+        # 使用不触发快速路径的消息（持仓查询为探索式 Skill）
         events1 = list(run_agent_loop(
-            "A产品集中度怎么样", mock1, skill_loader,
+            "A产品持仓市值多少", mock1, skill_loader,
             session_messages=session_msgs, pending=None,
         ))
         assert events1[-1]['type'] == 'stream_end'
