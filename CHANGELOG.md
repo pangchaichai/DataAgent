@@ -5,6 +5,9 @@
 ## [Unreleased]
 
 ### 2026-06-14
+**📖 文档更新**
+- `9f88468` add Iteration Testing Gate to session protocol (CLAUDE.md)
+- `d7f8466` v3.0 evolution final plan + project deliverable updates
 **🐛 问题修复**
 - `1c3f6c0` resolve all ruff warnings across codebase
 - `c07d85c` 防止 post-commit 级联触发
@@ -16,8 +19,6 @@
 **🔧 维护**
 - `09c290e` 移除 Claude Code PostToolUse hook（git hooks 已完整覆盖 sync 职责）
 - `de22c41` 项目管理完整性审计与修复，新增业务用户使用说明
-**📖 文档更新**
-- `d7f8466` v3.0 evolution final plan + project deliverable updates
 
 ### 2026-06-13
 **📖 文档更新**
