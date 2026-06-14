@@ -1,11 +1,3 @@
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -q 'git commit' && python scripts/sync_project_state.py --quiet || true",
-        "description": "git commit 后自动同步管理文档（HANDOFF/START_HERE/CHANGELOG）"
-      }
-    ]
-  }
+  "hooks": {}
 }

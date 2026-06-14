@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### 2026-06-14
+**🐛 问题修复**
+- `c07d85c` 防止 post-commit 级联触发
 **✨ 新功能**
 - `d967fba` 完整项目管理机制 — git hooks + CHANGELOG + 自动同步
 - `f3468ff` 项目状态自动同步机制（sync_project_state.py + hooks）
