@@ -8,50 +8,47 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-12
-- **提交**：f4c2c2d feat(upload): local work directory + batch upload support
-- **分支**：`claude/sleepy-cori-5b5xow`（主开发分支，`feature/skill-data-awareness` 已合并）
+- **日期**：2026-06-14
+- **提交**：待提交（docs: v3.0 evolution final plan + project deliverable updates）
+- **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
 
-## 上次会话完成的工作（2026-06-10 ~ 2026-06-12）
+## 上次会话完成的工作（2026-06-13 ~ 2026-06-14）
 
-### 分支整合
-- `feature/skill-data-awareness` fast-forward 合并至 `claude/sleepy-cori-5b5xow`（f4c2c2d）
-- 本地 `feature/skill-data-awareness` 分支已删除（远端因权限限制保留，作为历史归档）
-- `dataagent2.0-win-betabug` 分支为旧 Windows beta 快照，保留为历史参考
+### v3.0 演进方案综合评估与最终实施计划
 
-### Skill v3 完整实现（共 5 个 commit 在主线）
-**Phase A — 数据感知预检**（b3c878a 前）：
-- `agent/skill_preflight.py` 新建（`prepare_skill_for_execution()` 单一入口）
-- `agent/skill_loader.py` 加 `metadata: dict` 字段
-- `agent/loop.py` Skill 注入替换为 preflight 调用
+对现有 `docs/v3-architecture-evolution.md`（1318行）进行了完整的专家级评审，产出最终可执行方案：
 
-**Phase B — Skill Builder 数据感知**（a1597ab）：
-- `tools/skill_builder.py` generate prompt 注入 `data_context`
-- `SkillDraft` 新增 required_files/optional_files/external_sources
-- `api/skill_api.py` generate 端点传 schema context
+1. **逐 Track 评审判定**（原方案 vs 推荐方案对比表）：
+   - Track 1 ToolRegistry → **ADJUST**（降级为文件拆分，80%收益20%成本）
+   - Track 2A 快速路径 → **APPROVE（P0）**（补充 default_args 参数来源方案）
+   - Track 2B ExecutionTracker → **APPROVE（简化版，仅写入端）**
+   - Track 2C D-term → **DEFER**（误报风险高，需先有数据）
+   - Track 3 Skill卡片 → **APPROVE，提升为 P0**
+   - Track 4 Eval Framework → **DEFER**（缺 baseline 数据）
+   - 仪表盘 → **ADJUST**（简化为消息流内嵌）
+   - 置信度标注 → **APPROVE**（集中交付）
+   - fund_nav_report → **P0 合规修复**（B类场景违规使用LLM SQL）
 
-**Phase C — 需求文档直接导入**（9c874b9）：
-- `tools/skill_builder.py`：`import_from_requirement_doc()` + `build_import_prompt()`
-- `api/skill_api.py`：新增 `POST /api/skill-builder/import`
-- `ui/js/skill_builder.js` + `ui/index.html`：Step 0 "从文档导入"入口
+2. **发现 6 个原方案未覆盖的问题**（合规风险、参数来源、handler签名、影响面、迁移策略、内存预算）
 
-**两个验收用 Skill**（e390f5a）：
-- `skills/weekly_report_generator/SKILL.md`（新建）— 理财周报多模板生成器，5 个输出 CSV
-- `skills/meeting_report/SKILL.md`（替换）— 谈参要点 v3，含集团关系树 + 动态持仓表
+3. **制定 4 周现实版实施方案**：
+   - Week 1: 快速路径 + ExecutionTracker 写入端
+   - Week 2: Skill 卡片 + 一键执行 + fund_nav_report 修复 + 侧边栏 UI
+   - Week 3: Skills 修复 + 新工具 + 置信度标注 + 交互体验
+   - Week 4: 简化仪表盘 + tools_spec 拆分 + 全局 UI 统一 + 文档
 
-**文件上传升级**（f4c2c2d）：
-- `tools/workdir_loader.py`（新建）— 工作目录扫描
-- `api/data.py` — 3 个新端点（workdir files/preview/load）
-- `api/config_api.py` — `app.work_dir` 配置字段
-- `agent/skill_preflight.py` — Phase 1.5 自动扫描工作目录，block_message 显示候选文件
-- `ui/js/sidebar.js` — "工作目录"侧边栏区块
-- `ui/js/settings.js` / `ui/js/upload.js` / `ui/index.html` — 配套 UI
-- `tests/test_workdir_loader.py`（新建）— 9 个单测
+4. **补充 UI 设计优化方案**（第五章，6 类问题 + 7 项具体优化）：
+   - 5.1 侧边栏 Skill 卡片化 + 数据表直达
+   - 5.2 智能快捷按钮（上下文感知）
+   - 5.3 欢迎面板统一 + 状态感知
+   - 5.4 Header 信息重组（面向业务用户）
+   - 5.5 输入体验优化（去技术化）
+   - 5.6 消息体验增强（导出Word + 错误重试）
 
-### 测试结果
-- **341/341 通过**，2 跳过，无回归（最后运行：2026-06-10）
+### 产出文件
+- `docs/v3-evolution-final-plan.md` — 最终实施计划（约 500 行），作为下一步升级的主要输入材料
 
 ---
 
@@ -59,35 +56,56 @@
 
 ### 阶段
 ```
-Skill v3 全部完成并已合并主线（claude/sleepy-cori-5b5xow @ f4c2c2d）
-文件上传升级（批量 + 工作目录）已完成
-Phase 4 待进入：需等 C-02/C-03/C-04 模板业务方确认
+v2.0 全部完成 + Skill v3 已合并主线
+v3.0 演进方案已评审完毕，最终实施计划已产出
+下一步：按 v3-evolution-final-plan.md 的 Week 1 开始实施
 ```
+
+### 关键文档关系
+```
+docs/v3-architecture-evolution.md  ← 原始方案（1318行，供参考）
+docs/v3-evolution-final-plan.md    ← ★最终实施计划（本次产出，作为执行依据）
+```
+
+### 测试
+- **结果**：341/341 通过，2 跳过，无回归
+- **最后运行**：2026-06-10
 
 ### 已知外部阻塞项
 - Phase 4 进入条件：C-02（周报模板）、C-03（月报模板）、C-04（Word 格式）待业务方确认
 - Phase 5 PyInstaller 打包：需 Windows 11 环境执行
-- Windows 内测包重建：当前 `dist/DataAgent-v2.0-beta1.zip` 基于旧 betabug 分支，应从主线重建
 
 ---
 
 ## 立即可执行的下一步（按优先级排序）
 
-1. **Windows 内测包重建**（高优先级）
-   - 在 Windows 11 上从 `claude/sleepy-cori-5b5xow` 重新运行 `python scripts/package_windows.py`
-   - 验证 Skill v3（weekly_report_generator / meeting_report v3）+ 工作目录功能
+### 1. 开始 v3.0 Week 1 实施（P0，高优先级）
 
-2. **Windows 内测继续**
-   - 验证 `weekly_report_generator` Skill：上传周报数据源 CSV → 触发 → 验证 5 个输出 CSV
-   - 验证 `meeting_report` v3：上传信用数据 CSV → 验证谈参要点生成
-   - 验证工作目录：设置工作目录路径 → 确认侧边栏显示文件 → 按需加载
+**参照文档**：`docs/v3-evolution-final-plan.md` 第四章
 
-3. **Phase 4 进入条件**（外部依赖）
-   - 等待 C-02/C-03/C-04 模板确认后开始 `dept_weekly_report` / `monthly_bond_summary` Skill
+**Day 1-2: 快速路径**
+- 新建 `agent/fast_path.py`
+- `agent/skill_loader.py` SkillInfo 新增 `fixed_calculator` 一级字段
+- Skill SKILL.md 增加 `default_args` 可选字段（向后兼容）
+- concentration_monitor SKILL.md 先行添加 default_args 作为验证
 
-4. **旧分支清理**（低优先级，可选）
-   - 在 GitHub 上手动删除 `feature/skill-data-awareness` 远端分支（CLI 因权限被 403 拒绝）
-   - 为 `dataagent2.0-win-betabug` 打 tag `v2.0-beta1-win` 后可考虑删除
+**Day 3: loop.py 集成**
+- `agent/loop.py` 加 `try_fast_path` 分支（在 Skill 匹配 + preflight 后、agent loop 前）
+
+**Day 4: ExecutionTracker**
+- 新建 `agent/execution_tracker.py`（仅 JSONL 写入端）
+- loop.py + fast_path.py 埋点
+
+**Day 5: 回归测试**
+- `pytest tests/ -x -q` 全绿
+- 验收：concentration_monitor 触发 → 响应 <1s → data/traces/ 有 JSONL → 无 LLM 调用
+
+### 2. fund_nav_report 合规修复（P0，Week 2 Day 5）
+- `skills/fund_nav_report/SKILL.md` calc_type 改 fixed
+- 串联 nav_metrics + asset_structure + credit_distribution 三个已有 calculator
+
+### 3. Windows 内测包重建（可并行）
+- 从主线重新构建，验证 Skill v3 + 工作目录功能
 
 ---
 
@@ -96,18 +114,20 @@ Phase 4 待进入：需等 C-02/C-03/C-04 模板业务方确认
 | 决策 | 原因 | 影响 |
 |------|------|------|
 | OCP 分层：loop.py 稳态 / skill_preflight.py 敏态 | 新增 Skill 准备逻辑不改核心循环 | 所有 Skill 相关改进集中在 skill_preflight.py |
-| 工作目录文件不复制到 uploads/ | 避免大文件重复占用磁盘 | load_file() 直接从 workdir 路径入库，路径安全校验放 api 层 |
-| Phase C 用 LLM 解析需求文档 | 需求文档格式多样，正则无法可靠提取 | 依赖 LLM 可用性，parse 失败有清晰错误提示 |
-| DataSource 抽象不引入（YAGNI） | 当前只有两种来源（uploads/workdir），抽象层为时过早 | 代码以兼容未来 RemoteDBDataSource 的方式编写，零成本迁移 |
+| 工作目录文件不复制到 uploads/ | 避免大文件重复占用磁盘 | load_file() 直接从 workdir 路径入库 |
+| ToolRegistry 降级为文件拆分 | 当前仅 11 工具 7 calculator，完整 Registry 收益不足 | Week 4 拆分 tools_spec.py 为 tool_defs + tool_dispatch |
+| Eval Framework 推迟到 v3.1 | 缺 baseline 数据，阈值无统计依据 | 先跑 ExecutionTracker 积累 2-4 周数据 |
+| 仪表盘简化为消息流内嵌 | 1366x768 分辨率下独立面板压缩聊天区 19% | 用户反馈不足再升级为独立面板 |
+| fund_nav_report 提升为 P0 修复 | B 类合规场景违规使用 LLM SQL，"精确的错误"风险 | Week 2 串联 3 个已有 calculator |
 
 ---
 
 ## 本次会话修改的文件清单
 
 ```
-HANDOFF.md                         # 分支合并后状态同步
-PROGRESS.md                        # 两个验收 Skill 标记完成，工作目录功能标记完成
-CLAUDE.md                          # 版本历史表新增 v2.2 两条记录
+docs/v3-evolution-final-plan.md    # 新建：v3.0 最终实施计划（~500行）
+HANDOFF.md                         # 更新：会话交接状态同步
+PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段
 ```
 
 ---

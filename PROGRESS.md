@@ -203,6 +203,35 @@ external_sources:
 
 ---
 
+## v3.0 演进规划 ✅ 完成（2026-06-14）
+
+### 方案评审
+- [x] 对 `docs/v3-architecture-evolution.md`（1318行）进行逐 Track 专家评审
+- [x] 产出最终实施计划 `docs/v3-evolution-final-plan.md`（~500行）
+- [x] 4 周实施方案（Week 1-4）+ UI 设计优化方案（6类问题7项优化）
+
+### Track 判定汇总
+| Track | 判定 | 说明 |
+|-------|------|------|
+| Track 1 ToolRegistry | ADJUST | 降级为文件拆分（tool_defs + tool_dispatch） |
+| Track 2A 快速路径 | APPROVE（P0） | 补充 default_args 参数来源 |
+| Track 2B ExecutionTracker | APPROVE（简化版） | 仅做写入端 JSONL |
+| Track 2C D-term | DEFER → v3.1 | 需先有 baseline 数据 |
+| Track 3 Skill卡片 | APPROVE（P0） | 提升优先级 |
+| Track 4 Eval Framework | DEFER → v3.1 | 缺 baseline + 校准数据 |
+| 仪表盘 | ADJUST | 消息流内嵌（非独立面板） |
+| 置信度标注 | APPROVE | 集中 Week 3 交付 |
+| fund_nav_report | P0 修复 | 合规风险：B类场景违规用LLM SQL |
+
+### 下一步：按 v3-evolution-final-plan.md Week 1 开始实施
+- [ ] agent/fast_path.py — 确定性快速路径
+- [ ] agent/execution_tracker.py — JSONL 写入端
+- [ ] agent/loop.py — fast_path 集成入口
+- [ ] agent/skill_loader.py — SkillInfo 新增 fixed_calculator + default_args
+- [ ] Week 1 回归测试全绿
+
+---
+
 ## Phase 4 — 批量报告（进入条件：C-02/03/04 模板已确认）
 - [ ] skills/dept_weekly_report/ + template
 - [ ] skills/monthly_bond_summary/ + template
