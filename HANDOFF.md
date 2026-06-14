@@ -9,7 +9,7 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：7970f18 chore(sync): auto-update management docs after 2a9c4cc
+- **提交**：0af22ef chore(sync): auto-update management docs after d698df2
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
@@ -231,7 +231,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：7970f18 chore(sync): auto-update management docs after 2a9c4cc
+- **提交**：0af22ef chore(sync): auto-update management docs after d698df2
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作
