@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `db6a336` auto-update management docs after 1bbfccc
 - `4578f4a` auto-update management docs after b69632e
 - `1bbfccc` auto-update management docs after 596fd53
 - `b69632e` auto-update management docs after 44a40e0
