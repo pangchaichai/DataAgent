@@ -9,7 +9,7 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：（下次 commit 自动填写）
+- **提交**：5ecad86 feat(v3-week2): Skill cards, execute endpoint, fund_nav_report compliance fix
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
@@ -341,7 +341,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：7873528 docs(quality): establish 4-layer iteration testing mechanism
+- **提交**：5ecad86 feat(v3-week2): Skill cards, execute endpoint, fund_nav_report compliance fix
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作
