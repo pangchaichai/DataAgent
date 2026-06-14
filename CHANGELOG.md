@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `4ec362b` auto-update management docs after 1293354
 - `46b030f` auto-update management docs after f38be70
 - `1293354` fix post-commit hook (new commit vs amend) + update management docs
 - `f38be70` auto-update management docs after d8a19b4
