@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `74e4113` auto-update management docs after de1235d
 - `e6401b7` auto-update management docs after 010b3c3
 - `de1235d` auto-update management docs after 1999b35
 - `010b3c3` auto-update management docs after be52cc5
