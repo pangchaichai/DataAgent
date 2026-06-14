@@ -16,25 +16,25 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # ── 运行时依赖（排除 pyinstaller / pytest） ──────────────────────────
 RUNTIME_DEPS = [
-    "flask==3.0.3",
-    "flask-cors==4.0.1",
-    "duckdb==0.10.3",
-    "pandas==2.2.2",
-    "openpyxl==3.1.2",
-    "chardet==5.2.0",
-    "pyyaml==6.0.1",
-    "jinja2==3.1.4",
-    "python-docx==1.1.2",
-    "requests==2.32.3",
-    "sqlglot==23.12.2",
-    "schedule==1.2.1",
+    "flask>=3.0.3",
+    "flask-cors>=4.0.1",
+    "duckdb>=1.0.0",
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.0",
+    "chardet>=5.0.0",
+    "pyyaml>=6.0.1",
+    "jinja2>=3.1.4",
+    "python-docx>=1.1.0",
+    "requests>=2.32.0",
+    "sqlglot>=23.0.0",
+    "schedule>=1.2.0",
     "pypdf>=3.0",
     "duckduckgo-search>=6.0",
     "psutil>=5.9.0",
     "rank_bm25>=0.2.2",
-    "pywebview==4.3.3",
-    "winotify==1.1.0",
-    "pythonnet==3.0.4",        # pywebview 在 Windows 上的硬依赖
+    "pywebview>=4.3.3",
+    "winotify>=1.1.0",
+    "pythonnet>=3.0.4",        # pywebview 在 Windows 上的硬依赖
     "python-dotenv>=1.0",
 ]
 
@@ -85,7 +85,7 @@ EXCLUDE_PATTERNS = [
 ]
 
 # ── 内测包版本号 ──────────────────────────────────────────────────────
-BUNDLE_VERSION = "v2.0-beta1"
+BUNDLE_VERSION = "v3.0-beta1"
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -515,16 +515,17 @@ README_TXT = """DataAgent %VERSION% — Windows 内测版
 ══════════════════════════════════════════════════
   内测说明
 ══════════════════════════════════════════════════
-  本版本为 DataAgent v2.0 Evolution 内测版。
+  本版本为 DataAgent v3.0 内测版。
   包含功能：
-  • 数据上传（CSV，支持 GB18030/UTF-8 编码）
+  • 数据上传（CSV/Excel/Word/PDF，支持 GB18030/UTF-8 自动识别）
   • 自然语言查询（探索式分析）
-  • 固化计算器（集中度/净值/收益率/杠杆率/流动性等）
+  • 分析技能卡片（就绪状态 + 一键执行）
+  • 固化计算快速路径（集中度 < 0.5s，合规审计日志）
+  • 净值/收益率/资产结构/信用分布等固化指标
   • 图表生成（柱状图/饼图/折线图/散点图）
   • 报告生成（Markdown + Word 导出）
-  • 文档解析（Word/PDF/TXT 上传）
-  • 联网搜索（可选）
-  • 合规监控 + 参谈要点
+  • 置信度标签（✓ 已审计 / ~ 需核实 / ✧ AI生成）
+  • 参谈要点 + 合规监控
 
   反馈请联系：<内部沟通渠道>
 """
