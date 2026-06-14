@@ -9,7 +9,7 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：c07d85c fix(sync): 防止 post-commit 级联触发
+- **提交**：09c290e chore: 移除 Claude Code PostToolUse hook（git hooks 已完整覆盖 sync 职责）
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
@@ -231,7 +231,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：c07d85c fix(sync): 防止 post-commit 级联触发
+- **提交**：09c290e chore: 移除 Claude Code PostToolUse hook（git hooks 已完整覆盖 sync 职责）
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作
