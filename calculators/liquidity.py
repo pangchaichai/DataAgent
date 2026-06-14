@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 
 import duckdb
 
-
 # 流动性分层映射（G06一级分类 → 层级）
 # 层级越低流动性越强：1=高流动性，2=中，3=低，4=非流动
 _DEFAULT_LIQUIDITY_TIERS: dict[str, int] = {

@@ -68,7 +68,8 @@ class TestHookManager:
 
     def test_unregister(self):
         calls = []
-        cb = lambda ctx: calls.append(1)
+        def cb(ctx):
+            calls.append(1)
         self.hm.register("pre_tool_use", cb)
         self.hm.unregister("pre_tool_use", cb)
         self.hm.emit("pre_tool_use", {})
@@ -99,7 +100,8 @@ class TestHookManager:
 
         def worker():
             try:
-                cb = lambda ctx: count.append(1)
+                def cb(ctx):
+                    count.append(1)
                 self.hm.register("on_agent_turn_end", cb)
                 for _ in range(20):
                     self.hm.emit("on_agent_turn_end", {})
@@ -133,6 +135,7 @@ class TestComplianceHashChain:
     def test_first_record_has_seed_hash(self, tmp_path, monkeypatch):
         """首条记录 prev_hash 应等于种子哈希"""
         import hashlib
+
         from tools import compliance_audit as ca
         monkeypatch.setattr(ca, '_audit_dir', lambda: tmp_path)
         monkeypatch.setattr(ca, '_log_file', lambda: tmp_path / 'audit_test.jsonl')
@@ -143,8 +146,6 @@ class TestComplianceHashChain:
         )
         assert result.ok
 
-        events = ca.read_audit_log.__wrapped__(tmp_path / 'audit_test.jsonl') \
-            if hasattr(ca.read_audit_log, '__wrapped__') else None
         # Read directly
         import json
         lines = (tmp_path / 'audit_test.jsonl').read_text().strip().split('\n')
@@ -154,7 +155,9 @@ class TestComplianceHashChain:
 
     def test_second_record_links_to_first(self, tmp_path, monkeypatch):
         """第二条记录 prev_hash 应等于第一条的 SHA256"""
-        import hashlib, json
+        import hashlib
+        import json
+
         from tools import compliance_audit as ca
         monkeypatch.setattr(ca, '_audit_dir', lambda: tmp_path)
         monkeypatch.setattr(ca, '_log_file', lambda: tmp_path / 'audit_chain.jsonl')

@@ -91,7 +91,7 @@ def check_git():
     branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     last_commit = _run(["git", "log", "-1", "--format=%h %s (%ar)"])
     status_raw = _run(["git", "status", "--porcelain"])
-    uncommitted = [l for l in status_raw.splitlines() if l.strip()] if status_raw else []
+    uncommitted = [line for line in status_raw.splitlines() if line.strip()] if status_raw else []
     return branch, last_commit, uncommitted
 
 

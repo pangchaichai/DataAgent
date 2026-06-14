@@ -19,6 +19,7 @@ class TestBuildSchemaContext:
     def setup_tables(self):
         """创建两张测试表"""
         import duckdb
+
         import tools.data_loader as dl
         dl._global_conn = None
         dl._loaded_tables.clear()
@@ -126,7 +127,7 @@ class TestCompressMessages:
         last_4 = non_sys[-4:]
         orig_non_sys = [m for m in msgs if m.get("role") != "system"]
         orig_last_4 = orig_non_sys[-4:]
-        for orig, comp in zip(orig_last_4, last_4):
+        for orig, comp in zip(orig_last_4, last_4, strict=False):
             assert comp["content"] == orig["content"]
 
     def test_long_tool_result_compressed(self):
@@ -289,8 +290,9 @@ class TestCostTracker:
         assert ct.get_summary().total_calls == 0
 
     def test_to_dict_serializable(self):
-        from tools.cost_tracker import CostTracker
         import json
+
+        from tools.cost_tracker import CostTracker
         ct = CostTracker()
         ct.record("deepseek", input_tokens=500, output_tokens=100, duration_ms=200)
         d = ct.to_dict()
@@ -300,6 +302,7 @@ class TestCostTracker:
 
     def test_thread_safety(self):
         import threading
+
         from tools.cost_tracker import CostTracker
         ct = CostTracker()
         errors = []

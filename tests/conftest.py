@@ -62,7 +62,6 @@ def pytest_sessionfinish(session, exitstatus):
 def pytest_runtest_makereport(item, call):
     if call.when == "call":
         from _pytest.runner import pytest_runtest_makereport as _make
-        report = call.excinfo is None
         class SimpleReport:
             passed = call.excinfo is None
             failed = call.excinfo is not None

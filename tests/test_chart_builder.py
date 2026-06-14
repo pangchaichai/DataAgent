@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tools.chart_builder import build_chart, _deep_merge
+from tools.chart_builder import _deep_merge, build_chart
 
 
 class TestBuildPieChart:

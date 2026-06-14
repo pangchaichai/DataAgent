@@ -2,12 +2,13 @@
 tests/test_self_check.py — SelfChecker 单元测试（ETCLOVG V 层）
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
+
 from agent.self_check import SelfChecker
 
 

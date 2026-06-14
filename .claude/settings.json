@@ -1,3 +1,18 @@
 {
-  "hooks": {}
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "echo \"$CLAUDE_TOOL_INPUT\" | python -c \"import sys,json,re; inp=json.load(sys.stdin); cmd=inp.get('command',''); exit(0 if not re.search(r'git push.*--force|git reset.*--hard|git clean.*-f|rm -rf', cmd) else (print('⛔ 危险操作被拦截：' + cmd[:80]) or 1))\"",
+        "description": "拦截危险 git 操作（force push / reset --hard / clean -f）"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "echo \"$CLAUDE_TOOL_INPUT\" | python -c \"import sys,json; cmd=json.load(sys.stdin).get('command',''); exit(0)\" 2>/dev/null; echo \"$CLAUDE_TOOL_INPUT\" | grep -q '\"git commit' && python scripts/sync_project_state.py --no-test --quiet || true",
+        "description": "git commit 后自动同步管理文档（不重跑测试，由 pre-commit hook 负责）"
+      }
+    ]
+  }
 }

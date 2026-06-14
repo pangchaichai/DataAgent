@@ -139,7 +139,7 @@ def test_load_nonexistent_file():
     dl._loaded_tables.clear()
     dl.init_duckdb_connection()
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         load_file('/nonexistent/file.csv', 'bad_table')
 
 
@@ -238,8 +238,9 @@ class TestExtractDateFromFilename:
         assert result == '20260515'
 
     def test_4digit_mmdd(self):
-        from tools.data_loader import extract_date_from_filename
         from datetime import datetime
+
+        from tools.data_loader import extract_date_from_filename
         result = extract_date_from_filename('nav_0501.csv')
         assert result is not None
         assert result.endswith('0501')

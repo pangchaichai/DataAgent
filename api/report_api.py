@@ -24,7 +24,8 @@ def api_report_generate():
     if not isinstance(report_data, dict):
         return jsonify({"ok": False, "error": "data 必须为 JSON 对象"}), 400
 
-    from tools.report_builder import export_word as do_export, render_report
+    from tools.report_builder import export_word as do_export
+    from tools.report_builder import render_report
     result = render_report(template_name, report_data)
     if not result.ok:
         return jsonify({"ok": False, "error": result.error}), 400

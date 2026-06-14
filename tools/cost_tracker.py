@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import Optional
-
 
 # DeepSeek V3 定价（CNY/1M tokens，仅估算用）
 _DEEPSEEK_INPUT_PRICE_PER_1M = 1.0    # ¥1.0/1M input tokens
@@ -137,7 +135,7 @@ class CostTracker:
 # ═══════════════════════════════════════════════════════════════
 
 _tracker_lock = threading.Lock()
-_tracker: Optional[CostTracker] = None
+_tracker: CostTracker | None = None
 
 
 def get_cost_tracker() -> CostTracker:

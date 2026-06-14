@@ -10,7 +10,6 @@ agent/context.py — Agent 上下文构建（I-3b 三级压缩）
 所有信息来源于 data_loader 的已加载表注册表，不重复读取文件。
 """
 
-import json
 
 from tools.data_loader import _loaded_tables, get_loaded_tables
 

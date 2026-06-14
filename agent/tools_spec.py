@@ -12,7 +12,7 @@ agent/tools_spec.py — Agent 工具定义与分发表
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -996,8 +996,10 @@ def _tool_generate_report(args: dict, ctx: ToolContext) -> dict:
       asset_structure → concentration_report（结构类似，复用）
       custom          → 需要 data["template"] 指定模板名
     """
-    from tools.report_builder import render_report, export_word as _export_word
     from datetime import datetime
+
+    from tools.report_builder import export_word as _export_word
+    from tools.report_builder import render_report
 
     report_type = args.get("report_type", "")
     data = dict(args.get("data") or {})

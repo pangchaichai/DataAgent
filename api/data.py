@@ -62,12 +62,13 @@ def api_upload():
             "table_count": len(doc_result.tables),
         })
 
+    import pandas as pd
+
     from tools.data_loader import (
         auto_detect_table_type,
         detect_encoding,
         extract_date_from_filename,
     )
-    import pandas as pd
     try:
         if ext == '.csv':
             enc = detect_encoding(file_path)
@@ -196,8 +197,9 @@ def api_workdir_preview():
     except ValueError:
         return jsonify({"ok": False, "error": "非法文件路径"}), 400
 
-    from tools.data_loader import auto_detect_table_type, detect_encoding, extract_date_from_filename
     import pandas as pd
+
+    from tools.data_loader import auto_detect_table_type, detect_encoding, extract_date_from_filename
     ext = file_path.suffix.lower()
     try:
         if ext == '.csv':
@@ -314,7 +316,7 @@ def api_table_profile(table_name):
 
 @data_bp.route('/api/tables/<table_name>/quality')
 def api_table_quality(table_name):
-    from tools.data_loader import get_connection, get_loaded_tables, _loaded_tables
+    from tools.data_loader import _loaded_tables, get_connection, get_loaded_tables
     tables = get_loaded_tables()
     match = next((t for t in tables if t['name'] == table_name), None)
     if not match:
@@ -322,8 +324,9 @@ def api_table_quality(table_name):
     conn = get_connection()
     if not conn:
         return jsonify({"error": "数据库连接不可用"}), 500
-    from tools.quality import compute_quality_report
     from dataclasses import asdict
+
+    from tools.quality import compute_quality_report
     try:
         table_type = match.get('type', 'unknown')
         loaded_info = _loaded_tables.get(table_name)

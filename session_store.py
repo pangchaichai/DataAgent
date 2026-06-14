@@ -2,7 +2,6 @@
 session_store.py — 共享会话状态（被 api/ Blueprint 模块导入）
 """
 import json
-import queue
 import threading
 import time
 import uuid

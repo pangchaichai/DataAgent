@@ -6,7 +6,6 @@ tools/file_reader.py — 文档类文件读取（Word / PDF / TXT）
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass

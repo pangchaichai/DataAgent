@@ -119,9 +119,9 @@ def verify_chain(date_str: str = "") -> tuple[bool, str]:
     log_path = _audit_dir() / f'audit_{date_str}.jsonl'
     if log_path.exists():
         with open(log_path, 'rb') as f:
-            log_lines = [l.strip() for l in f if l.strip()]
+            log_lines = [ln.strip() for ln in f if ln.strip()]
 
-    for i, (event, raw) in enumerate(zip(events, log_lines)):
+    for i, (event, raw) in enumerate(zip(events, log_lines, strict=False)):
         expected_prev = prev
         actual_prev = event.get('prev_hash', '')
         if actual_prev != expected_prev:

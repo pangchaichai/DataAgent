@@ -14,11 +14,9 @@ agent/executor.py — Plan-Execute 执行层（I-8）
 """
 
 from collections.abc import Generator
-from typing import Optional
 
 from agent.loop import run_agent_loop
 from agent.planner import Plan
-
 
 # ═══════════════════════════════════════════════════════════════
 #  主入口：带计划的执行
@@ -30,9 +28,9 @@ def run_with_plan(
     llm_client,
     skill_loader,
     turn_count: int = 0,
-    session_messages: Optional[list] = None,
-    pending: Optional[dict] = None,
-    document_context: Optional[dict] = None,
+    session_messages: list | None = None,
+    pending: dict | None = None,
+    document_context: dict | None = None,
 ) -> Generator[dict, None, None]:
     """
     将 Plan 包装执行：

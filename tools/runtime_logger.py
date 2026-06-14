@@ -287,7 +287,7 @@ class RuntimeLogger:
             return 0
         total = 0
         try:
-            with open(today_file, 'r', encoding='utf-8') as f:
+            with open(today_file, encoding='utf-8') as f:
                 for line in f:
                     if '"category":"llm"' not in line:
                         continue

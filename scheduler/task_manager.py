@@ -61,7 +61,8 @@ class TaskManager:
     def _register_task(self, task: dict):
         """根据 schedule 字段注册对应的调度规则"""
         sched = task['schedule']
-        job_fn = lambda t=task: self._execute_task(t)
+        def job_fn(t=task):
+            return self._execute_task(t)
 
         if sched.startswith('daily_'):
             time_str = sched.replace('daily_', '')        # "08:30"

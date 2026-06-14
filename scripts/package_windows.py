@@ -7,11 +7,9 @@
 """
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -210,7 +208,6 @@ def download_deps(deps_dir: Path) -> None:
     # 这里扫描 deps/ 中每个包的 METADATA，提取 Windows 专属传递依赖并下载。
     print("   阶段 3/3: 补充 Windows 专属传递依赖 ...")
 
-    import email.parser
     import zipfile as zf_mod
 
     windows_only_deps: dict[str, str] = {}  # pkg_name → requirement spec
@@ -606,7 +603,7 @@ def main():
 
     print()
     print("=" * 60)
-    print(f"  ✅ 内测包构建完成")
+    print("  ✅ 内测包构建完成")
     print(f"  📁 {zip_path}")
     print(f"  📏 大小: {zip_size_mb:.1f} MB")
     print("=" * 60)

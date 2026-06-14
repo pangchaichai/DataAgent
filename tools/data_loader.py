@@ -246,7 +246,6 @@ def _score_encoding(file_path: str, encoding: str) -> tuple[int, str]:
             return (-1, "空表头")
 
         score = 0
-        total = len(header)
         cjk = suspicious = ascii_chars = 0
 
         for ch in header:
@@ -273,8 +272,8 @@ def _score_encoding(file_path: str, encoding: str) -> tuple[int, str]:
 
         # 解码成功率：用 pandas 试读验证（StringIO 已是 str，无需指定 encoding）
         try:
-            df = pd.read_csv(io.StringIO(text), dtype=str,
-                             nrows=5, keep_default_na=False, na_values=[''])
+            pd.read_csv(io.StringIO(text), dtype=str,
+                        nrows=5, keep_default_na=False, na_values=[''])
             # pandas 能成功解析 → +5 分
             score += 5
         except Exception:
@@ -322,7 +321,7 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
 
     # 日志输出评分详情
     results.sort(key=lambda x: x[1], reverse=True)
-    for enc, score, reason in results[:4]:
+    for enc, _score, reason in results[:4]:
         marker = ' ★' if enc == best_enc else ''
         print(f"[data_loader]   {enc}: {reason}{marker}")
 

@@ -94,7 +94,7 @@ def run_tests() -> dict:
 
     lines = result.stdout.strip().splitlines()
     summary_line = next(
-        (l for l in reversed(lines) if "passed" in l or "failed" in l), ""
+        (ln for ln in reversed(lines) if "passed" in ln or "failed" in ln), ""
     )
     passed  = _parse_int(r"(\d+) passed", summary_line)
     failed  = _parse_int(r"(\d+) failed", summary_line)
@@ -241,7 +241,7 @@ def build_changelog() -> str:
 
     # 获取全量 commit 列表
     log_raw = git(["log", "--format=%h|%ad|%s", "--date=short"])
-    commits = [l.split("|", 2) for l in log_raw.splitlines() if "|" in l]
+    commits = [ln.split("|", 2) for ln in log_raw.splitlines() if "|" in ln]
 
     if not commits:
         return "# DataAgent CHANGELOG\n\n暂无提交记录。\n"
@@ -280,7 +280,7 @@ def build_changelog() -> str:
                     version_map[h[:7]] = tag
 
     # 按日期分组 commit
-    from collections import defaultdict, OrderedDict
+    from collections import defaultdict
     by_date: dict = defaultdict(list)
     for parts in commits:
         if len(parts) < 3:
@@ -385,7 +385,7 @@ def update_changelog():
     path = BASE / "CHANGELOG.md"
     content = build_changelog()
     path.write_text(content, "utf-8")
-    log(f"  ✏️  CHANGELOG.md 已重新生成")
+    log("  ✏️  CHANGELOG.md 已重新生成")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

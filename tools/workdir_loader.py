@@ -17,6 +17,7 @@ def get_work_dir() -> Path | None:
     """从 config.yaml 读取工作目录路径，不存在或未配置则返回 None。"""
     try:
         import yaml
+
         from session_store import BASE_DIR
         cfg_path = BASE_DIR / 'config.yaml'
         src = cfg_path if cfg_path.exists() else BASE_DIR / 'config.example.yaml'

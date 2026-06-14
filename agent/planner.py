@@ -15,7 +15,6 @@ agent/planner.py — Agent 规划层（I-8）
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 # ═══════════════════════════════════════════════════════════════
 #  数据结构
@@ -135,7 +134,7 @@ def build_plan(
     llm_client,
     schema_ctx: str = "",
     skills_ctx: str = "",
-) -> Optional[Plan]:
+) -> Plan | None:
     """
     调用 LLM 生成执行计划。失败时返回 None（降级为直接循环）。
 

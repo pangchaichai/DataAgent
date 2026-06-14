@@ -21,11 +21,11 @@ import socket
 import time
 from pathlib import Path
 
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
-from platform_adapter.ui_driver import get_driver
-from platform_adapter.notify_driver import get_notify_driver
 
+from platform_adapter.notify_driver import get_notify_driver
+from platform_adapter.ui_driver import get_driver
 
 # ═══════════════════════════════════════════════════════════════
 #  基础路径（绝对路径，兼容 PyInstaller 打包 + 任意 CWD）
@@ -47,8 +47,9 @@ def find_free_port() -> int:
 
 
 def load_config(path: str = None) -> dict:
-    import yaml
     from pathlib import Path
+
+    import yaml
     cfg_path = Path(path) if path else BASE_DIR / 'config.yaml'
     if not cfg_path.exists():
         cfg_path = BASE_DIR / 'config.example.yaml'
@@ -89,10 +90,10 @@ def create_flask_app() -> Flask:
 
     # ── 注册 Blueprint 模块 ────────────────────────────────
     from api.chat import chat_bp
-    from api.data import data_bp
     from api.config_api import config_bp
-    from api.skill_api import skill_bp
+    from api.data import data_bp
     from api.report_api import report_bp
+    from api.skill_api import skill_bp
     from api.system_api import system_bp
 
     app.register_blueprint(chat_bp)

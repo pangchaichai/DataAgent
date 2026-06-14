@@ -7,6 +7,7 @@ tests/test_agent.py — Agent 层单元测试
 import os
 import sys
 import tempfile
+
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -206,8 +207,8 @@ class TestAgentLoopBasic:
 
     def test_loop_no_tables_yields_help(self):
         """无数据表时 Agent 仍运行（不硬性阻断），最终产出 stream_end"""
-        from agent.loop import run_agent_loop
         import tools.data_loader as dl
+        from agent.loop import run_agent_loop
         dl._global_conn = None
         dl._loaded_tables.clear()
         dl.init_duckdb_connection()
@@ -224,8 +225,8 @@ class TestAgentLoopBasic:
         assert events[0]['type'] == 'error'
 
     def test_loop_yields_stream_end(self):
-        from agent.loop import run_agent_loop
         import tools.data_loader as dl
+        from agent.loop import run_agent_loop
         dl._global_conn = None
         dl._loaded_tables.clear()
         dl.init_duckdb_connection()
@@ -281,6 +282,7 @@ def _make_tool_call(name, args, tc_id=""):
 def _setup_test_holding_table():
     """创建一张最小持仓测试表"""
     import duckdb
+
     import tools.data_loader as dl
     dl._global_conn = None
     dl._loaded_tables.clear()
@@ -323,7 +325,7 @@ class TestToolCallingLoop:
 
     def test_loop_multistep_runs_tools(self):
         """验证多步 tool-calling 事件顺序正确"""
-        conn = _setup_test_holding_table()
+        _setup_test_holding_table()
         skill_loader = self._get_skill_loader()
 
         # Mock LLM: profile_table → run_sql → 最终回答
@@ -353,7 +355,7 @@ class TestToolCallingLoop:
 
     def test_loop_calculator_path(self):
         """验证 run_calculator 路径正确执行"""
-        conn = _setup_test_holding_table()
+        _setup_test_holding_table()
         skill_loader = self._get_skill_loader()
 
         mock = MockChatLLM([
@@ -377,7 +379,7 @@ class TestToolCallingLoop:
 
     def test_loop_ask_user_pause_resume(self):
         """验证 ask_user 暂停 → 保存 pending → 续跑"""
-        conn = _setup_test_holding_table()
+        _setup_test_holding_table()
         skill_loader = self._get_skill_loader()
 
         # 第一次：ask_user 暂停
@@ -435,7 +437,7 @@ class TestToolCallingLoop:
 
     def test_no_llm_sql_for_compliance(self):
         """合规路径不应让 LLM 生成的 SQL 进入 query_runner"""
-        conn = _setup_test_holding_table()
+        _setup_test_holding_table()
         skill_loader = self._get_skill_loader()
 
         # run_calculator 使用固化公式，不经过 query_runner
@@ -461,7 +463,7 @@ class TestToolCallingLoop:
 
     def test_multiturn_memory(self):
         """两次连续消息：第二条应带上第一条的上下文"""
-        conn = _setup_test_holding_table()
+        _setup_test_holding_table()
         skill_loader = self._get_skill_loader()
 
         # 第一轮对话 — 传入空列表，loop 会往里追加消息
@@ -520,9 +522,11 @@ class TestSchemaInference:
 
     def test_propose_dict_is_draft_only(self):
         """propose_dict_entry 只写 drafts/，不改正式字典"""
-        import yaml
         from pathlib import Path
-        from agent.tools_spec import _tool_propose_dict_entry, ToolContext
+
+        import yaml
+
+        from agent.tools_spec import ToolContext, _tool_propose_dict_entry
 
         ctx = ToolContext()
         # 写入测试草稿
@@ -543,9 +547,11 @@ class TestSchemaInference:
 
     def test_confirm_dict_merges_draft(self):
         """confirm_dict 应合并草稿到正式字典"""
-        import yaml
         from pathlib import Path
-        from agent.tools_spec import _tool_propose_dict_entry, _tool_confirm_dict, ToolContext
+
+        import yaml
+
+        from agent.tools_spec import ToolContext, _tool_confirm_dict, _tool_propose_dict_entry
 
         ctx = ToolContext()
         # 先写草稿

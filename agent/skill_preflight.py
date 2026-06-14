@@ -23,7 +23,6 @@ from dataclasses import dataclass, field
 from agent.skill_loader import SkillInfo, _parse_frontmatter
 from tools.data_loader import _loaded_tables, get_connection, get_loaded_tables
 
-
 # ═══════════════════════════════════════════════════════════════
 #  数据结构
 # ═══════════════════════════════════════════════════════════════
@@ -288,10 +287,10 @@ def _format_block_message(
 
         candidates = (workdir_hints or {}).get(sem, [])
         if candidates:
-            lines.append(f"\n  💡 工作目录中发现候选文件：")
+            lines.append("\n  💡 工作目录中发现候选文件：")
             for c in candidates[:3]:
                 lines.append(f"     • {c['filename']}（{c['size_kb']} KB，{c['mtime']}）")
-            lines.append(f"     → 请在左侧边栏「工作目录」中点击「加载」，再重新发送指令")
+            lines.append("     → 请在左侧边栏「工作目录」中点击「加载」，再重新发送指令")
 
     if not any((workdir_hints or {}).get(sem) for sem in missing_required):
         lines.append("\n请上传对应数据文件后，重新发送指令即可。")

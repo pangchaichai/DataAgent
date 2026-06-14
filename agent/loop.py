@@ -276,7 +276,7 @@ def run_agent_loop(
     # ── Tool-calling 循环 ──────────────────────────────────
     from agent.context import compress_messages
     _logger = _get_logger()
-    for turn in range(MAX_TURNS):
+    for _turn in range(MAX_TURNS):
         # C 层：历史消息压缩（超过 8 条非系统消息时启用）
         messages_to_send = compress_messages(session_messages)
         _llm_t0 = time.perf_counter()

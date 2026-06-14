@@ -167,8 +167,9 @@ class TestExportWord:
         assert "象屿集团" in tables_text or "象屿集团" in full_text
 
     def test_heading_levels(self, tmp_path):
-        from tools.report_builder import export_word
         from docx import Document
+
+        from tools.report_builder import export_word
         md = "# 一级标题\n\n## 二级标题\n\n### 三级标题\n\n正文内容。\n"
         out = str(tmp_path / "headings.docx")
         result = export_word(md, out)
@@ -187,8 +188,9 @@ class TestExportWord:
         assert Path(result.word_path).exists()
 
     def test_bold_text(self, tmp_path):
-        from tools.report_builder import export_word
         from docx import Document
+
+        from tools.report_builder import export_word
         md = "这是 **加粗文字** 测试。\n"
         out = str(tmp_path / "bold.docx")
         result = export_word(md, out)
@@ -206,7 +208,7 @@ class TestExportWord:
 
 class TestRenderAndExport:
     def test_concentration_full_pipeline(self, tmp_path):
-        from tools.report_builder import render_report, export_word
+        from tools.report_builder import export_word, render_report
         data = {
             "title": "集中度报告 2026-06-06",
             "product_name": "全部产品",

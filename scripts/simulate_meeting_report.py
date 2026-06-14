@@ -12,13 +12,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import os
+import os  # noqa: E402
+
 os.chdir(ROOT)
 
-from datetime import datetime
+from datetime import datetime  # noqa: E402
 
 # ─── 1. 初始化 DuckDB（内存模式） ─────────────────────────────
-from tools.data_loader import init_duckdb_connection, load_file
+from tools.data_loader import init_duckdb_connection, load_file  # noqa: E402
 
 conn = init_duckdb_connection()
 print("✅ DuckDB 初始化完成")
@@ -217,7 +218,7 @@ meeting_suggestions = f"""1. **准入额度使用已趋饱和**：集团系批�
 5. **建议拜访路径**：集团财务部 → 各子公司分管副总，重点收集 2025 年报及 2026Q1 财务数据，作为半年度评级复审依据。"""
 
 # ─── 8. 渲染 Jinja2 模板 ──────────────────────────────────────
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader  # noqa: E402
 
 template_dir = ROOT / "skills" / "meeting_report"
 env = Environment(loader=FileSystemLoader(str(template_dir)))
@@ -247,5 +248,5 @@ print(f"   存续债：{len(bond_holdings)} 只")
 print(f"   报告大小：{len(report_md)} 字符")
 print('='*60)
 print("\n📄 报告预览（前 30 行）：\n")
-for i, line in enumerate(report_md.split('\n')[:30]):
+for _i, line in enumerate(report_md.split('\n')[:30]):
     print(line)

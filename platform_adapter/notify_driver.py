@@ -44,7 +44,7 @@ class WindowsToastDriver(NotifyDriver):
             if level == "warning":
                 toast.set_audio(audio.Default, loop=False)
             toast.show()
-        except Exception as e:
+        except Exception:
             # 降级到控制台
             ConsoleFallback().push(message, title, level)
 
