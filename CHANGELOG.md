@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `eab4c77` auto-update management docs after d967fba
 - `9d66f9d` auto-update management docs after ace38a1
 - `de22c41` 项目管理完整性审计与修复，新增业务用户使用说明
 **✨ 新功能**
