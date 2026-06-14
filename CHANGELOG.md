@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `1406d71` auto-update management docs after 6679686
 - `11cc653` auto-update management docs after 96fcac2
 - `6679686` auto-update management docs after 83ffb77
 - `96fcac2` auto-update management docs after ca1ac78
