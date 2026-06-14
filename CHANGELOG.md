@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `65ed4ec` auto-update management docs after a99a36c
 - `9901e9d` auto-update management docs after f59e3b2
 - `a99a36c` auto-update management docs after adb5b2d
 - `f59e3b2` auto-update management docs after a17a2cb
