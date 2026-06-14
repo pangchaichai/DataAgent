@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `0805470` auto-update management docs after 831c4cf
 - `aa8314e` auto-update management docs after 4b14bfe
 - `831c4cf` auto-update management docs after d2d6344
 - `4b14bfe` auto-update management docs after ddd43a5
