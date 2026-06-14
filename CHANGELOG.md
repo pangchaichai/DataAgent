@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `315a22c` auto-update management docs after 57210c1
 - `170225c` auto-update management docs after edf6066
 - `57210c1` auto-update management docs after 304c38a
 - `edf6066` auto-update management docs after a3972bf
