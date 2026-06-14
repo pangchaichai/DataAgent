@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `0785a61` auto-update management docs after 8675ced
 - `6b1dccf` auto-update management docs after 6a825a0
 - `8675ced` auto-update management docs after 3d9e265
 - `6a825a0` auto-update management docs after 09170dc
