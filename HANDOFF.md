@@ -9,8 +9,39 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：09c290e chore: 移除 Claude Code PostToolUse hook（git hooks 已完整覆盖 sync 职责）
+- **提交**：02c7a14 feat(v3): 快速路径 + 执行追踪（Week 1 Day 1-4）
 - **分支**：`claude/clever-meitner-fqsa3v`
+
+---
+
+## 上次会话完成的工作（2026-06-14，第五轮）
+
+### v3.0 Week 1 — 快速路径 + 执行追踪
+
+**新建 `agent/fast_path.py`**：
+- `can_fast_path(skill_info)` — 判断是否满足快速路径条件（calc_type=fixed + 已知 calculator）
+- `run_fast_path(...)` — 直接调用 `dispatch_tool("run_calculator", ...)` 跳过 LLM，yield SSE 事件
+- `_CALC_NAME_MAP` — 7 种 fixed_calculator 路径 → calculator 短名映射
+- `_fmt_entity_concentration()` — 按 SKILL.md 定义输出格式化超标提示（含 ✅ 无超标场景）
+- 末尾调用 execution_tracker 写追踪日志
+
+**新建 `agent/execution_tracker.py`**：
+- JSONL 写入端，线程安全，写入 `data/traces/traces_YYYY-MM-DD.jsonl`
+- 读取端/stats API/退化信号推迟到 v3.1（积累 2-4 周数据后实现）
+
+**更新 `agent/loop.py`**：
+- preflight 之后、Tool-calling 循环之前插入 `try_fast_path` 分支
+- `can_fast_path()` 为 True 时 `yield from run_fast_path(...)` 并直接 `return`
+
+**更新 `skills/concentration_monitor/SKILL.md`**：
+- 新增 `default_args` 字段（向后兼容，已在 SkillInfo.metadata 中自动可读）
+
+**新建 `tests/test_fast_path.py`（11 个测试全绿）**：
+- can_fast_path 4 种判断场景、SSE 事件顺序、breach/no-breach 格式化
+- loop.py 集成：concentration_monitor 触发词 → LLM call_count == 0
+- ExecutionTracker JSONL 写入 + 截断验证
+
+**测试结果**：352 通过，2 跳过，0 失败（新增 11 个）
 
 ---
 
@@ -136,19 +167,26 @@
 ### 阶段
 ```
 v2.0 全部完成 + Skill v3 已合并主线
-v3.0 演进方案已评审完毕，最终实施计划已产出
-下一步：按 v3-evolution-final-plan.md 的 Week 1 开始实施
+v3.0 Week 1 已完成（快速路径 + ExecutionTracker 写入端）
+下一步：v3.0 Week 2（Skill 卡片 + fund_nav_report 合规修复）
 ```
 
 ### 关键文档关系
 ```
 docs/v3-architecture-evolution.md  ← 原始方案（1318行，供参考）
-docs/v3-evolution-final-plan.md    ← ★最终实施计划（本次产出，作为执行依据）
+docs/v3-evolution-final-plan.md    ← ★最终实施计划（执行依据）
 ```
 
+### v3.0 Week 1 完成情况
+- [x] `agent/fast_path.py` — 快速路径（跳过 LLM）
+- [x] `agent/execution_tracker.py` — JSONL 写入端
+- [x] `agent/loop.py` — try_fast_path 集成
+- [x] `skills/concentration_monitor/SKILL.md` — default_args 字段
+- [x] `tests/test_fast_path.py` — 11 个测试全绿
+
 ### 测试
-- **结果**：341/341 通过，2 跳过，无回归
-- **最后运行**：2026-06-10
+- **结果**：352/352 通过，2 跳过，0 失败
+- **最后运行**：2026-06-14
 
 ### 已知外部阻塞项
 - Phase 4 进入条件：C-02（周报模板）、C-03（月报模板）、C-04（Word 格式）待业务方确认
@@ -158,26 +196,18 @@ docs/v3-evolution-final-plan.md    ← ★最终实施计划（本次产出，�
 
 ## 立即可执行的下一步（按优先级排序）
 
-### 1. 开始 v3.0 Week 1 实施（P0，高优先级）
+### 1. v3.0 Week 2 — Skill 卡片 + 一键执行（P0）
 
-**参照文档**：`docs/v3-evolution-final-plan.md` 第四章
+**Day 1-2: API**
+- `api/skill_api.py` 新增 `GET /api/skills/status`（批量 preflight，30s 缓存）
+- `api/skill_api.py` 新增 `POST /api/skills/<name>/execute`（复用 SSE 流）
 
-**Day 1-2: 快速路径**
-- 新建 `agent/fast_path.py`
-- `agent/skill_loader.py` SkillInfo 新增 `fixed_calculator` 一级字段
-- Skill SKILL.md 增加 `default_args` 可选字段（向后兼容）
-- concentration_monitor SKILL.md 先行添加 default_args 作为验证
+**Day 3-4: 前端**
+- `ui/js/sidebar.js` 改造：`loadSkills()` 渲染卡片（描述+就绪状态+执行按钮）
+- `ui/js/chat.js` 新增 `executeSkill()` 复用 SSE 事件流
 
-**Day 3: loop.py 集成**
-- `agent/loop.py` 加 `try_fast_path` 分支（在 Skill 匹配 + preflight 后、agent loop 前）
-
-**Day 4: ExecutionTracker**
-- 新建 `agent/execution_tracker.py`（仅 JSONL 写入端）
-- loop.py + fast_path.py 埋点
-
-**Day 5: 回归测试**
-- `pytest tests/ -x -q` 全绿
-- 验收：concentration_monitor 触发 → 响应 <1s → data/traces/ 有 JSONL → 无 LLM 调用
+**Day 4 追加: 数据表直达**
+- `sidebar.js` 表名点击 → `openProfile(tableName)`（目前只有 × 按钮无点击）
 
 ### 2. fund_nav_report 合规修复（P0，Week 2 Day 5）
 - `skills/fund_nav_report/SKILL.md` calc_type 改 fixed
@@ -204,6 +234,15 @@ docs/v3-evolution-final-plan.md    ← ★最终实施计划（本次产出，�
 ## 本次会话修改的文件清单
 
 ```
+# 本轮（第五轮）修改文件：
+agent/fast_path.py                 # 新建：确定性快速路径（跳过 LLM，直接调用固化计算）
+agent/execution_tracker.py         # 新建：执行追踪 JSONL 写入端
+agent/loop.py                      # 修改：preflight 后插入 try_fast_path 分支
+skills/concentration_monitor/SKILL.md  # 修改：新增 default_args 字段
+tests/test_fast_path.py            # 新建：11 个快速路径测试
+tests/test_agent.py                # 修改：更新 2 个测试避免误触发快速路径
+
+# 上轮（第四轮）修改文件：
 scripts/sync_project_state.py      # 新建：项目状态自动同步脚本（运行测试+更新管理文档）
 .claude/settings.json              # 修改：Stop hook 改为自动执行，新增 PostToolUse hook
 
@@ -231,7 +270,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：09c290e chore: 移除 Claude Code PostToolUse hook（git hooks 已完整覆盖 sync 职责）
+- **提交**：02c7a14 feat(v3): 快速路径 + 执行追踪（Week 1 Day 1-4）
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作

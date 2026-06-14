@@ -5,15 +5,16 @@
 ## [Unreleased]
 
 ### 2026-06-14
+**✨ 新功能**
+- `02c7a14` 快速路径 + 执行追踪（Week 1 Day 1-4）
+- `d967fba` 完整项目管理机制 — git hooks + CHANGELOG + 自动同步
+- `f3468ff` 项目状态自动同步机制（sync_project_state.py + hooks）
+- `14422cf` DA 小猫头鹰任务状态动画组件
 **🔧 维护**
 - `09c290e` 移除 Claude Code PostToolUse hook（git hooks 已完整覆盖 sync 职责）
 - `de22c41` 项目管理完整性审计与修复，新增业务用户使用说明
 **🐛 问题修复**
 - `c07d85c` 防止 post-commit 级联触发
-**✨ 新功能**
-- `d967fba` 完整项目管理机制 — git hooks + CHANGELOG + 自动同步
-- `f3468ff` 项目状态自动同步机制（sync_project_state.py + hooks）
-- `14422cf` DA 小猫头鹰任务状态动画组件
 **📖 文档更新**
 - `d7f8466` v3.0 evolution final plan + project deliverable updates
 
