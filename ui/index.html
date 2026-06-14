@@ -176,6 +176,10 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 .wex-item{display:inline-block;margin:4px 6px 4px 0;padding:5px 12px;border:1px solid var(--border);
   border-radius:16px;cursor:pointer;transition:all .12s;font-size:12px;color:var(--text-2);}
 .wex-item:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg);}
+.wc-skill-btn{display:inline-flex;align-items:center;padding:6px 14px;border-radius:16px;
+  border:1px solid var(--blue);color:var(--blue);background:var(--blue-bg);cursor:pointer;
+  font-size:12px;font-weight:500;transition:all .15s;}
+.wc-skill-btn:hover{background:var(--blue);color:#fff;}
 .wq-btn{font-size:12px;padding:5px 14px;border-radius:14px;border:1px solid var(--border);
   background:var(--bg-s);color:var(--text-2);cursor:pointer;transition:all .15s;}
 .wq-btn:hover{border-color:var(--blue);color:var(--blue);}
@@ -611,9 +615,8 @@ select.sp-input{cursor:pointer;}
   <div class="header">
     <button class="iconbtn" onclick="toggleSidebar()" title="切换侧栏">☰</button>
     <span class="logo"><span class="logo-icon">DA</span> DataAgent</span>
-    <span class="chip"><span class="dot on" id="llmDot"></span> <span id="llmName">--</span></span>
-    <span class="chip">RAM <span id="ramMb">--</span>MB</span>
-    <span class="chip">Tok <span id="tokenUsed">0</span>/<span id="tokenLimit">64K</span></span>
+    <span class="chip"><span class="dot on" id="llmDot"></span> <span id="llmStatus">AI 就绪</span></span>
+    <span class="chip" id="tableCountChip" style="display:none;cursor:pointer" onclick="openSec('tables')" title="已加载数据表">▣ <span id="tableCountH">0</span>张表</span>
     <button class="iconbtn" onclick="toggleTheme()" title="切换主题">◐</button>
     <button class="iconbtn" onclick="resetChat()" title="新对话">＋</button>
   </div>
@@ -688,33 +691,7 @@ select.sp-input{cursor:pointer;}
 
       <div class="chat-outer">
         <div class="chat" id="chat">
-          <div class="welcome" id="welcomePanel">
-            <h2>DataAgent</h2>
-            <p>专业的金融资管数据分析助手</p>
-            <div class="welcome-cards">
-              <div class="wc-card" onclick="triggerUpload()">
-                <div class="wc-icon">📊</div>
-                <div class="wc-title">上传数据分析</div>
-                <div class="wc-desc">上传 CSV/Excel 持仓、净值、评级文件，自然语言查询分析</div>
-              </div>
-              <div class="wc-card" onclick="sendQuick('帮我检查主体集中度是否有超标情况')">
-                <div class="wc-icon">✅</div>
-                <div class="wc-title">合规监控</div>
-                <div class="wc-desc">主体/单券集中度自动检查，固化口径确保数字准确</div>
-              </div>
-              <div class="wc-card" onclick="openSkillBuilder()">
-                <div class="wc-icon">⚡</div>
-                <div class="wc-title">创建 Skill</div>
-                <div class="wc-desc">用自然语言描述分析需求，AI 帮你生成可复用的分析技能</div>
-              </div>
-              <div class="wc-card" onclick="$('input').focus();$('input').placeholder='输入任意问题，如金融监管政策、行业知识…'">
-                <div class="wc-icon">💬</div>
-                <div class="wc-title">通用问答</div>
-                <div class="wc-desc">无需数据也能使用：回答金融知识、分析文档、行业咨询</div>
-              </div>
-            </div>
-            <div id="welcomeExamples" class="welcome-examples"></div>
-          </div>
+          <!-- welcome panel rendered by buildWelcomePanel() in main.js -->
         </div>
         <button class="scroll-btn" id="scrollBtn" onclick="scrollBottom()">↓ 最新消息</button>
       </div>

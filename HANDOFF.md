@@ -14,6 +14,78 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-14，第八轮）
+
+### v3.0 Week 4 — tools_spec 拆分 + 欢迎面板统一 + Header 重组
+
+**新建 `agent/tool_defs.py`（483 行）**：
+- 从 tools_spec.py 提取 `TOOL_DEFINITIONS`（13 个工具定义，OpenAI function-calling 格式）
+- 提取 `ToolResult` / `ToolContext` dataclass 定义
+- 纯数据层，无副作用导入
+
+**新建 `agent/tool_dispatch.py`（830 行）**：
+- 从 tools_spec.py 提取 `dispatch_tool` + 所有 `_tool_*` 实现函数（13 个）
+- 提取 `_get_tool_schema` / `_validate_tool_args` / `_with_timeout`
+- 顶部从 `agent.tool_defs` 导入 `ToolContext`（不重复定义）
+
+**改造 `agent/tools_spec.py` 为薄转发层（~30 行）**：
+- 从 `agent.tool_defs` re-export `TOOL_DEFINITIONS / ToolContext / ToolResult`
+- 从 `agent.tool_dispatch` re-export 所有公开符号
+- 所有从 `agent.tools_spec` 导入的现有代码无需修改（向后兼容）
+
+**改造 `ui/index.html` Header（移除技术参数）**：
+- 移除 `ramMb`、`tokenUsed`、`tokenLimit` 三个 chip
+- 新增 `llmStatus` span：显示"AI 就绪" / "AI 离线"（非技术术语）
+- 新增 `tableCountChip`：格式"▣ N张表"，点击展开侧边栏数据表区，初始隐藏
+- 新增 `.wc-skill-btn` CSS（欢迎面板 Skill 快捷按钮样式）
+- 欢迎面板静态 HTML 替换为注释占位，改由 JS 渲染
+
+**改造 `ui/js/main.js`（欢迎面板统一 + 状态更新）**：
+- 新增 `buildWelcomePanel(tables)` 函数：无数据时 4 卡片布局（上传/合规/创建Skill/对话）；有数据时显示表数量 + 可执行 Skill 快捷按钮 + 示例查询
+- 改造 `resetChat()`：用 `buildWelcomePanel(window._lastLoadedTables||[])` 替换内联 HTML
+- 新增 `updateTableCountHeader(n)`：更新 Header 中的表数量 chip
+- 改造 `pollHealth()` → 使用内部 `_applyHealth(d)` 更新 `llmStatus` / `llmDot`，移除旧 RAM/Token 更新逻辑
+- 改造 `updateWelcomeExamples(tables)`：存入 `window._lastLoadedTables`，调用 `updateTableCountHeader`，整体重渲染欢迎面板
+- 初始化：`buildWelcomePanel([])` 渲染初始欢迎面板，`AgentStatus.init()`
+
+**改造 `ui/js/sidebar.js`（loadTables 联动 Header）**：
+- `loadTables()` 成功后调用 `updateWelcomeExamples(tables)` 同步 Header 表数量和欢迎面板
+
+**更新 `docs/user-guide.md`（v3.0 用户手册）**：
+- 版本号更新至 v3.0，最后更新日期 2026-06-14
+- 界面介绍章节重写：反映新 Header（AI 就绪/张数）、Skill 卡片、置信度标签
+- Skills 章节重写：说明卡片化操作方式（就绪状态、一键执行、缺数据提示）
+- 版本更新记录表：补充 v3.0 所有新功能
+
+**新建 `data/test_plans/20260614_v3_week4_toolspec_split_ui_unify.md`**：
+- L1~L3 测试用例设计（5 个 L1，2 个 L2，4 个 L3）
+- 执行结果全部填写：383 通过，2 跳过
+
+**测试结果**：383 通过，2 跳过，0 失败（tools_spec 拆分无回归）
+
+---
+
+## 立即可执行的下一步（v3.0 完成后）
+
+### v3.0 四周已全部完成，后续路径
+
+1. **Phase 5（Windows 打包测试）**：
+   - PyInstaller 打包，WebView2 Runtime 检测
+   - Windows 10/11 完整功能验收
+   - 内存基准测试（目标 Python 进程 < 200MB）
+
+2. **v3.1 推迟功能（待 ExecutionTracker 积累 2-4 周数据后）**：
+   - ExecutionTracker 读取端（`/api/eval/stats`，退化信号检测）
+   - Eval Framework 四级评估（需 1000+ trace 数据和 baseline）
+   - 3 个新 Skill（risk_dashboard / maturity_alert / product_comparison）
+   - dispatch_alert 工具（Windows toast，需 Windows 环境测试）
+
+3. **近期待确认的外部阻塞项**：
+   - C-02（周报模板）、C-03（月报模板）、C-04（Word 格式）待业务方确认
+   - Phase 4（批量报告）进入条件
+
+---
+
 ## 上次会话完成的工作（2026-06-14，第七轮）
 
 ### v3.0 Week 3 — Skills 修复 + 新工具 + 置信度标注

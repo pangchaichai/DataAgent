@@ -288,17 +288,29 @@ external_sources:
 
 ---
 
-## v3.0 Week 3 — Skills 修复 + 新工具 + 置信度（待开始）
+---
 
-### 计划内容
-- [ ] 迭代测试计划（开始前必须先写）
-- [ ] 合并 meeting_report + client_meeting_report
-- [ ] partnership_summary 加 request_confirmation 节点
-- [ ] skill_preflight 增加模板文件存在性检查
-- [ ] `export_data` 工具（CSV 导出+下载链接）
-- [ ] `list_tables` 工具（返回已加载表元数据）
-- [ ] SSE 事件新增 `confidence` 字段 + 前端标签渲染
-- [ ] UX：placeholder 去技术化 + 错误消息增加"重试"按钮
+## v3.0 Week 4 — tools_spec 拆分 + UI 统一 ✅ 已测（L1+L2 通过，L4 待 UAT）
+
+### 测试计划
+- [x] 迭代测试计划：`data/test_plans/20260614_v3_week4_toolspec_split_ui_unify.md`（执行结果已填写）
+
+### 功能开发
+- [x] `agent/tool_defs.py` — 新建：TOOL_DEFINITIONS + ToolResult + ToolContext
+- [x] `agent/tool_dispatch.py` — 新建：dispatch_tool + 所有 _tool_* 实现 + 校验 + 超时
+- [x] `agent/tools_spec.py` — 改为薄转发层（re-export all public symbols，向后兼容）
+- [x] `ui/js/main.js` — `buildWelcomePanel(tables)` 统一欢迎面板；`resetChat()` 使用统一面板；`pollHealth()` 改为 AI 就绪/AI 离线；`updateTableCountHeader(n)` 新增
+- [x] `ui/js/sidebar.js` — `loadTables()` 成功后调用 `updateWelcomeExamples(tables)`（存入 _lastLoadedTables + 更新 Header 计数）
+- [x] `ui/index.html` — Header：移除 RAM/Token chip，改 llmName→llmStatus，新增 tableCountChip；欢迎面板改为 JS 渲染占位；新增 `.wc-skill-btn` CSS
+- [x] `docs/user-guide.md` — 更新至 v3.0（界面介绍 / Skill 卡片 / 置信度标签 / 版本记录）
+
+### 测试执行
+- [x] L1 单元测试：所有现有测试覆盖拆分后的工具分发逻辑（383 通过）
+- [x] L2 功能测试：全量回归验证 re-export 层不破坏现有调用
+- [ ] L4 UAT：见测试计划 U4-12 ~ U4-14（业务方手动验收）
+
+### 全量回归
+- [x] 383 通过，2 跳过，0 失败（2026-06-14）
 
 ---
 

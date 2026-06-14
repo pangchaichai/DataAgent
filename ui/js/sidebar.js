@@ -51,9 +51,12 @@ async function loadTables(){
   try{
     const d=await api('GET','/api/tables');
     const tables=d.tables||[];
+    window._cachedTables=tables;
     const cnt=$('tablesCount');if(cnt)cnt.textContent=tables.length;
     const list=$('tableList');
-    if(!tables.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无数据</div>';return;}
+    if(!tables.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无数据</div>';
+      if(typeof updateWelcomeExamples==='function')updateWelcomeExamples([]);
+      return;}
     list.innerHTML=tables.map(t=>{
       const color=t.type==='holding'?'var(--green)':t.type==='nav'?'var(--blue)':'var(--text-3)';
       return '<div class="s-item">'
@@ -63,6 +66,7 @@ async function loadTables(){
         +'<span class="item-del" onclick="deleteTable(\''+esc(t.name)+'\')" title="卸载">×</span>'
         +'</div>';
     }).join('');
+    if(typeof updateWelcomeExamples==='function')updateWelcomeExamples(tables);
   }catch(e){}
 }
 async function deleteTable(name){
