@@ -5,6 +5,10 @@
 ## [Unreleased]
 
 ### 2026-06-14
+**🔧 维护**
+- `3bebf9a` remove old v2.0-beta1 zip, update traces
+- `09c290e` 移除 Claude Code PostToolUse hook（git hooks 已完整覆盖 sync 职责）
+- `de22c41` 项目管理完整性审计与修复，新增业务用户使用说明
 **✨ 新功能**
 - `d4ba98d` add v3.0-beta1 release packages to dist/
 - `3677446` add macOS bundle script, update Windows to v3.0-beta1
@@ -22,9 +26,6 @@
 **🐛 问题修复**
 - `1c3f6c0` resolve all ruff warnings across codebase
 - `c07d85c` 防止 post-commit 级联触发
-**🔧 维护**
-- `09c290e` 移除 Claude Code PostToolUse hook（git hooks 已完整覆盖 sync 职责）
-- `de22c41` 项目管理完整性审计与修复，新增业务用户使用说明
 
 ### 2026-06-13
 **📖 文档更新**
