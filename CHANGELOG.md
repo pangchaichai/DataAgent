@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **🔧 维护**
+- `0d75344` auto-update management docs after f345008
 - `72dff81` auto-update management docs after cd5010f
 - `f345008` auto-update management docs after 9aac5f6
 - `cd5010f` auto-update management docs after 3e4e773
