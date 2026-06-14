@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **✨ 新功能**
+- `3677446` add macOS bundle script, update Windows to v3.0-beta1
 - `23986d6` Split tools_spec, unify welcome panel, refactor header
 - `6b1db91` Skills cleanup, export_data/list_tables tools, confidence annotations
 - `5ecad86` Skill cards, execute endpoint, fund_nav_report compliance fix
