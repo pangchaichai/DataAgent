@@ -9,8 +9,79 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：7873528 docs(quality): establish 4-layer iteration testing mechanism
+- **提交**：（下次 commit 自动填写）
 - **分支**：`claude/clever-meitner-fqsa3v`
+
+---
+
+## 上次会话完成的工作（2026-06-14，第六轮）
+
+### v3.0 Week 2 — Skill 卡片 + fund_nav_report 合规修复
+
+**新增 `GET /api/skills/status` 端点**（`api/skill_api.py`）：
+- 批量运行所有 Skill 的 preflight 检查
+- 返回 `{skills: [{name, description, calc_type, ready, missing_files}]}`
+- 30s TTL 缓存（`_skill_status_cache`），避免重复 preflight
+
+**新增 `POST /api/skills/<name>/execute` 端点**（`api/skill_api.py`）：
+- 验证 Skill 存在，否则返回 404
+- 构造 `message = "__skill__:{name}"` 精确触发，复用 SSE queue/thread 机制
+- 返回 `{ok: true, stream_id: "..."}`，前端用 `/api/stream/<sid>` 读取事件
+
+**更新 `ui/js/sidebar.js`**：
+- `loadSkills()` 改为调用 `/api/skills/status`，渲染 Skill 卡片（标题+描述+就绪状态+执行按钮）
+- 表名新增点击事件：`onclick="openProfile('{name}')"` → 直接打开表结构剖析
+
+**新增 `executeSkill(skillName)` 函数**（`ui/js/chat.js`）：
+- POST 到 `/api/skills/{name}/execute`，获取 stream_id
+- 用 `EventSource` 读取 SSE 流，复用 `handleChunk()` 处理所有事件
+
+**修复 `skills/fund_nav_report/SKILL.md`（P0 合规问题）**：
+- 原：`calc_type: exploratory`，LLM 生成 SQL → 严重违反 B 类合规约束
+- 改：`calc_type: fixed`，新增 `fixed_calculators: [nav_metrics, asset_structure, credit_distribution]`
+- 新增 `required_table_types: [nav, holding]`
+
+**扩展 `agent/skill_loader.py`**：
+- `SkillInfo` 新增 `fixed_calculators: list[str]` 字段
+- `_score_skill()` 新增 `__skill__:{name}` 精确触发（返回分数 100）
+
+**扩展 `agent/fast_path.py`**：
+- `can_fast_path()` 支持 `fixed_calculators` 列表（全部在映射表中才返回 True）
+- `run_fast_path()` 支持多 calculator 顺序调用，合并结果
+- 新增 `_fmt_nav_metrics()`, `_fmt_asset_structure()`, `_fmt_credit_distribution()` 格式化函数
+
+**新建 `tests/test_skill_api.py`（17 个测试，全绿）**：
+- L1：can_fast_path 判断（4 变体）、__skill__ 精确触发（3）、preflight 场景（3）
+- L2：skills/status 端点（4）、skills/execute 端点（3）
+
+**修复 `tests/test_agent.py`**：
+- `test_fixed_skill_has_calculator`：接受 `fixed_calculator` 或 `fixed_calculators` 任一字段
+
+**测试结果**：369 通过，2 跳过，0 失败（新增 17 个）
+
+---
+
+## 立即可执行的下一步（Week 3）
+
+### 优先级排序
+1. **Skills 修复**（Day 1）：合并 meeting_report + client_meeting_report；partnership_summary 加 request_confirmation
+2. **模板检查**（Day 2）：skill_preflight 增加模板文件存在性检查（dept_weekly_report/monthly_bond_summary）
+3. **新工具**（Day 3）：`export_data`（CSV 导出+下载链接）+ `list_tables`（返回已加载表元数据）
+4. **置信度标注**（Day 4）：SSE 事件新增 `confidence` 字段 + 前端标签渲染
+5. **UX 细节**（Day 4 追加）：placeholder 去技术化 + 错误消息增加"重试"按钮
+
+### 参考资料
+- 测试计划：`data/test_plans/20260614_v3_week2_skill_cards_and_nav_fix.md`（执行结果已填写）
+- 演进方案：`docs/v3-evolution-final-plan.md`（Week 3 详细内容）
+- 现有 Skills：`skills/` 目录，重点看 meeting_report、partnership_summary、dept_weekly_report
+
+### Week 3 开始时必须先做
+
+```
+python scripts/project_check.py
+# 然后：设计 Week 3 测试计划（T1-T4 关卡，写入 data/test_plans/）
+# 再：开始编码
+```
 
 ---
 

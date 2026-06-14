@@ -88,6 +88,21 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 .s-tag{font-size:10px;padding:1px 6px;border-radius:8px;flex-shrink:0;}
 .s-tag.fixed{background:var(--blue-bg);color:var(--blue);}
 .s-tag.exp{background:var(--bg-hover);color:var(--text-2);}
+.s-clickable{cursor:pointer;text-decoration:underline dotted;}
+.s-clickable:hover{color:var(--primary);}
+/* Skill cards */
+.skill-card{padding:6px 8px;border-bottom:1px solid var(--border);transition:background .15s;}
+.skill-card:last-child{border-bottom:none;}
+.skill-card:hover{background:var(--bg-hover);}
+.skill-card-hd{display:flex;align-items:center;gap:6px;}
+.skill-desc{font-size:11px;color:var(--text-3);margin:2px 0 4px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.skill-card-ft{display:flex;align-items:center;gap:6px;margin-top:2px;}
+.skill-badge{font-size:10px;padding:1px 5px;border-radius:8px;font-weight:600;flex-shrink:0;}
+.skill-ready{background:#d4edda;color:#155724;}
+.skill-missing{background:#fff3cd;color:#856404;}
+.skill-exec-btn{font-size:11px;padding:2px 8px;border:1px solid var(--primary);color:var(--primary);background:none;border-radius:4px;cursor:pointer;line-height:1.6;}
+.skill-exec-btn:hover{background:var(--primary);color:#fff;}
+.skill-hint{font-size:10px;color:var(--orange);}
 
 /* Item delete button (hover reveal) */
 .item-del{font-size:12px;color:var(--text-3);padding:1px 5px;border-radius:3px;

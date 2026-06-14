@@ -1,11 +1,136 @@
 """
 api/skill_api.py — Skills 注册与 Skill Builder 路由
 """
+import time
+
 from flask import Blueprint, jsonify, request
 
 from session_store import BASE_DIR
 
 skill_bp = Blueprint('skill', __name__)
+
+_skill_status_cache: dict = {"data": None, "ts": 0.0}
+_SKILL_STATUS_TTL = 30.0
+
+
+@skill_bp.route('/api/skills/status')
+def api_skills_status():
+    import re as _re
+
+    from agent.skill_loader import SkillLoader
+    from agent.skill_preflight import prepare_skill_for_execution
+
+    now = time.time()
+    if _skill_status_cache["data"] and (now - _skill_status_cache["ts"]) < _SKILL_STATUS_TTL:
+        return jsonify(_skill_status_cache["data"])
+
+    loader = SkillLoader(local_dir=str(BASE_DIR / 'skills'))
+    registry = loader.load_registry()
+
+    skills = []
+    for s in registry:
+        full_content = loader.load_full(s.name) or ""
+        try:
+            prep = prepare_skill_for_execution(full_content, s)
+            ready = not prep.blocked
+            missing: list[str] = []
+            if prep.blocked:
+                missing = _re.findall(r'「([^」]+)」', prep.block_message) or ["数据"]
+        except Exception:
+            ready = True
+            missing = []
+
+        skills.append({
+            "name": s.name,
+            "description": s.description.split('\n')[0][:80],
+            "calc_type": s.calc_type,
+            "ready": ready,
+            "missing_files": missing,
+        })
+
+    result = {"skills": skills, "cached_at": now}
+    _skill_status_cache["data"] = result
+    _skill_status_cache["ts"] = now
+    return jsonify(result)
+
+
+@skill_bp.route('/api/skills/<skill_name>/execute', methods=['POST'])
+def api_skill_execute(skill_name: str):
+    import queue
+    import threading
+    import uuid
+
+    from agent.skill_loader import SkillLoader
+    from session_store import (
+        _new_session_id,
+        _save_session_messages,
+        _session,
+        _session_lock,
+        _stream_queues,
+        _stream_queues_lock,
+    )
+
+    loader = SkillLoader(local_dir=str(BASE_DIR / 'skills'))
+    registry = loader.load_registry()
+    skill_info = next((s for s in registry if s.name == skill_name), None)
+    if not skill_info:
+        return jsonify({"ok": False, "error": f"Skill 不存在：{skill_name}"}), 404
+
+    message = f"__skill__:{skill_name}"
+
+    sid = str(uuid.uuid4())
+    q: queue.Queue = queue.Queue()
+    with _stream_queues_lock:
+        _stream_queues[sid] = (q, None)
+
+    with _session_lock:
+        if not _session.get("session_id"):
+            _session["session_id"] = _new_session_id()
+        current_turn = _session["turn_count"]
+        session_msgs = list(_session["messages"])
+        _session["pending"] = None
+
+    def run_skill_bg() -> None:
+        from agent.llm_client import LLMClient
+        from agent.loop import run_agent_loop
+        from agent.skill_loader import SkillLoader as _SL
+        from tools.data_loader import init_duckdb_connection
+
+        init_duckdb_connection()
+        llm_client = LLMClient(str(BASE_DIR / 'config.yaml'))
+        sl = _SL(local_dir=str(BASE_DIR / 'skills'))
+
+        loop_iter = run_agent_loop(
+            message, llm_client, sl,
+            turn_count=current_turn,
+            session_messages=session_msgs,
+            pending=None,
+            document_context=None,
+        )
+        try:
+            for event in loop_iter:
+                if event.get("type") == "__pending__":
+                    with _session_lock:
+                        _session["pending"] = event["data"]
+                        _session["messages"] = list(session_msgs)
+                        _save_session_messages()
+                    continue
+                q.put(event)
+            with _session_lock:
+                _session["messages"] = list(session_msgs)
+                _session["turn_count"] += 1
+                _save_session_messages()
+        except Exception as e:
+            q.put({"type": "error", "data": f"Skill 执行异常：{str(e)}"})
+        finally:
+            q.put(None)
+
+    t = threading.Thread(target=run_skill_bg, daemon=True)
+    t.start()
+    with _stream_queues_lock:
+        if sid in _stream_queues:
+            _stream_queues[sid] = (q, t)
+    return jsonify({"ok": True, "stream_id": sid})
 
 
 @skill_bp.route('/api/skills')

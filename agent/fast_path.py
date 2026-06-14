@@ -37,11 +37,13 @@ _CALC_LABELS: dict[str, str] = {
 
 def can_fast_path(skill_info) -> bool:
     """判断该 Skill 是否满足快速路径条件。"""
-    return (
-        skill_info.calc_type == "fixed"
-        and bool(skill_info.fixed_calculator)
-        and skill_info.fixed_calculator in _CALC_NAME_MAP
-    )
+    if skill_info.calc_type != "fixed":
+        return False
+    # 多计算器路径（fund_nav_report 等复合报告）
+    if skill_info.fixed_calculators:
+        return all(c in _CALC_NAME_MAP for c in skill_info.fixed_calculators)
+    # 单计算器路径（现有路径）
+    return bool(skill_info.fixed_calculator) and skill_info.fixed_calculator in _CALC_NAME_MAP
 
 
 def run_fast_path(
@@ -53,46 +55,64 @@ def run_fast_path(
     """
     执行快速路径：跳过 LLM，直接调用固化计算，格式化输出。
 
-    Yields 与 loop.py 格式完全一致的 SSE 事件字典：
-      tool_start / tool_end / text | error / stream_end
+    支持单计算器（fixed_calculator）和多计算器（fixed_calculators）。
+    Yields 与 loop.py 格式完全一致的 SSE 事件字典。
     """
     from agent.tools_spec import dispatch_tool
 
-    calc_name = _CALC_NAME_MAP[skill_info.fixed_calculator]
-    tool_id = f"fast_{calc_name}"
-    label = _CALC_LABELS.get(calc_name, f"运行固化计算（{calc_name}）")
+    calc_paths = skill_info.fixed_calculators if skill_info.fixed_calculators \
+        else [skill_info.fixed_calculator]
+    calc_names = [_CALC_NAME_MAP[p] for p in calc_paths]
 
-    yield {"type": "tool_start", "data": {
-        "tool": "run_calculator",
-        "label": label,
-        "id": tool_id,
-    }}
+    t0_total = time.perf_counter()
+    all_results: dict[str, dict] = {}
 
-    t0 = time.perf_counter()
-    args = _build_calc_args(calc_name, tables, skill_info)
-    result = dispatch_tool("run_calculator", args, tool_ctx)
-    elapsed_ms = (time.perf_counter() - t0) * 1000
+    for calc_name in calc_names:
+        tool_id = f"fast_{calc_name}"
+        label = _CALC_LABELS.get(calc_name, f"运行固化计算（{calc_name}）")
 
-    success = result.get("ok", False)
-    yield {"type": "tool_end", "data": {
-        "success": success,
-        "summary": _brief_summary(calc_name, result) if success else "",
-        "sql": "",
-        "id": tool_id,
-    }}
-
-    if success:
-        yield {"type": "text", "data": _format_result(calc_name, result, tables)}
-    else:
-        raw_err = result.get("error", "计算失败")
-        yield {"type": "error", "data": {
-            "message": translate_error(raw_err),
-            "detail": raw_err,
+        yield {"type": "tool_start", "data": {
+            "tool": "run_calculator",
+            "label": label,
+            "id": tool_id,
         }}
 
-    _log_trace(skill_info.name, calc_name, user_message, success, elapsed_ms,
-               error=result.get("error", "") if not success else "")
+        t0 = time.perf_counter()
+        args = _build_calc_args(calc_name, tables, skill_info)
+        result = dispatch_tool("run_calculator", args, tool_ctx)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
 
+        success = result.get("ok", False)
+        yield {"type": "tool_end", "data": {
+            "success": success,
+            "summary": _brief_summary(calc_name, result) if success else "",
+            "sql": "",
+            "id": tool_id,
+        }}
+
+        if not success:
+            raw_err = result.get("error", "计算失败")
+            yield {"type": "error", "data": {
+                "message": translate_error(raw_err),
+                "detail": raw_err,
+            }}
+            _log_trace(skill_info.name, calc_name, user_message, False, elapsed_ms,
+                       error=raw_err)
+            yield {"type": "stream_end", "data": None}
+            return
+
+        all_results[calc_name] = result
+
+    total_ms = (time.perf_counter() - t0_total) * 1000
+
+    if len(calc_names) == 1:
+        text = _format_result(calc_names[0], all_results[calc_names[0]], tables)
+    else:
+        text = _format_multi_result(calc_names, all_results, tables)
+
+    yield {"type": "text", "data": text}
+
+    _log_trace(skill_info.name, "+".join(calc_names), user_message, True, total_ms)
     yield {"type": "stream_end", "data": None}
 
 
@@ -108,7 +128,12 @@ def _build_calc_args(calc_name: str, tables: list[dict], skill_info) -> dict:
     if holding:
         args["holding_table"] = holding["name"]
 
-    # 将 default_args 中的非 None 值作为备用（config.yaml 优先，由 dispatch_tool 内处理）
+    # nav_metrics 需要净值表（tools_spec 内部用 holding_table 字段读取 nav）
+    if calc_name == "nav_metrics":
+        nav = _latest_of_type(tables, "nav")
+        if nav:
+            args["holding_table"] = nav["name"]
+
     if default_args:
         args.update({k: v for k, v in default_args.items() if k not in args})
 
@@ -134,7 +159,21 @@ def _brief_summary(calc_name: str, result: dict) -> str:
 def _format_result(calc_name: str, result: dict, tables: list[dict]) -> str:
     if calc_name == "entity_concentration":
         return _fmt_entity_concentration(result, tables)
+    if calc_name == "nav_metrics":
+        return _fmt_nav_metrics(result)
+    if calc_name == "asset_structure":
+        return _fmt_asset_structure(result)
+    if calc_name == "credit_distribution":
+        return _fmt_credit_distribution(result)
     return f"计算完成（{calc_name}）。"
+
+
+def _format_multi_result(
+    calc_names: list[str], all_results: dict[str, dict], tables: list[dict],
+) -> str:
+    """多计算器结果合并输出（fund_nav_report 等复合报告）。"""
+    parts = [_format_result(n, all_results[n], tables) for n in calc_names]
+    return "\n\n---\n\n".join(parts)
 
 
 def _fmt_entity_concentration(result: dict, tables: list[dict]) -> str:
@@ -172,6 +211,55 @@ def _fmt_entity_concentration(result: dict, tables: list[dict]) -> str:
         )
         lines.append("─" * 44)
 
+    return "\n".join(lines)
+
+
+def _fmt_nav_metrics(result: dict) -> str:
+    metrics = result.get("metrics", [])
+    if not metrics:
+        return "净值数据为空，请确认净值表已加载。"
+    lines = ["**净值指标**\n"]
+    header = "| 产品 | 估值日期 | 单位净值 | 近7日年化 | 近1月年化 | 今年以来 |"
+    sep =    "|------|---------|---------|---------|---------|---------|"
+    lines += [header, sep]
+    for m in metrics:
+        def _pct(v): return f"{v:.2f}%" if v is not None else "—"
+        lines.append(
+            f"| {m['product']} | {m['nav_date']} | {m['unit_nav']:.4f}"
+            f" | {_pct(m['return_7d'])} | {_pct(m['return_1m'])} | {_pct(m['return_ytd'])} |"
+        )
+    return "\n".join(lines)
+
+
+def _fmt_asset_structure(result: dict) -> str:
+    items = result.get("structure", [])
+    if not items:
+        return "资产结构数据为空，请确认持仓表已加载。"
+    lines = ["**资产结构**\n"]
+    header = "| 资产类别 | 产品 | 市值（元）| 占比 | 品种数 |"
+    sep =    "|---------|-----|---------|-----|------|"
+    lines += [header, sep]
+    for s in items:
+        lines.append(
+            f"| {s['category']} | {s['product']} | {s['market_value']:,.2f}"
+            f" | {s['ratio_pct']:.2f}% | {s['security_count']} |"
+        )
+    return "\n".join(lines)
+
+
+def _fmt_credit_distribution(result: dict) -> str:
+    items = result.get("distribution", [])
+    if not items:
+        return "信用评级数据为空，请确认持仓表已加载。"
+    lines = ["**信用评级分布**\n"]
+    header = "| 评级 | 市值（元）| 占比 | 品种数 |"
+    sep =    "|-----|---------|-----|------|"
+    lines += [header, sep]
+    for d in items:
+        lines.append(
+            f"| {d['rating']} | {d['market_value']:,.2f}"
+            f" | {d['ratio_pct']:.2f}% | {d['security_count']} |"
+        )
     return "\n".join(lines)
 
 

@@ -234,24 +234,43 @@ external_sources:
 
 ---
 
-## v3.0 Week 2 — Skill 卡片 + fund_nav_report 合规修复（进行中）
+## v3.0 Week 2 — Skill 卡片 + fund_nav_report 合规修复 ✅ 已测（L1+L2 通过，L3 部分延期，L4 待 UAT）
 
 ### 测试计划
-- [ ] 迭代测试计划：`data/test_plans/20260614_v3_week2_skill_cards_and_nav_fix.md`
+- [x] 迭代测试计划：`data/test_plans/20260614_v3_week2_skill_cards_and_nav_fix.md`（执行结果已填写）
 
 ### 功能开发
-- [ ] `api/skill_api.py` — `GET /api/skills/status`（批量 preflight，30s 缓存）
-- [ ] `api/skill_api.py` — `POST /api/skills/<name>/execute`（复用 SSE 流）
-- [ ] `ui/js/sidebar.js` — Skill 卡片（描述+就绪状态+执行按钮）
-- [ ] `ui/js/chat.js` — `executeSkill()`（复用 SSE 事件流）
-- [ ] `sidebar.js` 表名点击 → `openProfile(tableName)`
-- [ ] `skills/fund_nav_report/SKILL.md` — `calc_type` 改 `fixed`，串联 3 个 calculator
+- [x] `api/skill_api.py` — `GET /api/skills/status`（批量 preflight，30s 缓存）
+- [x] `api/skill_api.py` — `POST /api/skills/<name>/execute`（复用 SSE 流）
+- [x] `ui/js/sidebar.js` — Skill 卡片（描述+就绪状态+执行按钮）
+- [x] `ui/js/chat.js` — `executeSkill()`（复用 SSE 事件流）
+- [x] `sidebar.js` 表名点击 → `openProfile(tableName)`
+- [x] `skills/fund_nav_report/SKILL.md` — `calc_type` 改 `fixed`，串联 3 个 calculator（P0 合规修复）
+- [x] `agent/skill_loader.py` — `fixed_calculators: list[str]` 字段支持
+- [x] `agent/fast_path.py` — 多 calculator 串联 + 新格式化函数
 
 ### 测试执行
-- [ ] L1 单元测试：`tests/test_skill_api.py`（新建，覆盖端点逻辑 + 缓存 + 快速路径命中）
-- [ ] L2 功能测试：`/api/skills/status` 就绪/缺数据场景；`/api/skills/<name>/execute` 有效/无效名
-- [ ] L3 集成测试：`executeSkill → SSE → Agent loop → fast_path`（fund_nav_report LLM 调用次数为 0）
+- [x] L1 单元测试：`tests/test_skill_api.py` 17 个测试全绿（含 can_fast_path/preflight/精确触发）
+- [x] L2 功能测试：`/api/skills/status` 就绪/缺数据场景；`/api/skills/<name>/execute` 有效/无效名
+- [x] L3 集成测试（部分）：缓存命中行为通过；端到端 SSE 流延期至 UAT
 - [ ] L4 UAT：见测试计划 U4-01 ~ U4-06（Windows 内测时业务方确认）
+
+### 全量回归
+- [x] 369 通过，2 跳过，0 失败（2026-06-14）
+
+---
+
+## v3.0 Week 3 — Skills 修复 + 新工具 + 置信度（待开始）
+
+### 计划内容
+- [ ] 迭代测试计划（开始前必须先写）
+- [ ] 合并 meeting_report + client_meeting_report
+- [ ] partnership_summary 加 request_confirmation 节点
+- [ ] skill_preflight 增加模板文件存在性检查
+- [ ] `export_data` 工具（CSV 导出+下载链接）
+- [ ] `list_tables` 工具（返回已加载表元数据）
+- [ ] SSE 事件新增 `confidence` 字段 + 前端标签渲染
+- [ ] UX：placeholder 去技术化 + 错误消息增加"重试"按钮
 
 ---
 

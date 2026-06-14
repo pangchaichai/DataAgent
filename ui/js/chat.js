@@ -180,3 +180,27 @@ function doAsk(choice){
   $('input').value=choice;sendMessage();
 }
 function sendQuick(cmd){$('input').value=cmd;sendMessage();}
+
+async function executeSkill(skillName){
+  if(ST.locked)return;
+  const w=chat.querySelector('.welcome');if(w)w.remove();
+  addUserBubble('执行 Skill：'+skillName);
+  setSendMode('stream');setBusy(true);
+  if(typeof AgentStatus!=='undefined')AgentStatus.onNewMessage();
+  try{
+    const r=await fetch('/api/skills/'+encodeURIComponent(skillName)+'/execute',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({}),
+    });
+    const d=await r.json();
+    if(!d.ok){setSendMode('idle');setBusy(false);addSysMsg(d.error||'执行失败','red');return;}
+    ST.streamId=d.stream_id;
+    const es=new EventSource('/api/stream/'+ST.streamId);
+    ST._es=es;
+    es.onmessage=function(e){try{handleChunk(JSON.parse(e.data));}catch(ex){console.error(ex);}};
+    es.onerror=function(){
+      if(!ST._es)return;
+      es.close();ST._es=null;finPW();endStream();
+    };
+  }catch(e){setSendMode('idle');setBusy(false);addSysMsg('执行请求失败：'+esc(e.message),'red');}
+}

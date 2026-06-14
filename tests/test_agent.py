@@ -115,11 +115,12 @@ class TestSkillLoader:
             assert s.calc_type in ('fixed', 'exploratory')
 
     def test_fixed_skill_has_calculator(self, loader):
-        """calc_type=fixed 的 Skill 应有 fixed_calculator"""
+        """calc_type=fixed 的 Skill 应有 fixed_calculator 或 fixed_calculators"""
         registry = loader.load_registry()
         for s in registry:
             if s.calc_type == 'fixed':
-                assert s.fixed_calculator, f"{s.name} 缺少 fixed_calculator"
+                has_calc = bool(s.fixed_calculator) or bool(s.fixed_calculators)
+                assert has_calc, f"{s.name} 缺少 fixed_calculator 或 fixed_calculators"
 
     def test_load_full(self, loader):
         """按需加载应返回完整 Markdown 内容"""

@@ -4,6 +4,14 @@ description: |
   生成理财产品运作报告，包含净值表现、资产结构、持仓分析、信用风险等核心指标，并填充运作报告模板。
   适用场景：用户请求生成某产品的运作报告、季度报告、定期报告，或询问产品净值表现和运作情况。
   触发词：运作报告、净值报告、季度报告、产品报告、净值表现、运作情况
+calc_type: fixed
+fixed_calculators:
+  - calculators.nav_metrics.calc_nav_metrics
+  - calculators.asset_structure.calc_asset_structure
+  - calculators.credit_distribution.calc_credit_distribution
+required_table_types:
+  - nav
+  - holding
 ---
 
 ## 适用场景

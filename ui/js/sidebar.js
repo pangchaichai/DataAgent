@@ -58,7 +58,7 @@ async function loadTables(){
       const color=t.type==='holding'?'var(--green)':t.type==='nav'?'var(--blue)':'var(--text-3)';
       return '<div class="s-item">'
         +'<span class="dot" style="background:'+color+'"></span>'
-        +'<span class="s-text">'+esc(t.name)+'</span>'
+        +'<span class="s-text s-clickable" onclick="openProfile(\''+esc(t.name)+'\')" title="查看表结构">'+esc(t.name)+'</span>'
         +'<span class="s-meta">'+t.rows+'行</span>'
         +'<span class="item-del" onclick="deleteTable(\''+esc(t.name)+'\')" title="卸载">×</span>'
         +'</div>';
@@ -75,14 +75,26 @@ async function deleteTable(name){
 // Skills
 async function loadSkills(){
   try{
-    const d=await api('GET','/api/skills');
+    const d=await api('GET','/api/skills/status');
     const list=$('skillList'),skills=d.skills||[];
     if(!skills.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">无可用技能</div>';return;}
-    list.innerHTML=skills.map(s=>
-      '<div class="s-item"><span class="s-text">'+esc(s.name)+'</span>'
-      +'<span class="s-tag '+(s.calc_type==='fixed'?'fixed':'exp')+'">'
-      +(s.calc_type==='fixed'?'固化':'探索')+'</span></div>'
-    ).join('');
+    list.innerHTML=skills.map(s=>{
+      const readyCls=s.ready?'skill-ready':'skill-missing';
+      const readyLabel=s.ready?'就绪':'缺数据';
+      const desc=(s.description||'').slice(0,55)+(s.description&&s.description.length>55?'…':'');
+      return '<div class="skill-card">'
+        +'<div class="skill-card-hd">'
+        +'<span class="s-text">'+esc(s.name)+'</span>'
+        +'<span class="skill-badge '+readyCls+'">'+readyLabel+'</span>'
+        +'</div>'
+        +(desc?'<div class="skill-desc">'+esc(desc)+'</div>':'')
+        +'<div class="skill-card-ft">'
+        +(s.ready
+          ?'<button class="skill-exec-btn" onclick="executeSkill(\''+esc(s.name)+'\')">执行</button>'
+          :'<span class="skill-hint">缺：'+esc((s.missing_files||[]).slice(0,2).join('、'))+'</span>')
+        +'</div>'
+        +'</div>';
+    }).join('');
   }catch(e){}
 }
 

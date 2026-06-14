@@ -31,6 +31,7 @@ class SkillInfo:
     description: str
     calc_type: str = "exploratory"    # fixed | exploratory
     fixed_calculator: str = ""        # calc_type=fixed 时指定 calculators 函数路径
+    fixed_calculators: list[str] = field(default_factory=list)  # 多计算器（复合报告）
     required_table_types: list[str] = field(default_factory=list)
     optional_table_types: list[str] = field(default_factory=list)
     skill_dir: str = ""               # Skill 目录路径（用于按需加载完整内容）
@@ -130,6 +131,7 @@ class SkillLoader:
                 description=metadata.get('description', name),
                 calc_type=metadata.get('calc_type', 'exploratory'),
                 fixed_calculator=metadata.get('fixed_calculator', ''),
+                fixed_calculators=metadata.get('fixed_calculators', []),
                 required_table_types=metadata.get('required_table_types', []),
                 optional_table_types=metadata.get('optional_table_types', []),
                 skill_dir=skill_dir,
@@ -215,6 +217,10 @@ class SkillLoader:
         从 description 中提取触发词，逐个在用户消息中匹配。
         得分 = 匹配触发词数量 + 匹配触发词的总长度（更具体的关键词权重更高）
         """
+        # 精确触发：execute API 用 "__skill__:{name}" 格式直接命中
+        if user_message == f"__skill__:{skill.name}":
+            return 100
+
         triggers = self._extract_triggers(skill.description)
         if not triggers:
             triggers = [skill.name]

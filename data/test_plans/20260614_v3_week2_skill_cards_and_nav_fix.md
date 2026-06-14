@@ -77,41 +77,43 @@
 
 ---
 
-## 四、执行结果（编码完成后填写）
+## 四、执行结果
 
-- **测试运行日期**：（待填写）
-- **pytest 结果**：（待填写）
-- **覆盖率变化**：（待填写）
+- **测试运行日期**：2026-06-14
+- **pytest 结果**：369 passed, 2 skipped（全量回归通过）
+- **覆盖率变化**：新增 17 个 Week 2 测试（test_skill_api.py）；整体覆盖率保持 74%
 
 ### 新建测试文件
 
-- `tests/test_skill_api.py`：覆盖 L1-01~L1-04、L2-01~L2-06
+- `tests/test_skill_api.py`：覆盖 L1-01~L1-04（含变体）、L2-01~L2-06
 
 ### L1~L3 用例执行摘要
 
 | 测试 ID | 实际结果 | 备注 |
 |--------|---------|------|
-| L1-01 | 待执行 | |
-| L1-02 | 待执行 | |
-| L1-03 | 待执行 | |
-| L1-04 | 待执行 | |
-| L1-05 | 待执行 | |
-| L2-01 | 待执行 | |
-| L2-02 | 待执行 | |
-| L2-03 | 待执行 | |
-| L2-04 | 待执行 | |
-| L2-05 | 待执行 | |
-| L2-06 | 待执行 | |
-| L3-01 | 待执行 | |
-| L3-02 | 待执行 | |
-| L3-03 | 待执行 | |
-| L3-04 | 待执行 | |
-| L3-05 | 待执行 | |
-| L3-06 | 待执行 | |
+| L1-01 | ✅ 通过 | `test_L1_01_fixed_calculators_list_returns_true` |
+| L1-02 | ✅ 通过 | `test_L1_02_exploratory_calc_type_returns_false` |
+| L1-03 | ✅ 通过 | `test_exact_skill_prefix_matches`（__skill__: 精确触发） |
+| L1-04 | ✅ 通过 | 3 个 preflight 场景（无依赖/缺数据/有数据）均通过 |
+| L1-05 | N/A | 计算器格式化测试在 test_calculators.py 中已覆盖 |
+| L2-01 | ✅ 通过 | `test_L2_01_returns_skills_array` |
+| L2-02 | ✅ 通过 | `test_L2_02_missing_data_skill_shows_not_ready` |
+| L2-03 | ✅ 通过 | `test_L2_03_skill_with_data_shows_ready`（需同时 patch `_loaded_tables` 和 `get_loaded_tables`） |
+| L2-04 | ✅ 通过 | `test_L2_04_valid_skill_returns_stream_id` |
+| L2-05 | ✅ 通过 | `test_L2_05_unknown_skill_returns_404` |
+| L2-06 | ✅ 通过 | `test_L2_06_skill_execute_exact_trigger` |
+| L3-01 | 延期 | 需真实 DuckDB 表数据；留 UAT 阶段验证 |
+| L3-02 | 延期 | 同上；fund_nav_report 多 calculator 流程端到端留 UAT |
+| L3-03 | ✅ 间接通过 | `test_status_cache_returns_same_data` 覆盖缓存行为 |
+| L3-04 | 延期 | 需浏览器环境；留 U4-04 UAT 验收 |
+| L3-05 | 延期 | 同上 |
+| L3-06 | 延期 | 同上 |
 
 ### 已知问题 / 遗留项
 
-（编码后填写）
+- `test_agent.py::TestSkillLoader::test_fixed_skill_has_calculator` 已更新：接受 `fixed_calculator` 或 `fixed_calculators` 任一字段
+- L2-03 需同时 patch `_loaded_tables`（内部字典）和 `get_loaded_tables()`（外部函数），文档化为 preflight 双重依赖的注意事项
+- L3-01/02 需真实 DuckDB 数据才能端到端验证，暂作为 UAT 验收条目
 
 ### UAT 状态
 
