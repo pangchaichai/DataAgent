@@ -6,6 +6,7 @@
 
 ### 2026-06-14
 **📖 文档更新**
+- `7873528` establish 4-layer iteration testing mechanism
 - `9f88468` add Iteration Testing Gate to session protocol (CLAUDE.md)
 - `d7f8466` v3.0 evolution final plan + project deliverable updates
 **🐛 问题修复**

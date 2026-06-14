@@ -9,7 +9,7 @@
 
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：9f88468 docs(process): add Iteration Testing Gate to session protocol (CLAUDE.md)
+- **提交**：7873528 docs(quality): establish 4-layer iteration testing mechanism
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
@@ -270,7 +270,7 @@ PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（�
 ```markdown
 ## 最后更新
 - **日期**：2026-06-14
-- **提交**：9f88468 docs(process): add Iteration Testing Gate to session protocol (CLAUDE.md)
+- **提交**：7873528 docs(quality): establish 4-layer iteration testing mechanism
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ## 上次会话完成的工作
