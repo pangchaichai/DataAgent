@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 2026-06-15
+**🐛 问题修复**
+- `8de2380` 3 bugs + UX polish batch — MAX_TURNS, field map, session isolation
+
 ### 2026-06-14
 **🔧 维护**
 - `d31f0b8` update traces and test report
