@@ -491,3 +491,56 @@ class TestQualityReport:
         assert report.date_range.get("min") == "2026-05-15"
         # max 应存在（5行中有4个非NULL日期）
         assert report.date_range.get("max") is not None
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Bug 2 修复：apply_field_map 单元测试
+# ═══════════════════════════════════════════════════════════════
+
+class TestApplyFieldMap:
+    """apply_field_map：语义列名 → 物理列名的 SQL 替换"""
+
+    def test_basic_column_replacement(self):
+        """语义名应被替换为物理名"""
+        from tools.query_runner import apply_field_map
+        sql = 'SELECT 产品名称 FROM t LIMIT 10'
+        result = apply_field_map(sql, {'产品名称': '产品简称'})
+        assert '产品简称' in result
+        assert '产品名称' not in result
+
+    def test_string_literal_not_replaced(self):
+        """字符串字面量中的语义名不应被替换"""
+        from tools.query_runner import apply_field_map
+        sql = "SELECT 产品名称 FROM t WHERE x = '产品名称' LIMIT 10"
+        result = apply_field_map(sql, {'产品名称': '产品简称'})
+        # 列引用被替换，字符串字面量保持原样
+        assert "'产品名称'" in result
+
+    def test_multiple_columns_replaced(self):
+        """多个列名都应被替换"""
+        from tools.query_runner import apply_field_map
+        sql = 'SELECT 产品名称, 穿透后市值 FROM t LIMIT 10'
+        field_map = {'产品名称': '产品简称', '穿透后市值': '资产市值_穿透后'}
+        result = apply_field_map(sql, field_map)
+        assert '产品简称' in result
+        assert '资产市值_穿透后' in result
+
+    def test_empty_field_map_noop(self):
+        """空 field_map 应原样返回 SQL"""
+        from tools.query_runner import apply_field_map
+        sql = 'SELECT 产品名称 FROM t LIMIT 10'
+        assert apply_field_map(sql, {}) == sql
+
+    def test_unknown_column_unchanged(self):
+        """不在 field_map 中的列名不应被修改"""
+        from tools.query_runner import apply_field_map
+        sql = 'SELECT 资产代码 FROM t LIMIT 10'
+        result = apply_field_map(sql, {'产品名称': '产品简称'})
+        assert '资产代码' in result
+
+    def test_parse_failure_returns_original(self):
+        """SQL 解析失败时应静默返回原 SQL"""
+        from tools.query_runner import apply_field_map
+        bad_sql = 'THIS IS NOT SQL !!!'
+        result = apply_field_map(bad_sql, {'产品名称': '产品简称'})
+        assert result == bad_sql

@@ -75,7 +75,7 @@ async function confirmUploadFile(){
   const dateTag=$('ucDate').value.trim();
   $('uploadConfirmOverlay').style.display='none';
   $('uploadConfirmPanel').style.display='none';
-  addSysMsg('正在入库：<b>'+esc(tableName)+'</b>…','blue');
+  addSysMsg('正在加载：<b>'+esc(tableName)+'</b>…','blue');
 
   const fromWorkdir=!!_pendingUpload.from_workdir;
   const endpoint=fromWorkdir?'/api/workdir/load':'/api/upload/confirm';
@@ -94,8 +94,8 @@ async function confirmUploadFile(){
       addSysMsg('已加载：<b>'+esc(d.table_name)+'</b>（'+d.row_count+'行 × '+d.col_count+'列）','green');
       if(d.quality_report)renderQuality(d.quality_report,d.table_name);
       openSec('tables');refreshSidebar();
-    }else{addSysMsg('入库失败：'+esc(d.error),'red');}
-  }catch(e){addSysMsg('入库异常：'+esc(e.message),'red');}
+    }else{addSysMsg('加载失败：'+esc(d.error),'red');}
+  }catch(e){addSysMsg('加载异常：'+esc(e.message),'red');}
   _pendingUpload=null;
 }
 

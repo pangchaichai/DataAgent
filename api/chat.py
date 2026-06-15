@@ -219,7 +219,14 @@ def api_session_detail(session_id):
         if lines:
             meta = json.loads(lines[0])
             for line in lines[1:]:
-                messages.append(json.loads(line))
+                msg = json.loads(line)
+                # 传递 display_content 和 skip_display 供前端渲染
+                out = {"role": msg.get("role"), "content": msg.get("content")}
+                if msg.get("display_content") is not None:
+                    out["display_content"] = msg["display_content"]
+                if msg.get("skip_display"):
+                    out["skip_display"] = True
+                messages.append(out)
     except Exception as e:
         return jsonify({"error": f"读取会话失败：{e}"}), 500
 

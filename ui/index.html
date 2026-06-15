@@ -649,7 +649,7 @@ select.sp-input{cursor:pointer;}
 
       <div class="sec open" id="sec-skills">
         <div class="sec-h" onclick="toggleSec('skills')">
-          <span class="sec-arr">▸</span>Skills
+          <span class="sec-arr">▸</span>分析功能
           <span class="act" onclick="event.stopPropagation();openSkillBuilder()">创建</span>
         </div>
         <div class="sec-bd">
@@ -711,7 +711,7 @@ select.sp-input{cursor:pointer;}
         <div class="inrow" id="inrow">
           <textarea id="input" rows="2"
             placeholder="输入分析需求，如「检查集中度」「持仓前10」… Enter 发送，Shift+Enter 换行"
-            oninput="autoResize(this)"
+            oninput="autoResize(this);checkMention(this)"
             onkeydown="onKey(event)"></textarea>
           <button class="send" id="sendBtn" onclick="sendMessage()">发送</button>
         </div>
@@ -740,11 +740,11 @@ select.sp-input{cursor:pointer;}
         <label style="color:var(--text-2);font-size:13px">表类型</label>
         <select id="ucType" style="width:100%;margin-top:4px;padding:8px 12px;border:1px solid var(--border);
           border-radius:6px;background:var(--bg-s);color:var(--text);font-size:14px">
-          <option value="holding">持仓表 (holding)</option>
-          <option value="nav">净值表 (nav)</option>
-          <option value="rating_entity">主体评级 (rating_entity)</option>
-          <option value="rating_bond">债券评级 (rating_bond)</option>
-          <option value="monitoring">监控数据 (monitoring)</option>
+          <option value="holding">持仓表</option>
+          <option value="nav">净值表</option>
+          <option value="rating_entity">主体评级</option>
+          <option value="rating_bond">债券评级</option>
+          <option value="monitoring">监控数据</option>
           <option value="unknown">未知类型</option>
         </select>
       </div>
@@ -767,7 +767,7 @@ select.sp-input{cursor:pointer;}
           background:var(--bg-s);color:var(--text);cursor:pointer">取消</button>
         <button onclick="confirmUploadFile()"
           style="padding:8px 20px;border:none;border-radius:6px;
-          background:var(--blue);color:#fff;cursor:pointer">确认入库</button>
+          background:var(--blue);color:#fff;cursor:pointer">确认导入</button>
       </div>
     </div>
 
@@ -832,6 +832,9 @@ select.sp-input{cursor:pointer;}
         <span id="llm-status-dot" style="font-size:16px">⚪</span>
         <span id="llm-provider-hint" class="sp-hint" style="flex:1;margin:0"></span>
         <button class="sp-btn" onclick="testLLMConnection()" id="testConnBtn">测试</button>
+      </div>
+      <div id="llm-deepseek-warn" style="display:none;margin:6px 0;padding:10px 12px;border-radius:6px;background:#fff3cd;border:1px solid #ffc107;color:#856404;font-size:13px">
+        ⚠️ 注意：您的问题文本（含持仓主体等信息）将发送至外部服务器。使用前请确认已获得合规许可。
       </div>
       <div class="sp-row">
         <label>服务地址</label>
@@ -943,7 +946,7 @@ select.sp-input{cursor:pointer;}
 <!-- SKILL BUILDER PANEL -->
 <div class="sb-panel" id="sbPanel">
   <div class="sb-header">
-    <span>Skill 创建向导</span>
+    <span>创建自定义分析</span>
     <button class="iconbtn" onclick="closeSkillBuilder()" style="font-size:13px">✕</button>
   </div>
   <div class="sb-body">
@@ -971,7 +974,7 @@ select.sp-input{cursor:pointer;}
 
     <!-- Step 1: Edit SKILL.md -->
     <div class="sb-step" id="sbStep1">
-      <label class="sb-label">编辑 SKILL.md 内容</label>
+      <label class="sb-label">编辑分析配置</label>
       <textarea class="sb-textarea code" id="sbEditor"></textarea>
       <div class="sb-actions">
         <button class="btn primary" onclick="sbValidate()">校验</button>

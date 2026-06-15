@@ -207,6 +207,18 @@ def get_loaded_tables() -> list[dict]:
     ]
 
 
+def get_all_field_maps() -> dict[str, str]:
+    """
+    返回所有已加载表的合并字段映射 {语义名 → 物理列名}。
+    用于 SQL 执行前的列名自动替换。
+    """
+    combined: dict[str, str] = {}
+    for r in _loaded_tables.values():
+        if r.field_map:
+            combined.update(r.field_map)
+    return combined
+
+
 # ═══════════════════════════════════════════════════════════════
 #  编码检测 + 列名清洗
 # ═══════════════════════════════════════════════════════════════

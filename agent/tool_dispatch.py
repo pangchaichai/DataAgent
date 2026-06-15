@@ -150,11 +150,17 @@ def _tool_profile_table(args: dict, ctx: ToolContext) -> dict:
 
 def _tool_run_sql(args: dict, ctx: ToolContext) -> dict:
     """执行只读 SELECT（探索式 A 类），经 SQLGuard 校验"""
-    from tools.query_runner import execute_query
+    from tools.data_loader import get_all_field_maps
+    from tools.query_runner import apply_field_map, execute_query
 
     sql = args.get("sql", "")
     if not sql.strip():
         return {"ok": False, "error": "SQL 为空"}
+
+    # 执行前将语义列名替换为实际物理列名（Bug 2 修复）
+    field_maps = get_all_field_maps()
+    if field_maps:
+        sql = apply_field_map(sql, field_maps)
 
     result = execute_query(sql, ctx.duckdb_conn)
 

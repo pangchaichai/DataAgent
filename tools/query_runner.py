@@ -245,6 +245,37 @@ class SQLGuard:
 _guard = SQLGuard()
 
 
+def apply_field_map(sql: str, field_map: dict) -> str:
+    """
+    使用 sqlglot 将 SQL 中的语义列名替换为实际物理列名。
+
+    例：field_map={"产品名称": "产品简称"} 时，
+      SELECT 产品名称 FROM t  →  SELECT "产品简称" FROM t
+
+    只替换列节点（Column.this），不替换字符串字面量或别名右侧。
+    解析失败时静默返回原 SQL。
+    """
+    if not field_map:
+        return sql
+    try:
+        tree = sqlglot.parse_one(sql)
+        if tree is None:
+            return sql
+
+        def _replace(node):
+            if isinstance(node, exp.Column):
+                name = node.name
+                if name in field_map:
+                    new_id = exp.Identifier(this=field_map[name], quoted=True)
+                    node = node.copy()
+                    node.set("this", new_id)
+            return node
+
+        return tree.transform(_replace).sql(dialect="duckdb")
+    except Exception:
+        return sql
+
+
 def execute_query(
     sql: str,
     conn: duckdb.DuckDBPyConnection,

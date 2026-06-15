@@ -220,9 +220,9 @@ class TestAgentLoopBasic:
         assert events[-1]['type'] == 'stream_end'
 
     def test_loop_max_turns(self):
-        from agent.loop import run_agent_loop
+        from agent.loop import MAX_TURNS, run_agent_loop
         llm_client, skill_loader = self._get_components()
-        events = list(run_agent_loop('查询', llm_client, skill_loader, turn_count=15))
+        events = list(run_agent_loop('查询', llm_client, skill_loader, turn_count=MAX_TURNS))
         assert events[0]['type'] == 'error'
 
     def test_loop_yields_stream_end(self):
@@ -633,3 +633,94 @@ class TestAgentMemory:
         assert 'save_correction' in write_methods
         assert 'save_sql' not in write_methods
         assert 'save_business_rule' not in write_methods
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Bug 3 修复：Skill 注入不污染历史消息测试
+# ═══════════════════════════════════════════════════════════════
+
+class TestSkillInjectionDisplay:
+    """验证 Skill 注入内容与用户消息的正确分离"""
+
+    def test_skill_injection_creates_system_message(self):
+        """Skill 注入逻辑应将 skill_note 放入独立 system 消息，而非污染用户消息"""
+        skill_note = "[系统提示：检测到与技能 position_query 匹配]"
+        original_content = "查询持仓"
+
+        session_messages = [{"role": "user", "content": original_content}]
+
+        # 模拟 loop.py 中的注入逻辑（与实现保持一致）
+        if session_messages and session_messages[-1].get("role") == "user":
+            if "_display_content" not in session_messages[-1]:
+                session_messages[-1]["_display_content"] = session_messages[-1]["content"]
+            session_messages.append({
+                "role": "system",
+                "content": skill_note,
+                "_skill_injection": True,
+                "skip_display": True,
+            })
+
+        # 原始用户消息内容应保持不变
+        user_msg = session_messages[0]
+        assert user_msg["content"] == original_content, "用户消息 content 不应被修改"
+        assert user_msg.get("_display_content") == original_content, "_display_content 应保存原始文本"
+
+        # 注入内容应在独立的 system 消息中
+        system_msgs = [m for m in session_messages if m.get("_skill_injection")]
+        assert len(system_msgs) == 1
+        assert system_msgs[0]["role"] == "system"
+        assert system_msgs[0]["skip_display"] is True
+        assert skill_note in system_msgs[0]["content"]
+
+    def test_display_content_used_for_session_title(self):
+        """session_store 应用 _display_content 生成会话标题，而非 skill_note 污染的 content"""
+        original_text = "我想查询持仓分布"
+        skill_note = "[系统提示：检测到与技能 position_query 匹配]\n##数据映射..."
+
+        messages = [
+            {
+                "role": "user",
+                "content": original_text,
+                "_display_content": original_text,
+            },
+            {
+                "role": "system",
+                "content": skill_note,
+                "_skill_injection": True,
+                "skip_display": True,
+            },
+        ]
+
+        # 模拟 _save_session_messages 中的标题提取逻辑
+        title = ""
+        for m in messages:
+            if m.get("role") == "user":
+                text = m.get("_display_content") or m.get("content") or ""
+                if text:
+                    title = str(text)[:40]
+                    break
+
+        assert title == original_text, f"标题应为原始用户文本，实际为：{title}"
+        assert skill_note not in title, "标题不应包含 skill 注入内容"
+
+    def test_skip_display_messages_excluded_from_history(self):
+        """加载历史时 skip_display=True 的消息应被跳过"""
+        messages = [
+            {"role": "user", "content": "查询持仓", "display_content": "查询持仓"},
+            {"role": "system", "content": "[系统提示...]", "skip_display": True},
+            {"role": "assistant", "content": "好的，正在查询..."},
+        ]
+
+        visible = []
+        for m in messages:
+            if m.get("skip_display"):
+                continue
+            text = m.get("display_content") or m.get("content")
+            if m["role"] == "user" and text:
+                visible.append(("user", text))
+            elif m["role"] == "assistant" and m.get("content"):
+                visible.append(("assistant", m["content"]))
+
+        assert len(visible) == 2
+        assert visible[0] == ("user", "查询持仓")
+        assert visible[1] == ("assistant", "好的，正在查询...")

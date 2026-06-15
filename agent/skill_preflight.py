@@ -342,9 +342,10 @@ def _build_skill_note(
         for exp, act in fm.fuzzy_matches.items()
     ]
     if fuzzy_items:
-        lines.append("## 字段映射（近似匹配，请使用实际列名）")
+        lines.append("## 【强制要求】字段名称映射")
+        lines.append("以下字段在实际数据表中使用不同列名，SQL 中必须使用实际列名，严禁使用语义名称：")
         for exp, act, tbl in fuzzy_items:
-            lines.append(f"- 需求字段「{exp}」→ 实际列「{act}」（表 `{tbl}`）")
+            lines.append(f"- 「{exp}」→ 实际列「{act}」（表 `{tbl}`）")
         lines.append("")
 
     field_warns = [

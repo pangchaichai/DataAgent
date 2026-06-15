@@ -29,7 +29,9 @@ async function loadSes(id){
     clearChat();ST.sessionId=id;
     $('chatTitle').textContent=d.title||'历史会话';
     (d.messages||[]).forEach(m=>{
-      if(m.role==='user'&&m.content)addUserBubble(m.content);
+      if(m.skip_display)return;
+      const text=m.display_content||m.content;
+      if(m.role==='user'&&text)addUserBubble(text);
       else if(m.role==='assistant'&&m.content)addAgentHTML(renderMd(m.content));
     });
     addSysMsg('历史会话加载完成，可继续对话','blue');
@@ -52,7 +54,7 @@ async function loadTables(){
     const d=await api('GET','/api/tables');
     const tables=d.tables||[];
     window._cachedTables=tables;
-    const cnt=$('tablesCount');if(cnt)cnt.textContent=tables.length;
+    const cnt=$('tableCountH');if(cnt)cnt.textContent=tables.length;
     const list=$('tableList');
     if(!tables.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无数据</div>';
       if(typeof updateWelcomeExamples==='function')updateWelcomeExamples([]);
@@ -63,17 +65,17 @@ async function loadTables(){
         +'<span class="dot" style="background:'+color+'"></span>'
         +'<span class="s-text s-clickable" onclick="openProfile(\''+esc(t.name)+'\')" title="查看表结构">'+esc(t.name)+'</span>'
         +'<span class="s-meta">'+t.rows+'行</span>'
-        +'<span class="item-del" onclick="deleteTable(\''+esc(t.name)+'\')" title="卸载">×</span>'
+        +'<span class="item-del" onclick="deleteTable(\''+esc(t.name)+'\')" title="移除此表">×</span>'
         +'</div>';
     }).join('');
     if(typeof updateWelcomeExamples==='function')updateWelcomeExamples(tables);
   }catch(e){}
 }
 async function deleteTable(name){
-  if(!confirm('确定要卸载表「'+name+'」吗？数据文件不会被删除。'))return;
+  if(!confirm('确定要移除表「'+name+'」吗？数据文件不会被删除。'))return;
   const r=await api('DELETE','/api/tables/'+encodeURIComponent(name));
-  if(r.ok){loadTables();toast('已卸载：'+name);}
-  else toast('卸载失败：'+(r.error||''),'error');
+  if(r.ok){loadTables();toast('已移除：'+name);}
+  else toast('移除失败：'+(r.error||''),'error');
 }
 
 // Skills

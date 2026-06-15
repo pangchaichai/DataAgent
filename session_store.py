@@ -42,13 +42,20 @@ def _save_session_messages() -> None:
             cm["tool_calls"] = m["tool_calls"]
         if m.get("tool_call_id"):
             cm["tool_call_id"] = m["tool_call_id"]
+        if m.get("_display_content") is not None:
+            cm["display_content"] = m["_display_content"]
+        if m.get("skip_display"):
+            cm["skip_display"] = True
         clean_msgs.append(cm)
 
     title = ""
-    for m in clean_msgs:
-        if m["role"] == "user" and m.get("content"):
-            title = str(m["content"])[:40]
-            break
+    for m in _session.get("messages", []):
+        if m.get("role") == "user":
+            # 用原始用户文本作为标题，不含 skill 注入内容
+            text = m.get("_display_content") or m.get("content") or ""
+            if text:
+                title = str(text)[:40]
+                break
 
     from tools.data_loader import get_loaded_tables
     tables = [t["name"] for t in get_loaded_tables()]

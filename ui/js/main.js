@@ -31,7 +31,7 @@ function buildWelcomePanel(tables){
       +'</div>'
       +'<div class="wc-card" onclick="openSkillBuilder()">'
         +'<div class="wc-icon">⚡</div>'
-        +'<div class="wc-title">创建 Skill</div>'
+        +'<div class="wc-title">创建分析</div>'
         +'<div class="wc-desc">用自然语言描述分析需求，AI 帮你生成可复用的分析技能</div>'
       +'</div>'
       +'<div class="wc-card" onclick="$(\'input\').focus()">'

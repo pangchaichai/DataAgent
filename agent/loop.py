@@ -31,7 +31,7 @@ from tools.runtime_logger import get_logger as _get_logger
 #  常量
 # ═══════════════════════════════════════════════════════════════
 
-MAX_TURNS = 15          # 单个请求最大 tool-calling 轮数
+MAX_TURNS = 25          # 单个请求最大 tool-calling 轮数
 MAX_TOOL_RETRY = 3      # run_sql 最大自愈重试次数
 
 
@@ -175,7 +175,7 @@ def run_agent_loop(
 
     # ── 基础校验 ──────────────────────────────────────────
     if turn_count >= MAX_TURNS:
-        yield _error("对话轮数已达上限，请开启新对话继续。")
+        yield _error("当前会话轮数已达上限，请点击「新对话」后重新开始。")
         yield _stream_end()
         return
 
@@ -262,7 +262,16 @@ def run_agent_loop(
                 yield _stream_end()
                 return
             if session_messages and session_messages[-1].get("role") == "user":
-                session_messages[-1]["content"] += f"\n\n{prep.skill_note}"
+                # 保留原始用户消息内容不变（用于历史会话显示）
+                if "_display_content" not in session_messages[-1]:
+                    session_messages[-1]["_display_content"] = session_messages[-1]["content"]
+                # Skill 注入作为独立 system 消息，LLM 可见但历史加载时跳过渲染
+                session_messages.append({
+                    "role": "system",
+                    "content": prep.skill_note,
+                    "_skill_injection": True,
+                    "skip_display": True,
+                })
 
     # ── 快速路径：固化计算直接执行，跳过 LLM ────────────────────
     if matched_skill_info and not pending:
@@ -446,7 +455,10 @@ def run_agent_loop(
             })
 
     # 达到最大轮数
-    yield _error(f"已达到最大交互轮数（{MAX_TURNS}），请简化问题或重新描述需求。")
+    yield _error(
+        f"当前任务步骤较多，已达到单次执行上限（{MAX_TURNS}步）。"
+        "请点击「新对话」后将任务拆分为更小的步骤重新描述。"
+    )
     yield _stream_end()
 
 

@@ -14,6 +14,42 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-15，第九轮）
+
+### v3.0 内测 Bug 修复 + UX 优化（全量交付）
+
+**Bug 1 修复：`agent/loop.py`**
+- `MAX_TURNS`: 15 → 25，复杂任务不再触发超限错误
+- 会话级/循环级错误提示改写，去掉误导性"输入继续"，改为引导"新对话"
+
+**Bug 2 修复：列名映射自动替换**
+- `tools/query_runner.py`: 新增 `apply_field_map(sql, field_map)` 函数（sqlglot transformer）
+- `tools/data_loader.py`: 新增 `get_all_field_maps()` 合并所有已加载表的字段映射
+- `agent/tool_dispatch.py`: `_tool_run_sql()` 在 SQLGuard 校验前调用 `apply_field_map`
+- `agent/skill_preflight.py`: 字段映射提示改为强制语气
+
+**Bug 3 修复：Skill 注入不再污染用户消息**
+- `agent/loop.py`: skill_note 改为独立 system 消息（含 `skip_display=True`），原用户消息保存 `_display_content`
+- `session_store.py`: 保存 `display_content` / `skip_display` 字段；标题使用 `_display_content`
+- `api/chat.py`: session detail 端点传递 `display_content` / `skip_display`
+- `ui/js/sidebar.js`: `loadSes()` 跳过 skip_display 消息，使用 display_content 渲染用户气泡
+
+**UX 改善**
+- `ui/js/sidebar.js`: DOM ID `tablesCount` → `tableCountH`（功能性修复）；"卸载" → "移除"
+- `ui/js/chat.js`: `doConfirm(true)` 改为静默续跑（不显示"确认继续"气泡）；confirm/ask 卡片出现后自动滚动定位
+- `ui/js/upload.js`: "入库" → "加载"
+- `ui/js/render.js`: "查看公式/SQL" → "查看计算过程"
+- `ui/js/settings.js`: DeepSeek 选项新增橙色警告框 + 首次选择二次确认弹窗
+- `ui/js/main.js`: 欢迎面板"创建 Skill" → "创建分析"
+- `ui/index.html`: "Skills" → "分析功能"；"确认入库" → "确认导入"；"Skill 创建向导" → "创建自定义分析"；"编辑 SKILL.md 内容" → "编辑分析配置"；表类型下拉去掉英文括号；textarea 绑定 checkMention
+
+**新增测试**
+- `tests/test_tools.py`: `TestApplyFieldMap` 6 个单测（基本替换/字面量保护/多列/空映射/未知列/解析失败）
+- `tests/test_agent.py`: `TestSkillInjectionDisplay` 3 个单测（system 消息注入/标题提取/历史过滤）
+- `test_loop_max_turns` 改用 `MAX_TURNS` 常量，不硬编码 15
+
+---
+
 ## 上次会话完成的工作（2026-06-14，第八轮）
 
 ### v3.0 Week 4 — tools_spec 拆分 + 欢迎面板统一 + Header 重组

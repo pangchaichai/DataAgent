@@ -140,13 +140,19 @@ function handleChunk(chunk){
     finPW();breakStream();ST.locked=true;lockInput(true);
     const card=renderConfirm(d);add(card);
     if(typeof AgentStatus!=='undefined')AgentStatus.onConfirm();
-    requestAnimationFrame(()=>card.querySelector('.btn.primary')?.focus());
+    requestAnimationFrame(()=>{
+      card.querySelector('.btn.primary')?.focus();
+      card.scrollIntoView({behavior:'smooth',block:'center'});
+    });
   }
   else if(t==='ask'){
     finPW();breakStream();ST.locked=true;lockInput(true);
     const card=renderAsk(d);add(card);
     if(typeof AgentStatus!=='undefined')AgentStatus.onAsk(d.question);
-    requestAnimationFrame(()=>card.querySelector('.btn.opt')?.focus());
+    requestAnimationFrame(()=>{
+      card.querySelector('.btn.opt')?.focus();
+      card.scrollIntoView({behavior:'smooth',block:'center'});
+    });
   }
   else if(t==='error'){
     finPW();breakStream();addSysMsg(esc(d.message||d),'red');
@@ -184,8 +190,23 @@ async function doConfirm(confirmed){
   ST.locked=false;lockInput(false);
   if(typeof AgentStatus!=='undefined')AgentStatus.onResume();
   await api('POST','/api/confirm',{confirmed});
-  if(!confirmed)addSysMsg('已取消本次操作','orange');
-  else{$('input').value='确认继续';sendMessage();}
+  if(!confirmed){addSysMsg('已取消本次操作','orange');return;}
+  // 静默续跑：不在聊天中显示"确认继续"气泡
+  setSendMode('stream');setBusy(true);
+  if(typeof AgentStatus!=='undefined')AgentStatus.onNewMessage();
+  try{
+    const r=await fetch('/api/chat',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:'confirmed'}),
+    });
+    const d=await r.json();
+    if(!d.ok){setSendMode('idle');setBusy(false);addSysMsg(d.error||'续跑失败','red');return;}
+    ST.streamId=d.stream_id;
+    const es=new EventSource('/api/stream/'+ST.streamId);
+    ST._es=es;
+    es.onmessage=function(e){try{handleChunk(JSON.parse(e.data));}catch(ex){console.error(ex);}};
+    es.onerror=function(){if(!ST._es)return;es.close();ST._es=null;finPW();endStream();};
+  }catch(e){setSendMode('idle');setBusy(false);addSysMsg('续跑失败：'+esc(e.message),'red');}
 }
 function doAsk(choice){
   ST.locked=false;lockInput(false);

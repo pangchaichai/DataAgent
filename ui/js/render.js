@@ -137,7 +137,7 @@ function renderConfirm(d){
   if(tbl)tbl='<table class="summary-table">'+tbl+'</table>';
   let formula='';
   if(d.sql_or_formula)formula='<div style="margin:8px 0">'
-    +'<span class="tc-link" onclick="toggleSql(this)">查看公式/SQL</span>'
+    +'<span class="tc-link" onclick="toggleSql(this)">查看计算过程</span>'
     +'<pre style="display:none;margin-top:4px;font-size:12px">'+esc(d.sql_or_formula)+'</pre></div>';
   return el('<div class="action-card">'
     +'<h3>'+esc(d.title||'请确认')+'</h3>'

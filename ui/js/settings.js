@@ -69,18 +69,29 @@ async function loadLLMProviders(){
     updateLLMProviderHint(d.current,d.providers||[]);
   }catch(e){}
 }
+function _showLLMHint(provider){
+  const hintEl=$('llm-provider-hint');
+  const warnEl=$('llm-deepseek-warn');
+  const hints={'lmstudio':'本地推理，数据不出本机；请先在 LM Studio 中启动 Local Server','deepseek':'','enterprise_internal':'企业内网 LLM（生产环境推荐）'};
+  if(hintEl)hintEl.textContent=hints[provider]||'';
+  if(warnEl)warnEl.style.display=(provider==='deepseek')?'block':'none';
+}
 function onLLMProviderChange(){
   const sel=$('cfg-llm-provider');
   const provider=sel.value;
   $('llm-status-dot').textContent='⚪';
-  const hints={'lmstudio':'本地推理，数据不出本机；请先在 LM Studio 中启动 Local Server','deepseek':'远程 API，问题文本将外发（须合规确认）','enterprise_internal':'企业内网 LLM（生产环境推荐）'};
-  $('llm-provider-hint').textContent=hints[provider]||'';
+  if(provider==='deepseek'&&!window._deepseekConfirmed){
+    if(!confirm('注意：选择 DeepSeek 后，您的问题文本（含持仓主体等信息）将发送至外部服务器。\n\n请确认已获得合规许可后再继续。'))
+    {sel.value=sel.dataset.prev||'lmstudio';_showLLMHint(sel.value);return;}
+    window._deepseekConfirmed=true;
+  }
+  sel.dataset.prev=provider;
+  _showLLMHint(provider);
 }
 function updateLLMProviderHint(current,providers){
   const p=providers.find(x=>x.name===current);
   if(!p)return;
-  const hints={'lmstudio':'本地推理，数据不出本机；请先在 LM Studio 中启动 Local Server','deepseek':'远程 API，问题文本将外发（须合规确认）','enterprise_internal':'企业内网 LLM（生产环境推荐）'};
-  $('llm-provider-hint').textContent=hints[current]||'';
+  _showLLMHint(current);
 }
 async function testLLMConnection(){
   const provider=$('cfg-llm-provider').value;
