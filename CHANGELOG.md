@@ -6,6 +6,7 @@
 
 ### 2026-06-15
 **🔧 维护**
+- `ab99ee5` sync auto-generated test report and traces
 - `bab95f3` sync auto-generated test report and traces
 **🐛 问题修复**
 - `8de2380` 3 bugs + UX polish batch — MAX_TURNS, field map, session isolation
