@@ -235,6 +235,7 @@ const AgentStatus = (function () {
 
     // 用户发消息时调用（sendMessage 中）
     onNewMessage() {
+      if (!_bar) _bar = document.getElementById('agentStatusBar');
       if (!_bar) return;
       _reset();
       _mode = 'thinking';

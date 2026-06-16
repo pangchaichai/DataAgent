@@ -1,7 +1,26 @@
 // sidebar.js — Sidebar, sessions, tables, groups, skills, suggestions
 
-function toggleSidebar(){$('bodyWrap').classList.toggle('collapsed');}
-async function refreshSidebar(){loadSessions();loadTables();loadSkills();loadGroups();loadWorkdir();updateStatus();loadSuggestions();}
+function toggleSidebar(){
+  const bw=$('bodyWrap');
+  if(bw)bw.classList.toggle('collapsed');
+  const nav=$('navSidebar');
+  const shell=$('appShell');
+  if(nav&&shell){
+    const hidden=nav.style.display==='none';
+    nav.style.display=hidden?'':'none';
+    shell.style.marginLeft=hidden?'260px':'0';
+  }
+}
+async function refreshSidebar(){
+  // Load sidebar data that legacy pages still use
+  loadTables();
+  try{loadSessions();}catch(e){}
+  try{loadSkills();}catch(e){}
+  try{loadGroups();}catch(e){}
+  try{loadWorkdir();}catch(e){}
+  try{updateStatus();}catch(e){}
+  try{loadSuggestions();}catch(e){}
+}
 function toggleSec(name){const sec=$('sec-'+name);if(sec)sec.classList.toggle('open');}
 function openSec(name){const sec=$('sec-'+name);if(sec&&!sec.classList.contains('open'))sec.classList.add('open');}
 
@@ -11,6 +30,7 @@ async function loadSessions(){
     const d=await api('GET','/api/sessions');
     const s=d.sessions||[];
     const list=$('sessionList');
+    if(!list)return;
     if(!s.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无历史</div>';return;}
     list.innerHTML=s.slice(0,12).map(sess=>{
       const active=sess.id===ST.sessionId;
@@ -27,7 +47,7 @@ async function loadSes(id){
   try{
     const d=await api('GET','/api/sessions/'+id);
     clearChat();ST.sessionId=id;
-    $('chatTitle').textContent=d.title||'历史会话';
+    const ct=$('chatTitle');if(ct)ct.textContent=d.title||'历史会话';
     (d.messages||[]).forEach(m=>{
       if(m.skip_display)return;
       const text=m.display_content||m.content;
@@ -43,7 +63,7 @@ async function deleteSession(id,e){
   if(!confirm('确定要删除这条会话记录吗？'))return;
   const r=await api('DELETE','/api/sessions/'+id);
   if(r.ok){
-    if(ST.sessionId===id){ST.sessionId='';$('chatTitle').textContent='新对话';}
+    if(ST.sessionId===id){ST.sessionId='';const ct=$('chatTitle');if(ct)ct.textContent='新对话';}
     loadSessions();toast('已删除会话');
   }else toast('删除失败：'+(r.error||''),'error');
 }
@@ -56,6 +76,7 @@ async function loadTables(){
     window._cachedTables=tables;
     const cnt=$('tableCountH');if(cnt)cnt.textContent=tables.length;
     const list=$('tableList');
+    if(!list){if(typeof updateWelcomeExamples==='function')updateWelcomeExamples(tables);return;}
     if(!tables.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无数据</div>';
       if(typeof updateWelcomeExamples==='function')updateWelcomeExamples([]);
       return;}
@@ -83,6 +104,7 @@ async function loadSkills(){
   try{
     const d=await api('GET','/api/skills/status');
     const list=$('skillList'),skills=d.skills||[];
+    if(!list)return;
     if(!skills.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">无可用技能</div>';return;}
     list.innerHTML=skills.map(s=>{
       const readyCls=s.ready?'skill-ready':'skill-missing';
@@ -113,6 +135,7 @@ async function loadGroups(){
     const r=await fetch('/api/groups');if(!r.ok)return;
     const d=await r.json();const groups=d.groups||{};
     const list=$('groupList');
+    if(!list)return;
     const entries=Object.entries(groups);
     if(!entries.length){
       list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无集团系</div>';return;
@@ -185,6 +208,7 @@ async function createGroup(name){
 // Work Directory
 async function loadWorkdir(){
   const list=$('workdirList');
+  if(!list)return;
   try{
     const d=await api('GET','/api/workdir/files');
     if(!d.work_dir){
@@ -241,7 +265,7 @@ async function loadSuggestions(){
   }catch(e){}
 }
 function fillAndSend(text){
-  const inp=$('input');if(!inp)return;
+  const inp=$('input')||$('userInput');if(!inp)return;
   inp.value=text;autoResize(inp);sendMessage();
 }
 
@@ -253,7 +277,7 @@ const _EXAMPLES={
   '图表':'生成持仓资产类型分布饼图',
 };
 function fillExample(cap){
-  const inp=$('input');if(!inp)return;
+  const inp=$('input')||$('userInput');if(!inp)return;
   inp.value=_EXAMPLES[cap]||cap;
   autoResize(inp);inp.focus();
 }
@@ -342,7 +366,7 @@ function mentionNav(dir){
   items[_mentionIdx].classList.add('active');
 }
 function mentionSelect(name){
-  const ta=$('input'),val=ta.value,pos=ta.selectionStart;
+  const ta=$('input')||$('userInput');if(!ta)return;const val=ta.value,pos=ta.selectionStart;
   const before=val.slice(0,pos),after=val.slice(pos);
   const atIdx=before.lastIndexOf('@');
   ta.value=before.slice(0,atIdx)+'@'+name+' '+after;
@@ -351,8 +375,8 @@ function mentionSelect(name){
   ta.focus();
 }
 function triggerSkill(name){
-  $('input').value='@skill:'+name+' ';
-  $('input').focus();
+  const inp=$('input')||$('userInput');
+  if(inp){inp.value='@skill:'+name+' ';inp.focus();}
 }
 async function openProfile(tableName){
   _profileTable=tableName;

@@ -1,10 +1,16 @@
 // dom.js — DOM helpers, API wrapper, clipboard, toast
 
 const $=id=>document.getElementById(id);
-const chat=$('chat');
 
-function scrollBottom(){chat.scrollTop=chat.scrollHeight;}
-function add(node){chat.appendChild(node);scrollBottom();return node;}
+// Lazy chat element reference (created by ChatPage.render, not present at load)
+let chat = null;
+function getChat() {
+  if (!chat) chat = $('chat');
+  return chat;
+}
+
+function scrollBottom(){const c=getChat();if(c)c.scrollTop=c.scrollHeight;}
+function add(node){const c=getChat();if(!c)return node;c.appendChild(node);scrollBottom();return node;}
 function el(h){const d=document.createElement('div');d.innerHTML=h.trim();return d.firstElementChild||d;}
 function esc(s){
   if(s==null)return'';
@@ -12,13 +18,6 @@ function esc(s){
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
-// Scroll-to-bottom button
-const scrollBtn=$('scrollBtn');
-chat.addEventListener('scroll',()=>{
-  const near=chat.scrollHeight-chat.scrollTop-chat.clientHeight<80;
-  scrollBtn.classList.toggle('show',!near);
-});
 
 // API helper
 async function api(method,path,body){
@@ -55,7 +54,7 @@ function copyBubble(btn){
 function toast(msg,type,duration){
   const stack=$('toastStack');
   const t=document.createElement('div');
-  t.className='toast'+(type&&type!=='info'?' '+type:'');
+  t.className='legacy-toast'+(type&&type!=='info'?' '+type:'');
   t.textContent=msg;
   stack.appendChild(t);
   setTimeout(()=>{
@@ -67,15 +66,18 @@ function toast(msg,type,duration){
 // Send mode / busy / lock
 function setSendMode(mode){
   const btn=$('sendBtn');
+  if(!btn)return;
   if(mode==='stream'){
     btn.textContent='停止';btn.classList.add('stop');btn.onclick=stopStream;
   }else{
     btn.textContent='发送';btn.classList.remove('stop');btn.onclick=sendMessage;
   }
 }
-function setBusy(busy){$('input').readOnly=busy;}
+function setBusy(busy){const inp=$('input')||$('userInput');if(inp)inp.readOnly=busy;}
 function lockInput(lock){
-  $('inrow').classList.toggle('disabled',lock);
-  $('hint').classList.toggle('show',lock);
+  const inrow=$('inrow');
+  const hint=$('hint')||$('hintBar');
+  if(inrow)inrow.classList.toggle('disabled',lock);
+  if(hint)hint.classList.toggle('show',lock);
 }
 function autoResize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';}

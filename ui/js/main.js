@@ -1,4 +1,13 @@
-// main.js — App init, keyboard/drag-drop handlers, theme, health polling
+// main.js — App init, router setup, keyboard/drag-drop handlers, theme, health polling
+
+// Page title map
+const _pageTitles = {
+  '/dashboard': '仪表盘',
+  '/sources': '数据源',
+  '/rules': '分析规则',
+  '/chat': '智能对话',
+  '/audit': '审计日志',
+};
 
 // Keyboard shortcuts
 document.addEventListener('keydown',e=>{
@@ -10,8 +19,8 @@ document.addEventListener('keydown',e=>{
 });
 
 function onKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
-function triggerUpload(){openSec('tables');$('fileInput').click();}
-function clearChat(){chat.innerHTML='';}
+function triggerUpload(){$('fileInput').click();}
+function clearChat(){const c=getChat();if(c)c.innerHTML='';}
 
 function buildWelcomePanel(tables){
   if(!tables||!tables.length){
@@ -34,7 +43,7 @@ function buildWelcomePanel(tables){
         +'<div class="wc-title">创建分析</div>'
         +'<div class="wc-desc">用自然语言描述分析需求，AI 帮你生成可复用的分析技能</div>'
       +'</div>'
-      +'<div class="wc-card" onclick="$(\'input\').focus()">'
+      +'<div class="wc-card" onclick="($(\'input\')||$(\'userInput\')).focus()">'
         +'<div class="wc-icon">💬</div>'
         +'<div class="wc-title">通用问答</div>'
         +'<div class="wc-desc">无需数据也能使用：回答金融知识、分析文档、行业咨询</div>'
@@ -69,27 +78,21 @@ async function resetChat(){
   ST.locked=false;lockInput(false);endStream();finPW();
   clearChat();
   const tables=window._lastLoadedTables||[];
-  chat.innerHTML=buildWelcomePanel(tables);
+  const c=getChat();
+  if(c)c.innerHTML=buildWelcomePanel(tables);
   try{await api('POST','/api/reset');}catch(e){}
-  $('chatTitle').textContent='新对话';
-  ST.sessionId='';refreshSidebar();
-  setTimeout(()=>$('input').focus(),100);
+  const titleEl=$('chatTitle');
+  if(titleEl)titleEl.textContent='新对话';
+  ST.sessionId='';
+  if(typeof refreshSidebar==='function')refreshSidebar();
+  const inp=$('input')||$('userInput');
+  if(inp)setTimeout(()=>inp.focus(),100);
 }
 
 function toggleTheme(){
   const h=document.documentElement;
   h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';
 }
-
-// Drag & drop onto input bar
-const ibar=$('inputbar');
-ibar.addEventListener('dragover',e=>{e.preventDefault();ibar.classList.add('dragover');});
-ibar.addEventListener('dragleave',()=>ibar.classList.remove('dragover'));
-ibar.addEventListener('drop',e=>{
-  e.preventDefault();ibar.classList.remove('dragover');
-  handleFiles(e.dataTransfer.files);
-});
-$('uploadLink').addEventListener('click',()=>{openSec('tables');$('fileInput').click();});
 
 function updateTableCountHeader(n){
   const chip=$('tableCountChip');if(!chip)return;
@@ -104,23 +107,16 @@ function _applyHealth(d){
   if(statusEl){
     const ready=d.llm_name&&d.llm_name!=='--';
     statusEl.textContent=ready?'AI 就绪':'AI 离线';
-    if(dotEl)dotEl.className=ready?'dot on':'dot off';
+    if(dotEl){
+      dotEl.className = ready
+        ? 'w-2 h-2 rounded-full bg-success'
+        : 'w-2 h-2 rounded-full bg-error';
+    }
   }
 }
 async function pollHealth(){
   try{const d=await api('GET','/api/health');_applyHealth(d);}catch(e){}
 }
-
-// Init
-AgentStatus.init();
-// Render initial welcome panel (no data yet)
-const _initWelcome=buildWelcomePanel([]);
-const _chatEl=document.getElementById('chat');
-if(_chatEl){_chatEl.insertAdjacentHTML('afterbegin',_initWelcome);}
-refreshSidebar();
-setTimeout(()=>$('input').focus(),200);
-pollHealth();
-setInterval(()=>pollHealth(),15000);
 
 function updateWelcomeExamples(tables){
   window._lastLoadedTables=tables;
@@ -135,3 +131,49 @@ function updateWelcomeExamples(tables){
     parent.insertBefore(tmp.firstChild,next);
   }
 }
+
+// ── Router setup ──
+Router.register('/dashboard', root => DashboardPage.render(root));
+Router.register('/sources', root => SourcesPage.render(root));
+Router.register('/rules', root => RulesPage.render(root));
+Router.register('/chat', root => {
+  ChatPage.render(root);
+  // Re-bind lazy chat reference after ChatPage creates #chat
+  chat = $('chat');
+  // Setup scroll detection for the legacy scroll button
+  const scrollBtn = $('scrollBtn');
+  if (chat && scrollBtn) {
+    chat.addEventListener('scroll', () => {
+      const near = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80;
+      scrollBtn.classList.toggle('show', !near);
+    });
+  }
+  // Show welcome panel if no messages yet
+  if (!ChatPage._initialized_welcome) {
+    ChatPage._initialized_welcome = true;
+    const tables = window._lastLoadedTables || [];
+    if (chat) chat.innerHTML = buildWelcomePanel(tables);
+  }
+  // Setup drag & drop on the chat input area
+  const inputArea = $('chat-input-area') || $('inputbar');
+  if (inputArea) {
+    inputArea.addEventListener('dragover', e => { e.preventDefault(); inputArea.classList.add('dragover'); });
+    inputArea.addEventListener('dragleave', () => inputArea.classList.remove('dragover'));
+    inputArea.addEventListener('drop', e => {
+      e.preventDefault(); inputArea.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+  }
+});
+Router.register('/audit', root => AuditPage.render(root));
+
+Router.onNavigate(route => {
+  const titleEl = $('pageTitle');
+  if (titleEl) titleEl.textContent = _pageTitles[route] || '';
+});
+
+// ── Init ──
+AgentStatus.init();
+Router.init('pageRoot', '#/chat');
+pollHealth();
+setInterval(()=>pollHealth(),15000);

@@ -34,15 +34,20 @@ function stopStream(){
   if(typeof AgentStatus!=='undefined')AgentStatus.onStop();
 }
 
+function _getInput(){return $('input')||$('userInput');}
+
 // Send message
 async function sendMessage(){
-  const inp=$('input');
+  const inp=_getInput();
+  if(!inp)return;
   const msg=inp.value.trim();
   if(!msg||ST.locked||inp.readOnly)return;
   inp.value='';autoResize(inp);
-  const w=chat.querySelector('.welcome');if(w)w.remove();
+  const c=getChat();
+  const w=c?c.querySelector('.welcome')||c.querySelector('#welcomePanel'):null;
+  if(w)w.remove();
   addUserBubble(msg);
-  $('chatTitle').textContent=msg.slice(0,40);
+  const ct=$('chatTitle');if(ct)ct.textContent=msg.slice(0,40);
   setSendMode('stream');setBusy(true);
   if(typeof AgentStatus!=='undefined')AgentStatus.onNewMessage();
   try{
@@ -182,7 +187,7 @@ function breakStream(){
 function endStream(){
   breakStream();streamBuf='';ST.streamId=null;
   setSendMode('idle');setBusy(false);
-  setTimeout(()=>{if(!ST.locked)$('input').focus();},80);
+  setTimeout(()=>{if(!ST.locked){const inp=_getInput();if(inp)inp.focus();}},80);
 }
 
 // Confirm / Ask actions
@@ -211,9 +216,9 @@ async function doConfirm(confirmed){
 function doAsk(choice){
   ST.locked=false;lockInput(false);
   if(typeof AgentStatus!=='undefined')AgentStatus.onResume();
-  $('input').value=choice;sendMessage();
+  const inp=_getInput();if(inp)inp.value=choice;sendMessage();
 }
-function sendQuick(cmd){$('input').value=cmd;sendMessage();}
+function sendQuick(cmd){const inp=_getInput();if(inp)inp.value=cmd;sendMessage();}
 
 async function executeSkill(skillName){
   if(ST.locked)return;
