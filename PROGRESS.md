@@ -20,9 +20,11 @@
 - [x] L3 集成测试：应用启动 / CSV 上传流程 / SSE 流 / 设置读写 / 报告导出 / 日志系统 全通过
 - [ ] L4 UAT：10 个场景待 Windows/macOS 内测时业务方验收
 
-### 发现并修复的 Bug（前一轮）
-- [x] mentionPopup ID 不匹配 → @mention 自动补全完全失效
-- [x] suggestions 目标 ID 过时 → 推荐功能永久隐藏
+### 发现并修复的 Bug
+- [x] mentionPopup ID 不匹配 → @mention 自动补全完全失效（前一轮）
+- [x] suggestions 目标 ID 过时 → 推荐功能永久隐藏（前一轮）
+- [x] 集团系 CRUD UI 在 SPA 迁移后无入口 → 集成到 Rules 页面
+- [x] 工作目录上传 UI 在 SPA 迁移后无入口 → 集成到 Sources 页面
 
 ### 全量回归
 - [x] 575 通过，2 跳过，0 失败（2026-06-16）

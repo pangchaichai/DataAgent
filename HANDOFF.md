@@ -54,6 +54,11 @@
 **最终结果**：575 passed, 2 skipped, 0 failed, 76% 覆盖率
 **Bug 发现**：0 个新 bug（前一轮修复的 2 个 DOM ID bug 已确认有效）
 
+**SPA 功能归属修复**（测试中发现的问题，已修复）：
+- `ui/js/pages/rules.js`：新增集团系 CRUD 区块（创建/删除集团、添加/移除成员、可展开详情、Material Symbols 图标）
+- `ui/js/pages/sources.js`：新增工作目录区块（文件列表、hover 加载按钮、未配置/空目录状态处理）
+- 两者后端 API + sidebar.js 函数均完好，仅 SPA 迁移时缺少入口调用
+
 ---
 
 ## 上次会话完成的工作（2026-06-16，第十轮）
