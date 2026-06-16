@@ -4,7 +4,24 @@
 
 ---
 
-## 当前阶段：v2.0 完成 + Windows 内测包就绪 → 等待内测反馈 / Phase 4 模板确认
+## 当前阶段：v2.0 完成 + Stitch UI 重构进行中 → 等待内测反馈 / Phase 4 模板确认
+
+## Stitch Design System UI 重构 ✅ Phase 0-5 完成（2026-06-16）
+
+### Phase 0+1（基础设施 + 导航）
+- [x] Tailwind CSS v4 standalone CLI + `ui/src/input.css` MD3 token 系统
+- [x] Inter / JetBrains Mono / Material Symbols Outlined 字体本地化
+- [x] 客户端 hash 路由（5 页面：Dashboard / Sources / Rules / Chat / Audit）
+- [x] 深色海军蓝侧边栏 + 56px 顶栏 + 5 个页面模块
+
+### Phase 2-5（图标迁移 + 聊天气泡重构）
+- [x] `ui/js/render.js` 完整 Stitch 重写（气泡/表格/图表/卡片）
+- [x] `ui/js/chat.js` 流式气泡 + 过程包装器 Material Symbols
+- [x] `ui/js/main.js` 欢迎面板 Material Symbols 卡片
+- [x] `ui/js/dom.js` 兼容新旧 DOM 结构
+- [x] `ui/js/upload.js` / `settings.js` / `sidebar.js` / `skill_builder.js` 图标迁移
+- [x] `ui/src/input.css` 流式光标动画 + CSS 重编译
+- [x] 遗留 CSS 保留在 `index.html` 内（设置面板/技能构建器/上传确认/状态栏）
 
 ## Windows 内测包构建 ✅ 完成（2026-06-09）
 

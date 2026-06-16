@@ -32,20 +32,23 @@ async function uploadFile(file){
 }
 
 function showDocumentResult(d){
-  let html='<div class="bubble-outer da"><div class="avatar">DA</div><div class="bubble">';
-  html+='<b>📄 文档已解析：'+esc(d.filename)+'</b><br>';
-  html+='<span style="color:var(--text-2)">类型：'+esc(d.file_type||'文档')
+  let html='<div class="flex gap-3 max-w-full">'
+    +'<div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center flex-shrink-0 mt-1">'
+    +'<span class="material-symbols-outlined text-[16px] text-on-secondary-container" style="font-variation-settings:\'FILL\' 1">neurology</span></div>'
+    +'<div class="flex-1 min-w-0 max-w-[min(78%,720px)]">'
+    +'<div class="bubble-ai text-body-md leading-relaxed">';
+  html+='<b><span class="material-symbols-outlined text-[14px]" style="vertical-align:middle">description</span> 文档已解析：'+esc(d.filename)+'</b><br>';
+  html+='<span class="text-on-surface-variant">类型：'+esc(d.file_type||'文档')
     +'　字数：'+(d.word_count||0)
     +(d.page_count?'　页数：'+d.page_count:'')
     +(d.table_count?'　表格：'+d.table_count+'个':'')+'</span>';
   if(d.text_preview){
-    html+='<div style="margin-top:8px;padding:8px 12px;background:var(--bg-s);border-radius:6px;'
-      +'font-size:13px;max-height:200px;overflow-y:auto;white-space:pre-wrap">'
+    html+='<div class="mt-2 p-3 bg-surface-container-low rounded text-body-sm max-h-[200px] overflow-y-auto whitespace-pre-wrap">'
       +esc(d.text_preview)+'</div>';
   }
-  html+='<div style="margin-top:8px;color:var(--text-2);font-size:12px">'
+  html+='<div class="mt-2 text-body-sm text-on-surface-variant">'
     +'文档内容已就绪，您可以在输入框中提问来分析此文档。</div>';
-  html+='</div></div>';
+  html+='</div></div></div>';
   add(el(html));
   _pendingUpload=null;
   _documentContext=d;

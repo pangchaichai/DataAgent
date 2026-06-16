@@ -6,9 +6,9 @@ function getPW(){
   const w=document.createElement('div');
   w.className='pw-wrap open';
   w.innerHTML='<div class="pw-hd" onclick="this.parentElement.classList.toggle(\'open\')">'
-    +'<span class="pw-icon spin">↻</span>'
+    +'<span class="pw-icon spin"><span class="material-symbols-outlined text-[14px]">sync</span></span>'
     +'<span class="pw-lbl">正在处理…</span>'
-    +'<span class="pw-arr">▸</span></div>'
+    +'<span class="pw-arr"><span class="material-symbols-outlined text-[12px]">expand_more</span></span></div>'
     +'<div class="pw-bd"></div>';
   _pwBd=w.querySelector('.pw-bd');
   _pwN=0;add(w);_pw=w;return w;
@@ -17,7 +17,7 @@ function finPW(){
   if(!_pw)return;
   const lbl=_pw.querySelector('.pw-lbl'),icon=_pw.querySelector('.pw-icon');
   if(lbl)lbl.textContent='执行过程（'+_pwN+'步）';
-  if(icon){icon.textContent='✓';icon.classList.remove('spin');}
+  if(icon){icon.innerHTML='<span class="material-symbols-outlined text-[14px]">check_circle</span>';icon.classList.remove('spin');}
   _pw.classList.remove('open');
   _pw=null;_pwBd=null;
 }
@@ -79,14 +79,21 @@ function handleChunk(chunk){
     if(!streamEl){
       streamBuf='';streamConf=chunk.confidence||null;
       const row=document.createElement('div');
-      row.className='msg-row';
-      row.innerHTML='<div class="agent-avatar">DA</div>'
-        +'<div class="bubble-outer">'
-        +'<div class="bubble agent streaming"></div>'
-        +'<div class="msg-actions">'
-        +'<button class="msg-action-btn" onclick="copyBubble(this)">复制</button>'
+      row.className='flex gap-3 max-w-full';
+      row.innerHTML='<div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center flex-shrink-0 mt-1">'
+        +'<span class="material-symbols-outlined text-[16px] text-on-secondary-container" style="font-variation-settings:\'FILL\' 1">neurology</span></div>'
+        +'<div class="flex-1 min-w-0 max-w-[min(78%,720px)]">'
+        +'<div class="flex items-center gap-2 mb-1">'
+        +'<span class="label-caps text-on-surface-variant">DataAgent AI</span>'
+        +'<span class="status-badge processing">生成中</span></div>'
+        +'<div class="bubble-ai text-body-md leading-relaxed streaming"></div>'
+        +'<div class="flex gap-2 mt-1.5">'
+        +'<button class="text-body-sm text-outline hover:text-secondary transition-colors cursor-pointer bg-transparent border-none p-0 flex items-center gap-1" onclick="copyBubble(this)">'
+        +'<span class="material-symbols-outlined text-[14px]">content_copy</span> 复制</button>'
+        +'<button class="text-body-sm text-outline hover:text-secondary transition-colors cursor-pointer bg-transparent border-none p-0 flex items-center gap-1" onclick="exportWordFromBubble(this)">'
+        +'<span class="material-symbols-outlined text-[14px]">download</span> 导出</button>'
         +'</div></div>';
-      streamEl=row.querySelector('.bubble.agent');add(row);
+      streamEl=row.querySelector('.bubble-ai');add(row);
     }
     if(chunk.confidence)streamConf=chunk.confidence;
     streamBuf+=d;streamEl.innerHTML=renderMd(streamBuf);scrollBottom();
@@ -96,7 +103,7 @@ function handleChunk(chunk){
     if(_pwBd){
       const line=document.createElement('div');
       line.className='proc-line';
-      line.innerHTML='<span class="p-icon">💭</span>'
+      line.innerHTML='<span class="p-icon"><span class="material-symbols-outlined text-[14px]">psychology</span></span>'
         +'<span class="p-label">'+esc((d||'').slice(0,100))+'</span>';
       _pwBd.appendChild(line);_pwN++;updatePWLabel();
     }
@@ -108,7 +115,7 @@ function handleChunk(chunk){
     if(_pwBd){
       const line=document.createElement('div');
       line.className='proc-line';line.id='tool-'+d.id;
-      line.innerHTML='<span class="p-icon">⚡</span>'
+      line.innerHTML='<span class="p-icon"><span class="material-symbols-outlined text-[14px]">bolt</span></span>'
         +'<span class="p-name">'+esc(d.tool||'')+'</span>'
         +'<span class="p-label">'+esc(d.label||'')+'</span>'
         +'<span class="p-st running">…</span>';
@@ -122,9 +129,11 @@ function handleChunk(chunk){
     if(line){
       const st=line.querySelector('.p-st'),icon=line.querySelector('.p-icon');
       if(d.success){
-        if(st){st.className='p-st ok';st.textContent='✓';}if(icon)icon.textContent='✓';
+        if(st){st.className='p-st ok';st.innerHTML='<span class="material-symbols-outlined text-[12px]">check_circle</span>';}
+        if(icon)icon.innerHTML='<span class="material-symbols-outlined text-[14px]">check_circle</span>';
       }else{
-        if(st){st.className='p-st warn';st.textContent='↻';}if(icon)icon.textContent='↻';
+        if(st){st.className='p-st warn';st.innerHTML='<span class="material-symbols-outlined text-[12px]">error</span>';}
+        if(icon)icon.innerHTML='<span class="material-symbols-outlined text-[14px]">error</span>';
       }
     }
     if(typeof AgentStatus!=='undefined')AgentStatus.onToolEnd(d.success);
@@ -146,7 +155,7 @@ function handleChunk(chunk){
     const card=renderConfirm(d);add(card);
     if(typeof AgentStatus!=='undefined')AgentStatus.onConfirm();
     requestAnimationFrame(()=>{
-      card.querySelector('.btn.primary')?.focus();
+      (card.querySelector('.btn-primary')||card.querySelector('.btn.primary'))?.focus();
       card.scrollIntoView({behavior:'smooth',block:'center'});
     });
   }
@@ -155,7 +164,7 @@ function handleChunk(chunk){
     const card=renderAsk(d);add(card);
     if(typeof AgentStatus!=='undefined')AgentStatus.onAsk(d.question);
     requestAnimationFrame(()=>{
-      card.querySelector('.btn.opt')?.focus();
+      (card.querySelector('.suggestion-pill')||card.querySelector('.btn.opt'))?.focus();
       card.scrollIntoView({behavior:'smooth',block:'center'});
     });
   }
@@ -174,6 +183,8 @@ function handleChunk(chunk){
 function breakStream(){
   if(streamEl){
     streamEl.classList.remove('streaming');
+    const badge=streamEl.closest('.flex-1')?.querySelector('.status-badge');
+    if(badge){badge.className='status-badge ready';badge.textContent='就绪';}
     if(streamConf){
       const tag=document.createElement('span');
       tag.className='conf-tag conf-'+streamConf;
@@ -222,7 +233,7 @@ function sendQuick(cmd){const inp=_getInput();if(inp)inp.value=cmd;sendMessage()
 
 async function executeSkill(skillName){
   if(ST.locked)return;
-  const w=chat.querySelector('.welcome');if(w)w.remove();
+  const c=getChat();const w=c?c.querySelector('.welcome')||c.querySelector('#welcomePanel'):null;if(w)w.remove();
   addUserBubble('执行 Skill：'+skillName);
   setSendMode('stream');setBusy(true);
   if(typeof AgentStatus!=='undefined')AgentStatus.onNewMessage();

@@ -14,6 +14,49 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-16，第十轮）
+
+### Stitch Design System — Phase 2-5 图标迁移 + 聊天气泡重构
+
+**UI 全面从 emoji/Unicode 图标迁移到 Material Symbols Outlined**，涉及 11 个文件：
+
+**`ui/js/render.js` — 完整重写（Stitch 设计系统）**
+- 所有渲染函数使用 Stitch 类名：`.bubble-ai`、`.bubble-user`、`.stitch-card`、`.stitch-table`
+- Material Symbols 图标：`neurology`（AI 头像）、`person`（用户头像）、`check_circle`、`bar_chart` 等
+- AI 气泡：非对称圆角（左上 0）+ 白色背景 + 蓝色标签
+- 用户气泡：非对称圆角（右上 0）+ 蓝色背景 (#316bf3)
+- 表格、图表、确认卡片、计划卡片等全部使用 Tailwind 工具类
+
+**`ui/js/chat.js` — 流式气泡 + 过程包装器图标**
+- 流式气泡结构匹配 `addAgentHTML()` — neurology 图标 + DataAgent AI 标签 + 状态徽章 + 复制/导出按钮
+- 过程包装器：`↻`→`sync`、`▸`→`expand_more`、`✓`→`check_circle`
+- SSE 事件图标：`💭`→`psychology`、`⚡`→`bolt`
+- `breakStream()` 状态徽章从"生成中"更新为"就绪"
+
+**`ui/js/main.js` — 欢迎面板 Material Symbols**
+- 📊→`bar_chart`、✅→`check_circle`、⚡→`bolt`、💬→`chat_bubble`、📈→`trending_up`
+- Stitch 卡片布局 + `suggestion-pill` 快捷按钮
+
+**`ui/js/dom.js` — 兼容性更新**
+- `copyBubble()` 支持新旧两种 DOM 结构（`.bubble-ai` 和 `.bubble`）
+- `setSendMode()` 使用 Material Symbols HTML
+
+**`ui/js/upload.js`** — 文档结果气泡：`📄`→`description` Material Symbol
+
+**`ui/js/settings.js`** — LLM 状态：emoji 彩色圆点→Tailwind 圆点（`bg-success`/`bg-error`），`✓`/`✗`→Material Symbols
+
+**`ui/js/sidebar.js`** — 分组箭头 `▸`→`chevron_right`，复制反馈 `✓`→`check`，质量图标更新
+
+**`ui/js/skill_builder.js`** — 校验图标：`✕`→`cancel`、`✓`→`check_circle`、`⚠`→`warning`
+
+**`ui/index.html`** — LLM 状态点从 HTML 实体改为 Tailwind 圆点
+
+**`ui/src/input.css`** — 新增 `.bubble-ai.streaming::after` 闪烁光标动画 + `@keyframes blink`
+
+**`ui/dist/styles.css`** — 重新编译（34733 字节）
+
+---
+
 ## 上次会话完成的工作（2026-06-15，第九轮）
 
 ### v3.0 内测 Bug 修复 + UX 优化（全量交付）
@@ -101,9 +144,14 @@
 
 ---
 
-## 立即可执行的下一步（v3.0 完成后）
+## 立即可执行的下一步
 
-### v3.0 四周已全部完成，后续路径
+### Stitch UI 后续
+
+1. **浏览器实测验证**：5 个页面路由 + 深色模式切换 + 流式聊天 + 设置面板 + 上传流程
+2. **agent_status.js 图标迁移**：猫头鹰状态栏仍用 Unicode ✓/✗/≈/⏸，可选择性迁移
+
+### v3.0 后续路径
 
 1. **Phase 5（Windows 打包测试）**：
    - PyInstaller 打包，WebView2 Runtime 检测

@@ -46,7 +46,8 @@ function copyCodeBlock(btn){
   if(code)copyText(code.textContent,btn);
 }
 function copyBubble(btn){
-  const bubble=btn.closest('.bubble-outer')?.querySelector('.bubble');
+  const bubble=btn.closest('.flex-1')?.querySelector('.bubble-ai')
+    ||btn.closest('.bubble-outer')?.querySelector('.bubble');
   if(bubble)copyText(bubble.textContent.trim(),btn);
 }
 
@@ -68,9 +69,9 @@ function setSendMode(mode){
   const btn=$('sendBtn');
   if(!btn)return;
   if(mode==='stream'){
-    btn.textContent='停止';btn.classList.add('stop');btn.onclick=stopStream;
+    btn.innerHTML='<span class="material-symbols-outlined">stop</span>';btn.classList.add('stop');btn.onclick=stopStream;
   }else{
-    btn.textContent='发送';btn.classList.remove('stop');btn.onclick=sendMessage;
+    btn.innerHTML='<span class="material-symbols-outlined">send</span>';btn.classList.remove('stop');btn.onclick=sendMessage;
   }
 }
 function setBusy(busy){const inp=$('input')||$('userInput');if(inp)inp.readOnly=busy;}

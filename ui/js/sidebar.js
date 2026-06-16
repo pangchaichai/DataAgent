@@ -152,7 +152,7 @@ async function loadGroups(){
       ).join('');
       return '<div class="grp-item" id="'+sid+'">'
         +'<div class="grp-hd" onclick="toggleGrp(\''+sid+'\')">'
-        +'<span class="grp-arr">▸</span>'
+        +'<span class="grp-arr"><span class="material-symbols-outlined text-[12px]">chevron_right</span></span>'
         +'<span class="grp-name">'+esc(name)+'</span>'
         +'<span class="grp-cnt">'+(members||[]).length+'</span>'
         +'<span class="grp-del" onclick="event.stopPropagation();confirmDeleteGroup(\''+sid+'\')" title="删除集团">×</span>'
@@ -297,7 +297,7 @@ function sortTbl(th,col){
   rows.forEach(r=>tbody.appendChild(r));
 }
 function exportCSV(btn){
-  const table=btn.closest('.table-card')?.querySelector('table');
+  const table=(btn.closest('.stitch-card')||btn.closest('.table-card'))?.querySelector('table');
   if(!table)return;
   let csv='';
   table.querySelectorAll('tr').forEach(r=>{
@@ -310,7 +310,7 @@ function exportCSV(btn){
   a.download='export_'+Date.now()+'.csv';a.click();
 }
 function copyTable(btn){
-  const table=btn.closest('.table-card')?.querySelector('table');
+  const table=(btn.closest('.stitch-card')||btn.closest('.table-card'))?.querySelector('table');
   if(!table)return;
   let text='';
   table.querySelectorAll('tr').forEach(r=>{
@@ -318,13 +318,13 @@ function copyTable(btn){
     text+=cells.join('\t')+'\n';
   });
   navigator.clipboard.writeText(text).then(()=>{
-    const orig=btn.textContent;btn.textContent='已复制✓';
-    setTimeout(()=>{btn.textContent=orig;},1500);
+    const orig=btn.innerHTML;btn.innerHTML='<span class="material-symbols-outlined text-[13px]" style="vertical-align:middle">check</span> 已复制';
+    setTimeout(()=>{btn.innerHTML=orig;},1500);
   });
 }
 function chartFromTable(btn){
-  const card=btn.closest('.table-card');
-  const title=card?.querySelector('.tc-title')?.textContent||'';
+  const card=btn.closest('.stitch-card')||btn.closest('.table-card');
+  const title=card?.querySelector('.tc-title')?.textContent||card?.querySelector('.text-body-md.font-semibold')?.textContent||'';
   const table=card?.querySelector('table');if(!table)return;
   const ths=[...table.querySelectorAll('thead th')].map(t=>t.textContent.trim());
   const rows=[...table.querySelectorAll('tbody tr')].map(r=>
@@ -460,12 +460,12 @@ async function loadQualityTab(tableName){
     }
     if(q.critical_issues&&q.critical_issues.length){
       html+='<div style="margin-top:12px;padding:8px 10px;background:var(--red-bg);border-radius:6px;font-size:12px;color:var(--red)">';
-      q.critical_issues.forEach(c=>{html+='<div>✕ '+esc(c)+'</div>';});
+      q.critical_issues.forEach(c=>{html+='<div><span class="material-symbols-outlined text-[12px]" style="vertical-align:middle">cancel</span> '+esc(c)+'</div>';});
       html+='</div>';
     }
     if(q.warnings&&q.warnings.length){
       html+='<div style="margin-top:12px;padding:8px 10px;background:var(--orange-bg);border-radius:6px;font-size:12px;color:var(--orange)">';
-      q.warnings.forEach(w=>{html+='<div>⚠ '+esc(w)+'</div>';});
+      q.warnings.forEach(w=>{html+='<div><span class="material-symbols-outlined text-[12px]" style="vertical-align:middle">warning</span> '+esc(w)+'</div>';});
       html+='</div>';
     }
     if(!critCount&&!highNullCols.length&&!(q.warnings||[]).length){
