@@ -23,7 +23,7 @@
 ### 发现并修复的 Bug
 - [x] mentionPopup ID 不匹配 → @mention 自动补全完全失效（前一轮）
 - [x] suggestions 目标 ID 过时 → 推荐功能永久隐藏（前一轮）
-- [x] 集团系 CRUD UI 在 SPA 迁移后无入口 → 集成到 Rules 页面
+- [x] 集团系 CRUD UI 在 SPA 迁移后无入口 → 集成到 Sources 页面（用户选择）
 - [x] 工作目录上传 UI 在 SPA 迁移后无入口 → 集成到 Sources 页面
 
 ### 全量回归

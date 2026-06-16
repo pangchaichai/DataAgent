@@ -1,8 +1,9 @@
 /**
- * Data Sources page — upload zone, connected sources list, work directory, data preview.
+ * Data Sources page — upload zone, connected sources list, entity groups, work directory, data preview.
  */
 const SourcesPage = (() => {
   let _selectedTable = null;
+  const _grpMap = {};
 
   function render(root) {
     root.innerHTML = `
@@ -49,6 +50,23 @@ const SourcesPage = (() => {
           </div>
         </div>
 
+        <!-- Entity Groups -->
+        <div class="mt-6 stitch-card">
+          <div class="px-6 py-4 border-b border-surface-container flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px] text-secondary">corporate_fare</span>
+              <h3 class="text-body-md font-semibold">集团系管理</h3>
+            </div>
+            <button class="btn-ghost text-body-sm" onclick="SourcesPage.createGroup()">
+              <span class="material-symbols-outlined text-[18px]">group_add</span>
+              新建
+            </button>
+          </div>
+          <div class="p-4 max-h-[400px] overflow-y-auto custom-scrollbar" id="sources-groups">
+            <p class="text-body-sm text-on-surface-variant">加载中...</p>
+          </div>
+        </div>
+
         <!-- Work Directory -->
         <div class="mt-6 stitch-card" id="sources-workdir-card">
           <div class="px-6 py-4 border-b border-surface-container flex justify-between items-center">
@@ -89,6 +107,7 @@ const SourcesPage = (() => {
       </div>`;
 
     _loadTables();
+    _loadGroups();
     _loadWorkdir();
   }
 
@@ -121,6 +140,67 @@ const SourcesPage = (() => {
     } catch (e) {
       const el = document.getElementById('sources-list');
       if (el) el.innerHTML = '<p class="p-6 text-body-sm text-error">加载失败</p>';
+    }
+  }
+
+  async function _loadGroups() {
+    const el = document.getElementById('sources-groups');
+    if (!el) return;
+    try {
+      const r = await api('GET', '/api/groups');
+      const groups = r.groups || {};
+      const entries = Object.entries(groups);
+      Object.keys(_grpMap).forEach(k => delete _grpMap[k]);
+
+      if (!entries.length) {
+        el.innerHTML = '<p class="text-body-sm text-on-surface-variant">暂无集团系，点击"新建"添加</p>';
+        return;
+      }
+
+      el.innerHTML = entries.map(([name, members]) => {
+        const sid = 'sg_' + name.replace(/[^a-zA-Z0-9一-鿿]/g, '_');
+        _grpMap[sid] = name;
+        const ms = (members || []).map(m =>
+          `<div class="flex items-center justify-between py-1.5 px-2 rounded hover:bg-surface-container-low group">
+            <span class="text-body-sm">${esc(m)}</span>
+            <button class="opacity-0 group-hover:opacity-100 text-error text-body-sm transition-opacity"
+                    onclick="SourcesPage.removeMember('${esc(name)}','${esc(m)}')">
+              <span class="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>`
+        ).join('');
+
+        return `<div class="mb-4 last:mb-0">
+          <div class="flex items-center justify-between cursor-pointer py-2 px-2 rounded hover:bg-surface-container-low"
+               onclick="document.getElementById('${sid}-body').classList.toggle('hidden')">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[18px] text-secondary">corporate_fare</span>
+              <span class="text-body-md font-semibold">${esc(name)}</span>
+              <span class="status-badge ready">${(members || []).length} 个主体</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button class="btn-ghost p-1" onclick="event.stopPropagation();SourcesPage.deleteGroup('${esc(name)}')" title="删除集团">
+                <span class="material-symbols-outlined text-[18px] text-error">delete</span>
+              </button>
+              <span class="material-symbols-outlined text-[18px]">expand_more</span>
+            </div>
+          </div>
+          <div id="${sid}-body" class="ml-8 mt-1 hidden">
+            ${ms}
+            <div class="flex gap-2 mt-2 items-center">
+              <input type="text" id="${sid}-add"
+                     class="flex-1 px-3 py-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-body-sm"
+                     placeholder="输入主体名称"
+                     onkeydown="if(event.key==='Enter')SourcesPage.addMember('${sid}')">
+              <button class="btn-ghost text-body-sm" onclick="SourcesPage.addMember('${sid}')">
+                <span class="material-symbols-outlined text-[18px]">add</span>
+              </button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      el.innerHTML = '<p class="text-body-sm text-error">加载失败</p>';
     }
   }
 
@@ -215,8 +295,42 @@ const SourcesPage = (() => {
     }
   }
 
-  function refresh() { _loadTables(); _loadWorkdir(); }
+  function createGroup() {
+    const name = prompt('输入新集团系名称：');
+    if (!name || !name.trim()) return;
+    api('POST', '/api/groups', { name: name.trim(), members: [] }).then(r => {
+      if (r.ok) { _loadGroups(); toast('已创建：' + name.trim(), 'success'); }
+      else toast('创建失败：' + (r.error || ''), 'error');
+    });
+  }
+
+  async function addMember(sid) {
+    const groupName = _grpMap[sid];
+    if (!groupName) return;
+    const inp = document.getElementById(sid + '-add');
+    if (!inp) return;
+    const entity = inp.value.trim();
+    if (!entity) return;
+    const r = await api('POST', '/api/groups/' + encodeURIComponent(groupName) + '/members', { entity });
+    if (r.ok) { inp.value = ''; _loadGroups(); toast('已添加：' + entity, 'success'); }
+    else toast('添加失败：' + (r.error || ''), 'error');
+  }
+
+  async function removeMember(groupName, entity) {
+    const r = await api('DELETE', '/api/groups/' + encodeURIComponent(groupName) + '/members', { entity });
+    if (r.ok) { _loadGroups(); toast('已移除：' + entity); }
+    else toast('移除失败：' + (r.error || ''), 'error');
+  }
+
+  async function deleteGroup(name) {
+    if (!confirm('确定要删除集团系「' + name + '」及其所有主体吗？')) return;
+    const r = await api('DELETE', '/api/groups/' + encodeURIComponent(name));
+    if (r.ok) { _loadGroups(); toast('已删除：' + name, 'success'); }
+    else toast('删除失败：' + (r.error || ''), 'error');
+  }
+
+  function refresh() { _loadTables(); _loadGroups(); _loadWorkdir(); }
   function refreshWorkdir() { _loadWorkdir(); }
 
-  return { render, selectTable, refresh, refreshWorkdir, loadWorkdirFile };
+  return { render, selectTable, refresh, refreshWorkdir, loadWorkdirFile, createGroup, addMember, removeMember, deleteGroup };
 })();
