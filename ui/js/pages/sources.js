@@ -1,5 +1,5 @@
 /**
- * Data Sources page — upload zone, connected sources list, data preview.
+ * Data Sources page — upload zone, connected sources list, work directory, data preview.
  */
 const SourcesPage = (() => {
   let _selectedTable = null;
@@ -49,6 +49,22 @@ const SourcesPage = (() => {
           </div>
         </div>
 
+        <!-- Work Directory -->
+        <div class="mt-6 stitch-card" id="sources-workdir-card">
+          <div class="px-6 py-4 border-b border-surface-container flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px] text-secondary">folder_special</span>
+              <h3 class="text-body-md font-semibold">工作目录</h3>
+            </div>
+            <button class="btn-ghost text-body-sm" onclick="SourcesPage.refreshWorkdir()">
+              <span class="material-symbols-outlined text-[18px]">refresh</span>
+            </button>
+          </div>
+          <div id="sources-workdir" class="p-4 max-h-[300px] overflow-y-auto custom-scrollbar">
+            <p class="text-body-sm text-on-surface-variant">加载中...</p>
+          </div>
+        </div>
+
         <!-- Data Preview -->
         <div class="mt-6" id="sources-preview-wrap" style="display:none">
           <div class="stitch-card">
@@ -73,6 +89,7 @@ const SourcesPage = (() => {
       </div>`;
 
     _loadTables();
+    _loadWorkdir();
   }
 
   async function _loadTables() {
@@ -104,6 +121,63 @@ const SourcesPage = (() => {
     } catch (e) {
       const el = document.getElementById('sources-list');
       if (el) el.innerHTML = '<p class="p-6 text-body-sm text-error">加载失败</p>';
+    }
+  }
+
+  async function _loadWorkdir() {
+    const el = document.getElementById('sources-workdir');
+    if (!el) return;
+    try {
+      const d = await api('GET', '/api/workdir/files');
+      if (!d.work_dir) {
+        el.innerHTML = `<div class="text-center py-4">
+          <span class="material-symbols-outlined text-[32px] text-outline-variant mb-2">folder_off</span>
+          <p class="text-body-sm text-on-surface-variant">未配置工作目录</p>
+          <p class="text-body-sm text-on-surface-variant mt-1">在 <button class="text-secondary underline" onclick="openSettings()">设置</button> 中配置目录路径</p>
+        </div>`;
+        return;
+      }
+      const files = d.files || [];
+      if (!files.length) {
+        el.innerHTML = `<div class="text-center py-4">
+          <span class="material-symbols-outlined text-[32px] text-outline-variant mb-2">folder_open</span>
+          <p class="text-body-sm text-on-surface-variant">目录为空（无 CSV/Excel 文件）</p>
+          <p class="label-caps text-outline mt-1">${esc(d.work_dir)}</p>
+        </div>`;
+        return;
+      }
+
+      el.innerHTML = `<p class="label-caps text-outline mb-3">${esc(d.work_dir)} · ${files.length} 个文件</p>`
+        + files.map(f => `
+        <div class="flex items-center justify-between py-2 px-3 rounded hover:bg-surface-container-low transition-colors group">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant">description</span>
+            <span class="text-body-sm" title="${esc(f.filename)}">${esc(f.filename)}</span>
+            <span class="label-caps text-outline">${f.size_kb} KB</span>
+          </div>
+          <button class="btn-ghost text-body-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  onclick="SourcesPage.loadWorkdirFile('${esc(f.filename)}')">
+            <span class="material-symbols-outlined text-[18px]">download</span>
+            加载
+          </button>
+        </div>`).join('');
+    } catch (e) {
+      el.innerHTML = '<p class="text-body-sm text-error">加载失败</p>';
+    }
+  }
+
+  async function loadWorkdirFile(filename) {
+    if (typeof addSysMsg === 'function')
+      addSysMsg('正在预览工作目录文件：<b>' + esc(filename) + '</b>…', 'blue');
+    try {
+      const d = await api('POST', '/api/workdir/preview', { filename });
+      if (!d.ok) {
+        toast('预览失败：' + (d.error || ''), 'error');
+        return;
+      }
+      if (typeof showUploadConfirm === 'function') showUploadConfirm(d);
+    } catch (e) {
+      toast('预览请求失败：' + e.message, 'error');
     }
   }
 
@@ -141,7 +215,8 @@ const SourcesPage = (() => {
     }
   }
 
-  function refresh() { _loadTables(); }
+  function refresh() { _loadTables(); _loadWorkdir(); }
+  function refreshWorkdir() { _loadWorkdir(); }
 
-  return { render, selectTable, refresh };
+  return { render, selectTable, refresh, refreshWorkdir, loadWorkdirFile };
 })();
