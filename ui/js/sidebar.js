@@ -255,13 +255,12 @@ async function loadSuggestions(){
   try{
     const d=await api('GET','/api/suggestions');
     const sug=d.suggestions||[];
-    const bar=$('suggestionsBar');
-    if(!sug.length||!bar){return;}
-    bar.style.display='block';
-    bar.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:8px;">'
-      +'<span style="font-size:11.5px;color:var(--text-3);align-self:center">推荐：</span>'
-      +sug.map(s=>'<button class="q-btn" onclick="fillAndSend(\''+esc(s)+'\')" style="font-size:11.5px">'+esc(s)+'</button>').join('')
-      +'</div>';
+    const wrap=$('chat-suggestions');
+    const pills=$('suggestion-pills');
+    if(!sug.length||!wrap||!pills){return;}
+    wrap.style.display='block';
+    pills.innerHTML=sug.map(s=>'<button class="suggestion-pill" onclick="fillAndSend(\''+esc(s)+'\')">'
+      +'<span class="material-symbols-outlined text-[14px]">chat_bubble</span> '+esc(s)+'</button>').join('');
   }catch(e){}
 }
 function fillAndSend(text){
@@ -343,11 +342,11 @@ function checkMention(ta){
   const val=ta.value,pos=ta.selectionStart;
   const before=val.slice(0,pos);
   const match=before.match(/@([^\s@]*)$/);
-  if(!match){popup.classList.remove('show');return;}
+  if(!match){popup.style.display='none';return;}
   const query=match[1].toLowerCase();
   const tables=(window._cachedTables||[]).filter(t=>
     !query||t.name.toLowerCase().includes(query));
-  if(!tables.length){popup.classList.remove('show');return;}
+  if(!tables.length){popup.style.display='none';return;}
   _mentionIdx=-1;
   popup.innerHTML=tables.slice(0,8).map(t=>
     '<div class="mention-item" data-name="'+esc(t.name)+'" onclick="mentionSelect(\''+esc(t.name)+'\')">'
@@ -355,7 +354,7 @@ function checkMention(ta){
     +'<span class="mi-name">'+esc(t.name)+'</span>'
     +'<span class="mi-meta">'+t.rows+'行</span></div>'
   ).join('');
-  popup.classList.add('show');
+  popup.style.display='block';
 }
 function mentionNav(dir){
   const popup=$('mentionPopup');
@@ -371,7 +370,7 @@ function mentionSelect(name){
   const atIdx=before.lastIndexOf('@');
   ta.value=before.slice(0,atIdx)+'@'+name+' '+after;
   ta.selectionStart=ta.selectionEnd=atIdx+name.length+2;
-  $('mentionPopup').classList.remove('show');
+  $('mentionPopup').style.display='none';
   ta.focus();
 }
 function triggerSkill(name){

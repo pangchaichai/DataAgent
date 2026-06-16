@@ -14,6 +14,48 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-16，第十一轮）
+
+### 全版本综合测试 — 前后端全覆盖
+
+**测试范围**：66 个后端模块 + 17 个 JS 文件 + 54 个 API 端点 + 9 个 Skills + 7 个数据字典 + 7 个计算器
+
+**新增 183 个自动化测试**（3 个新测试文件）：
+
+**`tests/test_query_runner.py`（90 个测试）**
+- SQLGuard 安全边界：DDL 拒绝（8）+ 危险函数拒绝（5）+ 系统命令拒绝（7）+ 系统表拒绝（4）+ LIMIT 校验（5）
+- 合法查询接受：基本/WHERE/聚合/CTE/JOIN/子查询等（10）
+- 表名动态校验（2）+ 注释处理（3）+ 边界情况（4）
+- apply_field_map 字段映射（8）+ execute_query 完整执行（11）
+- 参数化全覆盖：BLOCKED_COMMANDS（18）+ BLOCKED_FUNCTIONS（5）
+
+**`tests/test_api_endpoints.py`（45 个测试）**
+- AppCreation（3）+ ChatAPI（10）+ DataAPI（8）+ ConfigAPI（6）+ SystemAPI（12）+ ReportAPI（6）
+- 覆盖全部 6 个 Blueprint 共 54 个端点
+
+**`tests/test_core_modules.py`（48 个测试）**
+- SessionStore（6）+ EntityNormalizer（10）+ QualityAuditor（8）+ ComplianceAudit（9）+ EntityManager（15）
+
+**L2 功能测试**（手动验证脚本）：
+- DOM ID 交叉引用：101 个引用 vs 126 个定义，15 个缺失全部有 null 保护
+- 静态资源：23 个文件全部 200
+- Blueprint 注册：6/6
+- Skill 预检：9/9 类型正确
+- 计算器签名：7/7 一致
+
+**L3 集成测试**（手动验证脚本）：
+- 应用启动与首页（HTML 结构验证）
+- CSV 上传完整流程（upload → confirm → tables → delete）
+- SSE 流合约（stream_id → text/event-stream → stream_end）
+- 设置读写循环（读 → 写 → 验证持久化）
+- 报告模板与 Word 导出
+- 日志系统端到端
+
+**最终结果**：575 passed, 2 skipped, 0 failed, 76% 覆盖率
+**Bug 发现**：0 个新 bug（前一轮修复的 2 个 DOM ID bug 已确认有效）
+
+---
+
 ## 上次会话完成的工作（2026-06-16，第十轮）
 
 ### Stitch Design System — Phase 2-5 图标迁移 + 聊天气泡重构
@@ -146,27 +188,25 @@
 
 ## 立即可执行的下一步
 
-### Stitch UI 后续
+### 1. UAT 验收（L4，10 个场景）
+- 需浏览器/Windows 环境手动验收：聊天流程、中文上传、Skill 执行、@mention、深色模式、5 页面路由、表剖析、Skill Builder、Word 导出
 
-1. **浏览器实测验证**：5 个页面路由 + 深色模式切换 + 流式聊天 + 设置面板 + 上传流程
-2. **agent_status.js 图标迁移**：猫头鹰状态栏仍用 Unicode ✓/✗/≈/⏸，可选择性迁移
+### 2. Stitch UI 细节
+- **agent_status.js 图标迁移**：猫头鹰状态栏仍用 Unicode ✓/✗/≈/⏸，可选择性迁移到 Material Symbols
 
-### v3.0 后续路径
+### 3. Phase 5（Windows 打包测试）
+- PyInstaller 打包，WebView2 Runtime 检测
+- Windows 10/11 完整功能验收
+- 内存基准测试（目标 Python 进程 < 200MB）
 
-1. **Phase 5（Windows 打包测试）**：
-   - PyInstaller 打包，WebView2 Runtime 检测
-   - Windows 10/11 完整功能验收
-   - 内存基准测试（目标 Python 进程 < 200MB）
+### 4. v3.1 推迟功能（待 ExecutionTracker 积累 2-4 周数据后）
+- ExecutionTracker 读取端（`/api/eval/stats`，退化信号检测）
+- Eval Framework 四级评估（需 1000+ trace 数据和 baseline）
+- 3 个新 Skill（risk_dashboard / maturity_alert / product_comparison）
 
-2. **v3.1 推迟功能（待 ExecutionTracker 积累 2-4 周数据后）**：
-   - ExecutionTracker 读取端（`/api/eval/stats`，退化信号检测）
-   - Eval Framework 四级评估（需 1000+ trace 数据和 baseline）
-   - 3 个新 Skill（risk_dashboard / maturity_alert / product_comparison）
-   - dispatch_alert 工具（Windows toast，需 Windows 环境测试）
-
-3. **近期待确认的外部阻塞项**：
-   - C-02（周报模板）、C-03（月报模板）、C-04（Word 格式）待业务方确认
-   - Phase 4（批量报告）进入条件
+### 5. 近期待确认的外部阻塞项
+- C-02（周报模板）、C-03（月报模板）、C-04（Word 格式）待业务方确认
+- Phase 4（批量报告）进入条件
 
 ---
 

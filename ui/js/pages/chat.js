@@ -45,7 +45,7 @@ const ChatPage = (() => {
           <div class="p-gutter pt-2 bg-surface-bright" id="chat-input-area">
             <div class="max-w-4xl mx-auto">
               <!-- Mention popup -->
-              <div id="mention-popup" class="hidden absolute bottom-full mb-1 left-0 bg-surface-container-lowest border border-outline-variant rounded-lg shadow-lg p-2 max-h-48 overflow-y-auto z-30" style="display:none"></div>
+              <div id="mentionPopup" class="absolute bottom-full mb-1 left-0 bg-surface-container-lowest border border-outline-variant rounded-lg shadow-lg p-2 max-h-48 overflow-y-auto z-30" style="display:none"></div>
 
               <!-- Hint bar -->
               <div id="hintBar" class="mb-2 text-body-sm text-on-surface-variant" style="display:none"></div>
