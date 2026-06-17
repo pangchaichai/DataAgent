@@ -4,7 +4,22 @@
 
 ---
 
-## 当前阶段：v2.0 完成 + 反幻觉修复 + 计算器字段映射参数化完成 → 等待内测反馈 / Phase 4 模板确认
+## 当前阶段：v2.0 完成 + 企业网关适配 + 反幻觉修复 + 字段映射参数化 → 等待内测反馈 / Phase 4 模板确认
+
+## 企业网关 LLM 适配 + 日志增强 ✅ 完成（2026-06-17）
+
+### 改动范围
+- [x] `agent/llm_client.py` — 新增 `_extract_openai_response()` 网关响应适配器，三个调用方法全部安全化
+- [x] `agent/loop.py` — LLM 失败日志增加上下文信息
+- [x] `tools/runtime_logger.py` — CAT_LLM 提升为 basic 模式始终记录，新增 4 个日志方法
+- [x] `tools/error_translator.py` — 新增 choices 缺失错误翻译
+- [x] `main.py` — 集成 Python logging.basicConfig
+- [x] `tests/test_llm_provider.py` — 新增 12 个测试
+
+### 测试结果
+- 615 passed, 2 skipped, 0 failed (77% 覆盖率)
+
+---
 
 ## LLM 反幻觉两层压缩架构 ✅ 完成（2026-06-17）
 

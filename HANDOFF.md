@@ -14,6 +14,33 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-17，第十六轮）
+
+### 企业网关 LLM 适配 + 日志增强
+
+**问题 1 — 企业 LLM 调用失败**：Windows 内测配置企业内网 LLM 后，测试连通成功，但实际发送消息时报"操作遇到异常：'choices'"。
+
+**根因**：企业网关代理（`openai_gateway_proxy.py`）将 OpenAI 标准格式包装为 `{txHeader, txBody: {txEntity: body}}`。代理虽在返回时提取 `txEntity`，但 DataAgent 的 `llm_client.py` 直接用 `data['choices'][0]` 裸访问，任何格式偏差都触发 `KeyError`。
+
+**修复 — 企业网关响应适配器**：
+- 新增 `_extract_openai_response()` 静态方法，自动检测并解包网关格式
+- `_call()`、`_call_with_messages()`、`_call_streaming()` 三个方法全部适配
+- 所有 `data['choices']` 改为 `.get()` 安全访问
+- `test_connection()` 增加 choices 字段校验，提前报告格式异常
+
+**问题 2 — 日志不足**：basic 模式下 LLM 请求/响应细节完全不记录，无法排查。
+
+**修复 — 日志增强**：
+- `BASIC_CATEGORIES` 新增 `CAT_LLM`：LLM 日志在 basic 模式也始终记录
+- 新增 `log_llm_request()`、`log_llm_response()`、`log_agent_error()`、`log_config_change()` 便捷方法
+- 失败时自动捕获原始响应预览到 JSONL 日志
+- `main.py` 集成 Python `logging.basicConfig`，LLM 模块 debug 日志可输出到控制台
+- `loop.py` 失败日志增加上下文（turn、message_count、tool_count）
+
+**测试**：新增 12 个测试（615 总计），覆盖网关格式提取、安全解析、tool_calls 透传、连接校验。
+
+---
+
 ## 上次会话完成的工作（2026-06-17，第十五轮）
 
 ### LLM 反幻觉两层压缩架构
