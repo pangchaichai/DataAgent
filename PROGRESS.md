@@ -6,28 +6,35 @@
 
 ## 当前阶段：v2.0 完成 + Stitch UI 重构完成 + 全版本综合测试通过 → 等待内测反馈 / Phase 4 模板确认
 
+## 回归测试 + UAT 验证 ✅ 完成（2026-06-17）
+✅ 已测（L1+L2+L3+UAT 通过）— 测试计划：`data/test_plans/20260617_regression_uat_testing.md`
+
+### 测试执行
+- [x] L1 单元测试：575 passed, 2 skipped, 0 failed (76% 覆盖率)
+- [x] L2 功能测试：16 JS 语法 / 14 API 端点 / 9 Skills / 7 字典 / 7 计算器 / DOM 安全 / CSS 类名 / 静态资源 — 全通过
+- [x] L3 集成测试：应用启动 / CSV 上传 / SSE 流 / 设置读写 / 报告导出 / 日志系统 / 集团 CRUD / Skill Builder / 数据表剖析 — 全通过
+- [x] UAT 字段一致性：路由绑定 / @mention / 深色模式 / 前端-API 字段对齐 — 全通过
+- [ ] L4 UAT 浏览器：10 个场景待 Windows/macOS 内测时业务方验收
+
+### 发现并修复的 Bug（4 个 P1/P2）
+- [x] `sources.js` 数据预览空值率：`c.null_pct` → `c.null_rate`（永远显示 `--`）
+- [x] `sources.js` 数据预览示例值：`c.sample` → `c.samples`（永远显示 `--`）
+- [x] `dashboard.js` LLM 状态：`health.llm_ok` → `health.llm_status === 'online'`（永远显示"离线"）
+- [x] `sources.js` 数据源列数：`t.columns` → `t.cols`（永远显示 0）
+
 ## 全版本综合测试 ✅ 完成（2026-06-16）
-✅ 已测（L1+L2+L3 通过，L4 待 UAT）— 测试计划：`data/test_plans/20260616_comprehensive_full_version_testing.md`
+✅ 已测（L1+L2+L3 通过）— 测试计划：`data/test_plans/20260616_comprehensive_full_version_testing.md`
 
 ### 新增测试（183 个）
 - [x] `tests/test_query_runner.py` — SQLGuard 安全边界 90 个测试（覆盖率 89%）
 - [x] `tests/test_api_endpoints.py` — 全部 54 个 API 端点烟雾测试 45 个
 - [x] `tests/test_core_modules.py` — session_store/entity_normalizer/quality/compliance_audit/entity_manager 48 个
 
-### 测试执行
-- [x] L1 单元测试：575 通过，2 跳过，0 失败（覆盖率 74%→76%）
-- [x] L2 功能测试：DOM 交叉引用 / API 端点 / 静态资源 / Blueprint / Skill 预检 / 计算器签名 全通过
-- [x] L3 集成测试：应用启动 / CSV 上传流程 / SSE 流 / 设置读写 / 报告导出 / 日志系统 全通过
-- [ ] L4 UAT：10 个场景待 Windows/macOS 内测时业务方验收
-
-### 发现并修复的 Bug
-- [x] mentionPopup ID 不匹配 → @mention 自动补全完全失效（前一轮）
-- [x] suggestions 目标 ID 过时 → 推荐功能永久隐藏（前一轮）
-- [x] 集团系 CRUD UI 在 SPA 迁移后无入口 → 集成到 Sources 页面（用户选择）
+### 发现并修复的 Bug（4 个）
+- [x] mentionPopup ID 不匹配 → @mention 自动补全完全失效
+- [x] suggestions 目标 ID 过时 → 推荐功能永久隐藏
+- [x] 集团系 CRUD UI 在 SPA 迁移后无入口 → 集成到 Sources 页面
 - [x] 工作目录上传 UI 在 SPA 迁移后无入口 → 集成到 Sources 页面
-
-### 全量回归
-- [x] 575 通过，2 跳过，0 失败（2026-06-16）
 
 ---
 

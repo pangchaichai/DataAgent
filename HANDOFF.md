@@ -14,9 +14,25 @@
 
 ---
 
-## 上次会话完成的工作（2026-06-16，第十一轮）
+## 上次会话完成的工作（2026-06-17，第十二轮）
 
-### 全版本综合测试 — 前后端全覆盖
+### 回归测试 + UAT 验证 + 前端-API 字段不一致 Bug 修复
+
+**测试执行**：
+- L1 全量回归：575 passed, 2 skipped, 0 failed (76% 覆盖率)
+- L2 功能测试：16 个 JS 文件语法 + 14 个 API 端点 + 9 个 Skills + 7 个字典 + 7 个计算器 + DOM 安全性 — 全通过
+- L3 集成测试：CSV 上传流程 + SSE 流 + 设置读写 + 报告导出 + 日志系统 + 集团 CRUD + Skill Builder + 数据表剖析 — 全通过
+- UAT 字段一致性检查：路由绑定 + @mention + 深色模式 — 全通过
+
+**修复 4 个前端-API 字段不一致 Bug**：
+1. `sources.js` 数据预览空值率：`c.null_pct` → `c.null_rate`（API 返回小数，需 ×100 转百分比）
+2. `sources.js` 数据预览示例值：`c.sample` → `c.samples`（API 返回数组）
+3. `dashboard.js` LLM 状态：`health.llm_ok` → `health.llm_status === 'online'`（永远显示"离线"）
+4. `sources.js` 数据源列数：`t.columns || t.col_count` → `t.cols ||`（API 返回 `cols` 字段）
+
+**SPA 功能归属**：集团系 CRUD 从 Rules 页面迁移至 Sources 页面完成（上一轮操作）
+
+### 前一轮（第十一轮）：全版本综合测试 — 前后端全覆盖
 
 **测试范围**：66 个后端模块 + 17 个 JS 文件 + 54 个 API 端点 + 9 个 Skills + 7 个数据字典 + 7 个计算器
 

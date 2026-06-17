@@ -132,7 +132,7 @@ const SourcesPage = (() => {
             <span class="material-symbols-outlined text-secondary text-[20px]">table_chart</span>
             <div>
               <div class="text-body-sm font-semibold">${esc(t.name || t.table_name)}</div>
-              <div class="label-caps text-outline mt-0.5">${(t.rows || t.row_count || 0).toLocaleString()} 行 · ${(t.columns || t.col_count || 0)} 列</div>
+              <div class="label-caps text-outline mt-0.5">${(t.rows || t.row_count || 0).toLocaleString()} 行 · ${(t.cols || t.columns || t.col_count || 0)} 列</div>
             </div>
           </div>
           <span class="status-badge ready">已连接</span>
@@ -281,8 +281,8 @@ const SourcesPage = (() => {
           html += `<tr>
             <td class="font-medium">${esc(c.name)}</td>
             <td class="data-mono">${esc(c.dtype || c.type || '--')}</td>
-            <td class="data-mono text-body-sm">${esc(String(c.sample || c.example || '--').substring(0, 40))}</td>
-            <td class="data-mono">${c.null_pct != null ? c.null_pct + '%' : '--'}</td>
+            <td class="data-mono text-body-sm">${esc(String(Array.isArray(c.samples) ? c.samples[0] : (c.sample || c.example || '--')).substring(0, 40))}</td>
+            <td class="data-mono">${c.null_rate != null ? (c.null_rate * 100).toFixed(1) + '%' : (c.null_pct != null ? c.null_pct + '%' : '--')}</td>
           </tr>`;
         });
         html += '</tbody></table>';

@@ -79,8 +79,9 @@ const DashboardPage = (() => {
       }
 
       if (health && kpiLlm) {
-        const status = health.llm_ok ? '在线' : '离线';
-        const cls = health.llm_ok ? 'text-success' : 'text-error';
+        const online = health.llm_ok || health.llm_status === 'online';
+        const status = online ? '在线' : '离线';
+        const cls = online ? 'text-success' : 'text-error';
         kpiLlm.innerHTML = `<span class="text-display-lg ${cls}">${status}</span>`;
       }
 
