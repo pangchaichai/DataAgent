@@ -14,6 +14,27 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-17，第十三轮）
+
+### 计算器字段映射参数化（Path B 方案实施）
+
+**问题**：所有 7 个固化计算器（B 类）SQL 中硬编码了语义列名（如 `产品名称`、`限额占用方主体`），
+当用户上传的数据源物理列名不同时（如 `产品简称`、`限额占用方`），计算器直接报列名不存在错误。
+而 A 类 run_sql 通过 `apply_field_map()` 已正确处理了这个问题——B 类计算器完全绕过了翻译层。
+
+**解决方案（Path B 全参数化）**：
+1. **新建 `calculators/columns.py`**：语义列名常量（20+）+ `resolve_columns()` 函数 + `ColumnResolutionError` 异常
+2. **修改全部 7 个计算器**：新增 `cols=None` 参数，SQL 中用 `cols` 字典获取物理列名，通过 `SELECT "物理列" AS 语义别名` 保证下游 DataFrame 列名不变
+3. **修改 `agent/tool_dispatch.py`**：新增 `_resolve_cols_for_table()` 和 `_resolve_mv_field()` 辅助函数，在调用计算器前自动解析字段映射
+4. **修改 `tools/data_loader.py`**：新增 `get_field_map_for_table()` 接口（按表名获取单表字段映射）
+5. **新建 `tests/test_column_resolution.py`**：26 个回归测试（基础功能 7 + 计算器映射 10 + dispatch 层 5 + 端到端 4）
+
+**向后兼容**：`cols=None` 默认值使所有既有测试无需修改即可通过。
+
+**测试结果**：601 passed, 2 skipped, 0 failed（77% 覆盖率，含 26 个新增测试）
+
+---
+
 ## 上次会话完成的工作（2026-06-17，第十二轮）
 
 ### 回归测试 + UAT 验证 + 前端-API 字段不一致 Bug 修复

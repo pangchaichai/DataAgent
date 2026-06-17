@@ -37,6 +37,7 @@ def calc_entity_concentration(
     group_mapping: dict,      # {主体名: 集团系名} 来自 groups.yaml
     entity_alias: dict,       # {别名: 标准名} 来自 entity_alias.yaml
     product_filter: list = None,  # None 表示所有产品
+    cols: dict = None,        # 语义名→物理列名映射，None=使用语义名本身
 ) -> list[ConcentrationResult]:
     """
     计算主体集中度，检查是否超标。
@@ -54,31 +55,34 @@ def calc_entity_concentration(
       group_mapping: 主体→集团归属映射
       entity_alias: 别名→标准名归一映射
       product_filter: 指定产品名称列表，None 表示所有产品
+      cols: 语义名→物理列名映射（来自 resolve_columns），None=向后兼容
 
     返回：超标的记录列表（空列表 = 无超标）
     注意：本函数使用固化 SQL 模板，不接受外部 SQL 输入
     """
-    # ── 固化 SQL 模板（不暴露给 LLM）────────────────────
-    # 口径：C-01 确认后，修改此处的 market_value_field 引用方式
-    # 字段名使用双引号防止特殊字符问题
+    from calculators.columns import COL_ENTITY, COL_PRODUCT_NAME
+
+    c_product = (cols or {}).get(COL_PRODUCT_NAME, "产品名称")
+    c_entity = (cols or {}).get(COL_ENTITY, "限额占用方主体")
 
     product_filter_clause = ""
     if product_filter:
         placeholders = ", ".join([f"'{p}'" for p in product_filter])
-        product_filter_clause = f"WHERE 产品名称 IN ({placeholders})"
+        product_filter_clause = f'WHERE "{c_product}" IN ({placeholders})'
 
     sql_total = f"""
-        SELECT 产品名称, SUM("{market_value_field}") AS 组合总市值
+        SELECT "{c_product}" AS 产品名称, SUM("{market_value_field}") AS 组合总市值
         FROM {holding_table}
         {product_filter_clause}
-        GROUP BY 产品名称
+        GROUP BY "{c_product}"
     """
 
     sql_entity = f"""
-        SELECT 产品名称, 限额占用方主体, SUM("{market_value_field}") AS 主体市值
+        SELECT "{c_product}" AS 产品名称, "{c_entity}" AS 限额占用方主体,
+               SUM("{market_value_field}") AS 主体市值
         FROM {holding_table}
         {product_filter_clause}
-        GROUP BY 产品名称, 限额占用方主体
+        GROUP BY "{c_product}", "{c_entity}"
     """
 
     totals = conn.execute(sql_total).df().set_index("产品名称")["组合总市值"].to_dict()

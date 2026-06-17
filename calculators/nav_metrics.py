@@ -30,6 +30,7 @@ def calc_nav_metrics(
     nav_table: str,
     valuation_date: str = "",   # 空=最新日期
     product_filter: list[str] = None,
+    cols: dict = None,          # 语义名→物理列名映射，None=使用默认硬编码列名
 ) -> list[NavMetricsResult]:
     """
     计算净值核心指标。
@@ -38,23 +39,68 @@ def calc_nav_metrics(
       - 数据来源：nav 表
       - 如果有公布值和系统值两份数据，优先使用公布值
     """
+    from calculators.columns import (
+        COL_NAV_DATE,
+        COL_NAV_NET_ASSETS,
+        COL_NAV_PRODUCT,
+        COL_NAV_RETURN_1M,
+        COL_NAV_RETURN_1Y,
+        COL_NAV_RETURN_3M,
+        COL_NAV_RETURN_7D,
+        COL_NAV_RETURN_INCEPTION,
+        COL_NAV_RETURN_YTD,
+        COL_NAV_TOTAL_ASSETS,
+        COL_NAV_UNIT,
+    )
+
+    _defaults = {
+        COL_NAV_PRODUCT: "产品简称",
+        COL_NAV_DATE: "估值日期",
+        COL_NAV_UNIT: "单位净值/万份收益(公布)",
+        COL_NAV_TOTAL_ASSETS: "产品总资产(公布)",
+        COL_NAV_NET_ASSETS: "产品净资产(公布)",
+        COL_NAV_RETURN_7D: "七日年化收益率(公布)%",
+        COL_NAV_RETURN_1M: "近1月年化收益率(%)",
+        COL_NAV_RETURN_3M: "近3月年化收益率(%)",
+        COL_NAV_RETURN_1Y: "近1年收益率(%)",
+        COL_NAV_RETURN_YTD: "今年以来收益率(%)",
+        COL_NAV_RETURN_INCEPTION: "成立以来收益率(%)",
+    }
+
+    def _col(semantic: str) -> str:
+        if cols and semantic in cols:
+            return cols[semantic]
+        return _defaults.get(semantic, semantic)
+
+    c_product = _col(COL_NAV_PRODUCT)
+    c_date = _col(COL_NAV_DATE)
+    c_unit = _col(COL_NAV_UNIT)
+    c_total_assets = _col(COL_NAV_TOTAL_ASSETS)
+    c_net_assets = _col(COL_NAV_NET_ASSETS)
+    c_r7d = _col(COL_NAV_RETURN_7D)
+    c_r1m = _col(COL_NAV_RETURN_1M)
+    c_r3m = _col(COL_NAV_RETURN_3M)
+    c_r1y = _col(COL_NAV_RETURN_1Y)
+    c_rytd = _col(COL_NAV_RETURN_YTD)
+    c_rinception = _col(COL_NAV_RETURN_INCEPTION)
+
     date_filter = ""
     if valuation_date:
-        date_filter = f'WHERE "估值日期" = \'{valuation_date}\''
+        date_filter = f'WHERE "{c_date}" = \'{valuation_date}\''
 
     sql = f"""
         SELECT
-            "产品简称" AS 产品名称,
-            "估值日期" AS 日期,
-            "单位净值/万份收益(公布)" AS 单位净值,
-            "产品总资产(公布)" AS 总资产,
-            "产品净资产(公布)" AS 净资产,
-            "七日年化收益率(公布)%" AS 七日月化,
-            "近1月年化收益率(%)" AS 近1月,
-            "近3月年化收益率(%)" AS 近3月,
-            "近1年收益率(%)" AS 近1年,
-            "今年以来收益率(%)" AS 年初至今,
-            "成立以来收益率(%)" AS 成立以来
+            "{c_product}" AS 产品名称,
+            "{c_date}" AS 日期,
+            "{c_unit}" AS 单位净值,
+            "{c_total_assets}" AS 总资产,
+            "{c_net_assets}" AS 净资产,
+            "{c_r7d}" AS 七日月化,
+            "{c_r1m}" AS 近1月,
+            "{c_r3m}" AS 近3月,
+            "{c_r1y}" AS 近1年,
+            "{c_rytd}" AS 年初至今,
+            "{c_rinception}" AS 成立以来
         FROM {nav_table}
         {date_filter}
         ORDER BY 产品名称, 日期 DESC

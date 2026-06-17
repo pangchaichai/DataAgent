@@ -184,6 +184,8 @@ def _tool_run_calculator(args: dict, ctx: ToolContext) -> dict:
 
     ★ 关键护栏：market_value_field、threshold、use_group_merge
       只能来自 ctx.calculation_config（config.yaml），拒绝 LLM 传值。
+    ★ 字段映射：通过 resolve_columns() 将语义列名翻译为物理列名，
+      确保计算器在数据源列名不同时仍能正确执行。
     """
     cfg = ctx.calculation_config
     conn = ctx.duckdb_conn
@@ -223,6 +225,7 @@ def _tool_run_calculator(args: dict, ctx: ToolContext) -> dict:
 
 def _run_entity_concentration(args, cfg, conn, holding_table):
     """实体集中度计算（口径全部来自 config）"""
+    from calculators.columns import COL_ENTITY, COL_MV_PENETRATED, COL_PRODUCT_NAME
     from calculators.concentration import calc_entity_concentration
     from tools.entity_manager import EntityManager
 
@@ -230,16 +233,19 @@ def _run_entity_concentration(args, cfg, conn, holding_table):
     em = EntityManager()
 
     entity_alias = _load_entity_alias()
+    cols = _resolve_cols_for_table(holding_table, [COL_PRODUCT_NAME, COL_ENTITY])
+    mv_field = _resolve_mv_field(holding_table, c.get("market_value_field", "穿透后市值"))
 
     results = calc_entity_concentration(
         conn=conn,
         holding_table=holding_table,
-        market_value_field=c.get("market_value_field", "穿透后市值"),
+        market_value_field=mv_field,
         threshold_pct=c.get("threshold_entity", 10.0),
         use_group_merge=c.get("use_group_merge", True),
         group_mapping=em.get_group_mapping(),
         entity_alias=entity_alias,
         product_filter=args.get("product_filter"),
+        cols=cols,
     )
 
     breaches = [
@@ -269,15 +275,35 @@ def _run_entity_concentration(args, cfg, conn, holding_table):
 
 def _run_nav_metrics(args, cfg, conn):
     """净值指标计算"""
+    from calculators.columns import (
+        COL_NAV_DATE,
+        COL_NAV_NET_ASSETS,
+        COL_NAV_PRODUCT,
+        COL_NAV_RETURN_1M,
+        COL_NAV_RETURN_1Y,
+        COL_NAV_RETURN_3M,
+        COL_NAV_RETURN_7D,
+        COL_NAV_RETURN_INCEPTION,
+        COL_NAV_RETURN_YTD,
+        COL_NAV_TOTAL_ASSETS,
+        COL_NAV_UNIT,
+    )
     from calculators.nav_metrics import calc_nav_metrics
 
     nav_table = args.get("holding_table", "") or _auto_select_table("nav")
+    cols = _resolve_cols_for_table(nav_table, [
+        COL_NAV_PRODUCT, COL_NAV_DATE, COL_NAV_UNIT,
+        COL_NAV_TOTAL_ASSETS, COL_NAV_NET_ASSETS,
+        COL_NAV_RETURN_7D, COL_NAV_RETURN_1M, COL_NAV_RETURN_3M,
+        COL_NAV_RETURN_1Y, COL_NAV_RETURN_YTD, COL_NAV_RETURN_INCEPTION,
+    ])
 
     results = calc_nav_metrics(
         conn=conn,
         nav_table=nav_table,
         valuation_date=args.get("valuation_date", ""),
         product_filter=args.get("product_filter"),
+        cols=cols,
     )
 
     return {
@@ -303,14 +329,20 @@ def _run_nav_metrics(args, cfg, conn):
 def _run_asset_structure(args, cfg, conn, holding_table):
     """资产结构计算"""
     from calculators.asset_structure import calc_asset_structure
+    from calculators.columns import COL_ASSET_CODE, COL_G06_L1, COL_PRODUCT_NAME
 
     c = cfg.get("concentration", {})
+    category_field = args.get("category_field", "G06一级分类")
+    cols = _resolve_cols_for_table(holding_table, [COL_PRODUCT_NAME, COL_ASSET_CODE, category_field])
+    mv_field = _resolve_mv_field(holding_table, c.get("market_value_field", "穿透后市值"))
+
     results = calc_asset_structure(
         conn=conn,
         holding_table=holding_table,
-        market_value_field=c.get("market_value_field", "穿透后市值"),
+        market_value_field=mv_field,
         group_by_product=args.get("group_by_product", True),
-        category_field=args.get("category_field", "G06一级分类"),
+        category_field=category_field,
+        cols=cols,
     )
 
     return {
@@ -334,16 +366,22 @@ def _run_asset_structure(args, cfg, conn, holding_table):
 
 def _run_credit_distribution(args, cfg, conn, holding_table):
     """信用评级分布计算"""
+    from calculators.columns import COL_ASSET_CODE, COL_EXTERNAL_RATING, COL_PRODUCT_NAME
     from calculators.credit_distribution import calc_credit_distribution
 
     c = cfg.get("concentration", {})
+    rating_field = args.get("rating_field", "外部评级")
+    cols = _resolve_cols_for_table(holding_table, [COL_PRODUCT_NAME, COL_ASSET_CODE, rating_field])
+    mv_field = _resolve_mv_field(holding_table, c.get("market_value_field", "穿透后市值"))
+
     results = calc_credit_distribution(
         conn=conn,
         holding_table=holding_table,
-        market_value_field=c.get("market_value_field", "穿透后市值"),
-        rating_field=args.get("rating_field", "外部评级"),
+        market_value_field=mv_field,
+        rating_field=rating_field,
         product_filter=args.get("product_filter"),
         exclude_null=args.get("exclude_null", True),
+        cols=cols,
     )
 
     return {
@@ -367,6 +405,7 @@ def _run_credit_distribution(args, cfg, conn, holding_table):
 
 def _run_position_diff(args, cfg, conn):
     """跨期持仓差异计算"""
+    from calculators.columns import COL_ASSET_CODE, COL_ASSET_NAME, COL_PRODUCT_NAME
     from calculators.position_diff import calc_position_diff
 
     c = cfg.get("concentration", {})
@@ -376,14 +415,18 @@ def _run_position_diff(args, cfg, conn):
     if table_t1 == table_t2:
         return {"ok": False, "error": "前后两期持仓表相同，无法计算差异，请指定 holding_table_t1 和 holding_table_t2"}
 
+    cols = _resolve_cols_for_table(table_t1, [COL_PRODUCT_NAME, COL_ASSET_CODE, COL_ASSET_NAME])
+    mv_field = _resolve_mv_field(table_t1, c.get("market_value_field", "穿透后市值"))
+
     results = calc_position_diff(
         conn=conn,
         table_t1=table_t1,
         table_t2=table_t2,
-        market_value_field=c.get("market_value_field", "穿透后市值"),
+        market_value_field=mv_field,
         date_t1=args.get("date_t1", ""),
         date_t2=args.get("date_t2", ""),
         product_filter=args.get("product_filter"),
+        cols=cols,
     )
 
     return {
@@ -411,18 +454,22 @@ def _run_position_diff(args, cfg, conn):
 
 def _run_leverage(args, cfg, conn, holding_table):
     """杠杆率计算"""
+    from calculators.columns import COL_PRODUCT_NAME
     from calculators.leverage import calc_leverage
 
     c = cfg.get("concentration", {})
     nav_table = args.get("nav_table", "") or _auto_select_table("nav")
+    cols = _resolve_cols_for_table(holding_table, [COL_PRODUCT_NAME])
+    mv_field = _resolve_mv_field(holding_table, c.get("market_value_field", "穿透后市值"))
 
     results = calc_leverage(
         conn=conn,
         holding_table=holding_table,
         nav_table=nav_table,
-        market_value_field=c.get("market_value_field", "穿透后市值"),
+        market_value_field=mv_field,
         threshold=cfg.get("leverage", {}).get("threshold", 2.0),
         product_filter=args.get("product_filter"),
+        cols=cols,
     )
 
     return {
@@ -448,16 +495,22 @@ def _run_leverage(args, cfg, conn, holding_table):
 
 def _run_liquidity(args, cfg, conn, holding_table):
     """流动性分析计算"""
+    from calculators.columns import COL_ASSET_CODE, COL_PRODUCT_NAME
     from calculators.liquidity import calc_liquidity
 
     c = cfg.get("concentration", {})
+    category_field = args.get("category_field", "G06一级分类")
+    cols = _resolve_cols_for_table(holding_table, [COL_PRODUCT_NAME, COL_ASSET_CODE, category_field])
+    mv_field = _resolve_mv_field(holding_table, c.get("market_value_field", "穿透后市值"))
+
     results = calc_liquidity(
         conn=conn,
         holding_table=holding_table,
-        market_value_field=c.get("market_value_field", "穿透后市值"),
-        category_field=args.get("category_field", "G06一级分类"),
+        market_value_field=mv_field,
+        category_field=category_field,
         threshold_liquid_pct=cfg.get("liquidity", {}).get("threshold_liquid_pct", 20.0),
         product_filter=args.get("product_filter"),
+        cols=cols,
     )
 
     return {
@@ -807,6 +860,35 @@ def _tool_export_data(args: dict, ctx: ToolContext) -> dict:
 # ═══════════════════════════════════════════════════════════════
 #  Helpers
 # ═══════════════════════════════════════════════════════════════
+
+def _resolve_cols_for_table(table_name: str, semantics: list[str]) -> dict[str, str] | None:
+    """
+    查找指定表的字段映射，解析语义列名→物理列名。
+    表无映射时返回 None（计算器将使用默认语义名）。
+    解析失败时不抛异常——让计算器用语义名尝试执行，
+    DuckDB 报列名错误后由 Agent 自愈机制处理。
+    """
+    from tools.data_loader import get_field_map_for_table
+    field_map = get_field_map_for_table(table_name)
+    if not field_map:
+        return None
+    cols = {}
+    for sem in semantics:
+        cols[sem] = field_map.get(sem, sem)
+    return cols
+
+
+def _resolve_mv_field(table_name: str, configured_mv: str) -> str:
+    """
+    解析市值字段：若 config 中配置的是语义名（如"穿透后市值"），
+    通过字段映射翻译为物理列名（如"资产市值_穿透后"）。
+    """
+    from tools.data_loader import get_field_map_for_table
+    field_map = get_field_map_for_table(table_name)
+    if field_map and configured_mv in field_map:
+        return field_map[configured_mv]
+    return configured_mv
+
 
 def _auto_select_table(table_type: str) -> str:
     """从已加载表中自动选择最新的一张指定类型的表"""

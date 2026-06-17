@@ -163,9 +163,9 @@ DataAgent 是一个「**自然语言 → 确定性计算 → 受控叙述**」�
 │    SelfChecker 数值自检 + 工具参数 Schema 校验                  │
 │    暂停/续跑机制 + 会话 messages 持久化                         │
 ├──────────────────────────────────────────────────────────────┤
-│  业务能力层（两类，严格区分）                                   │
-│   A. 探索式分析：LLM 生成 SQL（允许灵活，经 SQLGuard 校验）      │
-│   B. 合规/报告口径：calculators/ 固化计算（禁止 LLM 生成 SQL）   │
+│  业务能力层（两类，严格区分，均经字段映射）                       │
+│   A. 探索式分析：LLM 生成 SQL（apply_field_map + SQLGuard）     │
+│   B. 合规/报告口径：calculators/ 固化计算（cols 全参数化映射）    │
 ├──────────────────────────────────────────────────────────────┤
 │  ★可观测性层  Hook 系统(agent/hooks.py) + 成本追踪(cost_tracker)│
 │              上下文三级压缩(context.py) + 审计 Hash Chain        │
@@ -260,7 +260,7 @@ DataAgent/
 │
 ├── agent/
 │   ├── loop.py                ← tool-calling 循环 + 场景化工具过滤
-│   ├── tools_spec.py          ← 7 工具定义 + dispatch + Schema 校验
+│   ├── tools_spec.py          ← 7 工具定义 + dispatch + Schema 校验 + 字段映射解析
 │   ├── llm_client.py          ← ChatResult + chat() + LM Studio/多 provider
 │   ├── context.py             ← ★I-3b: 三级上下文压缩
 │   ├── planner.py             ← ★I-8: Plan-Execute 规划层
@@ -271,6 +271,7 @@ DataAgent/
 │   └── memory.py              ← BM25 + SQLite 跨会话记忆
 │
 ├── calculators/               ← 固化计算模块
+│   ├── columns.py             ← ★语义列名常量 + resolve_columns() 字段映射解析
 │   ├── concentration.py       ← 主体/单券集中度
 │   ├── nav_metrics.py         ← 净值指标
 │   ├── asset_structure.py     ← 资产结构
@@ -419,6 +420,29 @@ if not clean:
         error_translator.translate("join_key_mismatch", details=str(unmatched))
     )
 ```
+
+### 5.3b B 类固化计算的字段映射（Path B 全参数化）
+
+A 类探索式查询通过 `apply_field_map()` + sqlglot AST 自动翻译列名。
+B 类固化计算（calculators/）通过全参数化方案解决同一问题：
+
+```python
+# calculators/columns.py — 语义列名常量 + 解析函数
+from calculators.columns import resolve_columns, COL_PRODUCT_NAME, COL_ENTITY
+
+# 每个计算器函数接受 cols=None 参数
+def calc_entity_concentration(conn, holding_table, ..., cols=None):
+    c_product = (cols or {}).get(COL_PRODUCT_NAME, "产品名称")
+    c_entity = (cols or {}).get(COL_ENTITY, "限额占用方主体")
+    # SQL 使用 SELECT "物理列" AS 语义别名 保证下游 DataFrame 列名不变
+    sql = f'SELECT "{c_product}" AS 产品名称, ...'
+
+# agent/tool_dispatch.py — 调用前解析字段映射
+cols = _resolve_cols_for_table(table_name, [COL_PRODUCT_NAME, COL_ENTITY])
+results = calc_entity_concentration(conn, table, ..., cols=cols)
+```
+
+向后兼容：`cols=None` 时使用语义名本身，与修改前行为一致。
 
 ### 5.4 LLM 的语义注入
 
@@ -885,12 +909,20 @@ def main():
 ## 十三、编码规范（v1.5 更新）
 
 ```python
-# ✅ 固化计算（合规/报告场景）
+# ✅ 固化计算（合规/报告场景）— 带字段映射
 from calculators.concentration import calc_entity_concentration
-results = calc_entity_concentration(conn, table_name, ...)
+from calculators.columns import COL_PRODUCT_NAME, COL_ENTITY
+cols = _resolve_cols_for_table(table_name, [COL_PRODUCT_NAME, COL_ENTITY])
+results = calc_entity_concentration(conn, table_name, ..., cols=cols)
+
+# ✅ 固化计算向后兼容（无映射时）
+results = calc_entity_concentration(conn, table_name, ...)  # cols=None 使用语义名
 
 # ❌ 禁止在合规/报告场景让 LLM 生成 SQL
 sql = llm_client.generate_sql("计算象屿系集中度")  # 禁止
+
+# ✅ 新增/修改计算器时使用 cols 参数模式
+# SQL 中使用 SELECT "物理列" AS 语义别名，保证下游代码不受影响
 
 # ✅ Tool-calling Agent 模式
 from agent.tools_spec import dispatch_tool, ToolContext
@@ -1109,3 +1141,4 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v3.0 Skill-C | Skill Builder 需求文档导入：import_from_requirement_doc() / POST /api/skill-builder/import / 从文档导入 UI | 功能完善 |
 | v3.0 Skills | 验收用 Skill 创建：weekly_report_generator（理财周报 5 模板）/ meeting_report v3（谈参要点含集团关系树）| Skills 库 |
 | v2.2 Upload | 文件上传升级：批量上传 + 本地工作目录（workdir_loader / 侧边栏区块 / Skill 预检自动扫描）| 功能升级 |
+| v2.3 FieldMap | 计算器字段映射全参数化（Path B）：columns.py 语义常量 + resolve_columns() + 7 个计算器 cols 参数 + tool_dispatch 解析层 + 26 个新测试（含端到端）| 字段映射 |

@@ -70,6 +70,7 @@ def calc_liquidity(
     liquidity_tiers: dict = None,
     product_filter: list = None,
     data_date: str = "",
+    cols: dict = None,
 ) -> list[LiquidityResult]:
     """
     计算持仓流动性分布。
@@ -81,22 +82,29 @@ def calc_liquidity(
     参数：
       threshold_liquid_pct: 最低流动性要求（默认20%，即低于此则超标）
       liquidity_tiers: 资产类别→层级映射；None=使用默认
+      cols: 语义名→物理列名映射，None=向后兼容
     """
+    from calculators.columns import COL_ASSET_CODE, COL_PRODUCT_NAME
+
+    c_product = (cols or {}).get(COL_PRODUCT_NAME, "产品名称")
+    c_asset_code = (cols or {}).get(COL_ASSET_CODE, "资产代码")
+    c_category = (cols or {}).get(category_field, category_field)
+
     tiers = liquidity_tiers or _DEFAULT_LIQUIDITY_TIERS
 
     prod_clause = ""
     if product_filter:
         p_list = ", ".join(f"'{p}'" for p in product_filter)
-        prod_clause = f"WHERE 产品名称 IN ({p_list})"
+        prod_clause = f'WHERE "{c_product}" IN ({p_list})'
 
     sql = f"""
-        SELECT 产品名称,
-               "{category_field}" AS 资产类别,
+        SELECT "{c_product}" AS 产品名称,
+               "{c_category}" AS 资产类别,
                SUM("{market_value_field}") AS 市值,
-               COUNT(DISTINCT 资产代码) AS 品种数
+               COUNT(DISTINCT "{c_asset_code}") AS 品种数
         FROM {holding_table}
         {prod_clause}
-        GROUP BY 产品名称, "{category_field}"
+        GROUP BY "{c_product}", "{c_category}"
     """
     df = conn.execute(sql).df()
 

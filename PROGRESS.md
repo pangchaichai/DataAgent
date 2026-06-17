@@ -4,7 +4,30 @@
 
 ---
 
-## 当前阶段：v2.0 完成 + Stitch UI 重构完成 + 全版本综合测试通过 → 等待内测反馈 / Phase 4 模板确认
+## 当前阶段：v2.0 完成 + Stitch UI 重构完成 + 计算器字段映射参数化完成 → 等待内测反馈 / Phase 4 模板确认
+
+## 计算器字段映射参数化（Path B）✅ 完成（2026-06-17）
+✅ 已测（L1+L2+L3 通过）— 测试计划：`data/test_plans/20260617_calculator_field_mapping.md`
+
+### 改动范围
+- [x] `calculators/columns.py`（新建）— 语义列名常量 + `resolve_columns()` + `ColumnResolutionError`
+- [x] `calculators/concentration.py` — 新增 `cols=None` 参数，SQL 使用映射后的列名
+- [x] `calculators/nav_metrics.py` — 新增 `cols=None` 参数，11 个净值字段全部参数化
+- [x] `calculators/asset_structure.py` — `calc_asset_structure()` + `calc_top_n_holdings()` 均参数化
+- [x] `calculators/credit_distribution.py` — 新增 `cols=None`，评级字段通过映射解析
+- [x] `calculators/position_diff.py` — 新增 `cols=None`，3 个关键列参数化
+- [x] `calculators/leverage.py` — 新增 `cols=None`，产品名列参数化
+- [x] `calculators/liquidity.py` — 新增 `cols=None`，3 个关键列参数化
+- [x] `agent/tool_dispatch.py` — 新增 `_resolve_cols_for_table()` + `_resolve_mv_field()` + 所有 `_run_*` 函数传入 cols
+- [x] `tools/data_loader.py` — 新增 `get_field_map_for_table()` 接口
+- [x] `tests/test_column_resolution.py`（新建）— 26 个测试全部通过
+
+### 测试结果
+- L1 新增测试：26 passed, 0 failed
+- L2 全量回归：601 passed, 2 skipped, 0 failed (77% 覆盖率)
+- 向后兼容：全部既有 30 个计算器测试无修改通过
+
+---
 
 ## 回归测试 + UAT 验证 ✅ 完成（2026-06-17）
 ✅ 已测（L1+L2+L3+UAT 通过）— 测试计划：`data/test_plans/20260617_regression_uat_testing.md`

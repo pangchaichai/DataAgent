@@ -219,6 +219,17 @@ def get_all_field_maps() -> dict[str, str]:
     return combined
 
 
+def get_field_map_for_table(table_name: str) -> dict[str, str] | None:
+    """
+    返回指定表的字段映射 {语义名 → 物理列名}。
+    表不存在或无映射时返回 None。
+    """
+    loaded = _loaded_tables.get(table_name)
+    if loaded and loaded.field_map:
+        return dict(loaded.field_map)
+    return None
+
+
 # ═══════════════════════════════════════════════════════════════
 #  编码检测 + 列名清洗
 # ═══════════════════════════════════════════════════════════════

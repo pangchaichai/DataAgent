@@ -25,6 +25,7 @@ def calc_credit_distribution(
     rating_field: str = "外部评级",
     product_filter: list[str] = None,
     exclude_null: bool = True,
+    cols: dict = None,
 ) -> list[CreditDistributionResult]:
     """
     计算信用评级分布。
@@ -32,22 +33,29 @@ def calc_credit_distribution(
     参数：
       rating_field: "外部评级" 或 "内部评级"（需要表中存在对应列）
       product_filter: 限定产品列表
+      cols: 语义名→物理列名映射，None=向后兼容
     """
+    from calculators.columns import COL_ASSET_CODE, COL_PRODUCT_NAME
+
+    c_product = (cols or {}).get(COL_PRODUCT_NAME, "产品名称")
+    c_asset_code = (cols or {}).get(COL_ASSET_CODE, "资产代码")
+    c_rating = (cols or {}).get(rating_field, rating_field)
+
     product_clause = ""
     if product_filter:
         names = ", ".join([f"'{p}'" for p in product_filter])
-        product_clause = f'AND "产品名称" IN ({names})'
+        product_clause = f'AND "{c_product}" IN ({names})'
 
-    null_clause = f'AND "{rating_field}" IS NOT NULL' if exclude_null else ''
+    null_clause = f'AND "{c_rating}" IS NOT NULL' if exclude_null else ''
 
     sql = f"""
         SELECT
-            "{rating_field}" AS 评级,
+            "{c_rating}" AS 评级,
             SUM("{market_value_field}") AS 市值,
-            COUNT(DISTINCT "资产代码") AS 品种数
+            COUNT(DISTINCT "{c_asset_code}") AS 品种数
         FROM {holding_table}
         WHERE 1=1 {product_clause} {null_clause}
-        GROUP BY "{rating_field}"
+        GROUP BY "{c_rating}"
         ORDER BY 市值 DESC
     """
 

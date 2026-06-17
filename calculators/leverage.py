@@ -31,6 +31,7 @@ def calc_leverage(
     threshold: float = 2.0,
     product_filter: list = None,
     data_date: str = "",
+    cols: dict = None,
 ) -> list[LeverageResult]:
     """
     计算持仓杠杆率。
@@ -44,23 +45,26 @@ def calc_leverage(
       market_value_field: 持仓表中市值字段名
       nav_field: 净值表中单位净值字段名
       share_field: 净值表中份额字段名（乘以单位净值得 NAV）
+      cols: 语义名→物理列名映射，None=向后兼容
     """
+    from calculators.columns import COL_PRODUCT_NAME
+
+    c_product = (cols or {}).get(COL_PRODUCT_NAME, "产品名称")
+
     prod_clause = ""
     if product_filter:
         p_list = ", ".join(f"'{p}'" for p in product_filter)
-        prod_clause = f"WHERE 产品名称 IN ({p_list})"
+        prod_clause = f'WHERE "{c_product}" IN ({p_list})'
 
-    # ── 持仓总市值 ─────────────────────────────────────────
     sql_assets = f"""
-        SELECT 产品名称, SUM("{market_value_field}") AS total_assets
+        SELECT "{c_product}" AS 产品名称, SUM("{market_value_field}") AS total_assets
         FROM {holding_table}
         {prod_clause}
-        GROUP BY 产品名称
+        GROUP BY "{c_product}"
     """
 
-    # ── 净资产值 ────────────────────────────────────────────
     sql_nav = f"""
-        SELECT 产品名称,
+        SELECT "{c_product}" AS 产品名称,
                "{nav_field}" * "{share_field}" AS nav
         FROM {nav_table}
         {prod_clause}

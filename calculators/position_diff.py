@@ -33,6 +33,7 @@ def calc_position_diff(
     date_t2: str = "",
     product_filter: list = None,
     min_mv_threshold: float = 0.0,
+    cols: dict = None,
 ) -> list[PositionChange]:
     """
     计算两期持仓差异。
@@ -44,26 +45,34 @@ def calc_position_diff(
       date_t1, date_t2: 日期标签（用于结果展示）
       product_filter: 产品过滤列表，None=全部
       min_mv_threshold: 忽略绝对变化小于此值的行（降噪）
+      cols: 语义名→物理列名映射，None=向后兼容
     """
+    from calculators.columns import COL_ASSET_CODE, COL_ASSET_NAME, COL_PRODUCT_NAME
+
+    c_product = (cols or {}).get(COL_PRODUCT_NAME, "产品名称")
+    c_asset_code = (cols or {}).get(COL_ASSET_CODE, "资产代码")
+    c_asset_name = (cols or {}).get(COL_ASSET_NAME, "资产名称")
+
     prod_clause = ""
     if product_filter:
         p_list = ", ".join(f"'{p}'" for p in product_filter)
-        prod_clause = f"WHERE 产品名称 IN ({p_list})"
+        prod_clause = f'WHERE "{c_product}" IN ({p_list})'
 
-    # ── 分别汇总两期按产品+资产代码的市值 ────────────────────
     sql_t1 = f"""
-        SELECT 产品名称, 资产代码, 资产名称,
+        SELECT "{c_product}" AS 产品名称, "{c_asset_code}" AS 资产代码,
+               "{c_asset_name}" AS 资产名称,
                SUM("{market_value_field}") AS mv
         FROM {table_t1}
         {prod_clause}
-        GROUP BY 产品名称, 资产代码, 资产名称
+        GROUP BY "{c_product}", "{c_asset_code}", "{c_asset_name}"
     """
     sql_t2 = f"""
-        SELECT 产品名称, 资产代码, 资产名称,
+        SELECT "{c_product}" AS 产品名称, "{c_asset_code}" AS 资产代码,
+               "{c_asset_name}" AS 资产名称,
                SUM("{market_value_field}") AS mv
         FROM {table_t2}
         {prod_clause}
-        GROUP BY 产品名称, 资产代码, 资产名称
+        GROUP BY "{c_product}", "{c_asset_code}", "{c_asset_name}"
     """
 
     df1 = conn.execute(sql_t1).df().set_index(["产品名称", "资产代码"])
