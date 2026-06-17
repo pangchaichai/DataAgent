@@ -451,7 +451,10 @@ def run_agent_loop(
             session_messages.append({
                 "role": "tool",
                 "tool_call_id": tool_id,
-                "content": json.dumps(tool_result, ensure_ascii=False, default=str),
+                "content": json.dumps(
+                    _slim_tool_result_for_llm(tool_name, tool_result),
+                    ensure_ascii=False, default=str,
+                ),
             })
 
     # 达到最大轮数
@@ -588,6 +591,45 @@ def _tool_label(tool_name: str, args: dict) -> str:
     elif tool_name == "request_confirmation":
         return f"请求确认：{args.get('title', '')}"
     return tool_name
+
+
+_LLM_MAX_ROWS = 20
+
+
+def _slim_tool_result_for_llm(tool_name: str, result: dict) -> dict:
+    """
+    精简工具结果后再写入 session_messages 供 LLM 阅读。
+
+    完整数据已通过 SSE _table() 事件推送给前端，LLM 只需看到足够
+    写出正确摘要的数据量。对 run_sql 结果，截取前 20 行 + 统计信息。
+    """
+    if tool_name != "run_sql":
+        return result
+    if not result.get("ok") or "rows" not in result:
+        return result
+
+    rows = result["rows"]
+    total = result.get("row_count", len(rows))
+    if len(rows) <= _LLM_MAX_ROWS:
+        return result
+
+    slim = {
+        "ok": True,
+        "columns": result["columns"],
+        "rows": rows[:_LLM_MAX_ROWS],
+        "row_count": total,
+        "rows_shown": _LLM_MAX_ROWS,
+        "sql": result.get("sql", ""),
+        "note": (
+            f"完整 {total} 行数据已展示在用户界面的表格中。"
+            f"此处仅包含前 {_LLM_MAX_ROWS} 行供你参考。"
+            "请基于这些真实数据回答，不要编造不在此列表中的内容。"
+            "如果用户追问表格中更后面的数据，建议用户直接查看表格或缩小查询范围。"
+        ),
+    }
+    if result.get("truncated"):
+        slim["truncated"] = True
+    return slim
 
 
 def _result_summary(tool_name: str, result: dict) -> str:

@@ -107,13 +107,18 @@ def build_schema_context(relevant_tables: list[str] | None = None) -> str:
 
 def compress_messages(messages: list[dict], max_keep_full: int = 6) -> list[dict]:
     """
-    压缩会话历史（ETCLOVG C 层）。
+    压缩会话历史（ETCLOVG C 层，第二层压缩）。
+
+    工具结果在写入 session_messages 时已经过第一层精简（loop.py
+    _slim_tool_result_for_llm：run_sql 最多保留 20 行）。本函数是
+    第二层：对滑出最近窗口的早期消息进一步压缩。
 
     策略：
       - 保留 system 消息（始终完整）
       - 保留最近 max_keep_full 条非 system 消息完整
-      - 更早的消息：assistant text 截断为前 200 字符，
-        tool result 智能压缩（保留列名和前 10 行数据摘要，防止 LLM 编造）
+      - 更早的消息：
+        · tool result：智能压缩（保留列名 + 前 5 行 + 统计摘要）
+        · assistant text：截断为前 200 字符
 
     参数:
         messages:       当前会话消息列表（原地不修改）
@@ -135,7 +140,7 @@ def compress_messages(messages: list[dict], max_keep_full: int = 6) -> list[dict
         role = m.get("role", "")
         if role == "tool":
             content = m.get("content", "")
-            if len(content) > 2000:
+            if len(content) > 1500:
                 compressed.append({
                     **m,
                     "content": _compress_tool_result(content),
@@ -155,11 +160,14 @@ def compress_messages(messages: list[dict], max_keep_full: int = 6) -> list[dict
     return system_msgs + compressed + keep_full
 
 
+_COMPRESS_KEEP_ROWS = 5
+
+
 def _compress_tool_result(content: str) -> str:
     """
-    智能压缩工具结果：保留结构化摘要而非完全丢弃。
+    智能压缩工具结果（第二层）：保留结构化摘要而非完全丢弃。
 
-    对于 run_sql 等返回行数据的结果，保留列名和前 10 行，
+    对于含行数据的结果，保留列名和前 5 行，
     防止 LLM 因丢失真实数据而编造产品名称等内容。
     """
     import json as _json
@@ -176,14 +184,17 @@ def _compress_tool_result(content: str) -> str:
         rows = data["rows"]
         total = data.get("row_count", len(rows))
         sql = data.get("sql", "")
-        kept = rows[:10]
+        kept = rows[:_COMPRESS_KEEP_ROWS]
         summary = {
             "ok": True,
             "columns": cols,
             "rows": kept,
             "row_count": total,
             "compressed": True,
-            "compressed_note": f"原 {len(rows)} 行，此处仅保留前 {len(kept)} 行摘要。其余数据已省略，请勿编造不在此列表中的数据。",
+            "note": (
+                f"这是早期查询结果的摘要（原 {len(rows)} 行，此处保留前 {len(kept)} 行）。"
+                "完整数据已展示在用户界面。请勿编造不在此列表中的数据。"
+            ),
         }
         if sql:
             summary["sql"] = sql
@@ -191,9 +202,13 @@ def _compress_tool_result(content: str) -> str:
 
     if data.get("ok") and "results" in data:
         results = data["results"]
-        if isinstance(results, list) and len(results) > 10:
-            summary = {**data, "results": results[:10],
-                       "compressed_note": f"原 {len(results)} 条结果，仅保留前 10 条。请勿编造不在此列表中的数据。"}
+        if isinstance(results, list) and len(results) > _COMPRESS_KEEP_ROWS:
+            summary = {
+                **data,
+                "results": results[:_COMPRESS_KEEP_ROWS],
+                "compressed": True,
+                "note": f"早期结果摘要（原 {len(results)} 条，保留前 {_COMPRESS_KEEP_ROWS} 条）。请勿编造不在此列表中的数据。",
+            }
             return _json.dumps(summary, ensure_ascii=False, default=str)
 
     return f"[工具结果已压缩：原 {len(content)} 字符]"

@@ -133,7 +133,7 @@ class TestCompressMessages:
     def test_long_tool_result_compressed(self):
         """超过 500 字符的 tool 消息应被压缩"""
         from agent.context import compress_messages
-        long_content = "x" * 3000
+        long_content = "x" * 2000
         msgs = [
             {"role": "system", "content": "sys"},
             {"role": "user", "content": "问题0"},
@@ -175,7 +175,7 @@ class TestCompressMessages:
 
 
     def test_smart_compress_preserves_data_rows(self):
-        """智能压缩应保留 run_sql 结果的列名和前 10 行数据"""
+        """第二层压缩应保留 run_sql 结果的列名和前 5 行数据"""
         import json
         from agent.context import compress_messages
         big_result = {
@@ -203,15 +203,15 @@ class TestCompressMessages:
         parsed = json.loads(tool_msgs[0]["content"])
         assert parsed["ok"] is True
         assert parsed["columns"] == ["产品名称", "市值", "持仓量", "资产代码", "主体名称"]
-        assert len(parsed["rows"]) == 10
+        assert len(parsed["rows"]) == 5
         assert parsed["rows"][0][0] == "某某产品基金第0号"
         assert parsed["compressed"] is True
-        assert "请勿编造" in parsed["compressed_note"]
+        assert "请勿编造" in parsed["note"]
 
     def test_small_tool_result_not_compressed(self):
-        """2000 字符以下的工具结果不应被压缩"""
+        """1500 字符以下的工具结果不应被压缩"""
         from agent.context import compress_messages
-        short_content = "x" * 1500
+        short_content = "x" * 1200
         msgs = [
             {"role": "system", "content": "sys"},
             {"role": "user", "content": "q0"},
