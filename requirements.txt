@@ -1,41 +1,41 @@
-# DataAgent 依赖清单 v1.1
-# 安装命令：pip install -r requirements.txt
+# DataAgent Dependencies v1.1
+# Install: pip install -r requirements.txt
 
-# 桌面窗口
+# Desktop window
 pywebview==4.3.3
 
-# Web 框架
+# Web framework
 flask==3.0.3
 flask-cors==4.0.1
 
-# 数据引擎
+# Data engine
 duckdb==0.10.3
 pandas==2.2.2
 
-# 编码检测（关键：自动识别GB18030/UTF-8）
+# Encoding detection (critical: auto-detect GB18030/UTF-8)
 chardet==5.2.0
 
-# 配置管理
+# Config management
 pyyaml==6.0.1
 
-# 报告生成
+# Report generation
 jinja2==3.1.4
 python-docx==1.1.2
 
-# HTTP 客户端（LLM调用）
+# HTTP client (LLM calls)
 requests==2.32.3
 
-# 打包
+# Packaging
 pyinstaller==6.6.0
 
-# 数值处理辅助
-openpyxl==3.1.2   # Excel读写支持
+# Numeric processing helpers
+openpyxl==3.1.2   # Excel read/write support
 
-# 定时任务调度
+# Scheduled tasks
 schedule==1.2.1
 
-# Windows 系统通知（定时任务提醒弹窗）
+# Windows system notifications (scheduled task alert toasts)
 winotify==1.1.3
 
-# SQL 解析（替代正则提取表名，P1-4 SQLGuard 加强）
+# SQL parsing (replaces regex for table name extraction, P1-4 SQLGuard enhancement)
 sqlglot==23.12.2

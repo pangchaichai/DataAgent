@@ -51,6 +51,20 @@ ERROR_TRANSLATIONS = {
         "当前加载的数据不是今日最新数据，合规监控计算已停止。请上传今日最新数据后重试。",
     "join_key_mismatch":
         "以下主体在两张表中无法对齐，可能导致数据遗漏，请确认后继续：\n{details}",
+
+    # LLM 响应格式类
+    "response_map.content_path":
+        "企业内网 LLM 返回了非 OpenAI 标准格式的响应。请在 config.yaml 的企业内网 LLM 配置中"
+        "添加 response_map 字段，指定响应中文本内容所在的 JSON 路径。"
+        "（提示：可先点击测试连接，错误信息中会显示实际响应结构）",
+    "响应格式不匹配":
+        "企业内网 LLM 返回了意外的响应格式（非 OpenAI 兼容）。"
+        "请在企业内网 LLM 配置中添加 response_map.content_path 字段，"
+        "指定响应文本在 JSON 中的路径。"
+        "（提示：点击设置面板中的「测试连接」，诊断信息会显示实际响应结构）",
+    "response format":
+        "企业内网 LLM 返回了非标准的响应格式。"
+        "请在企业内网 LLM 配置中添加 response_map.content_path 字段指定响应路径。",
 }
 
 

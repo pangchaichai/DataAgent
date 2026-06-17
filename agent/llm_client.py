@@ -257,7 +257,7 @@ class LLMClient:
     # ── Provider 管理接口 ──────────────────────────────────────
 
     def test_connection(self, provider: str = None) -> dict:
-        """测试 LLM provider 连通性：先测 /models，再测 /chat/completions。"""
+        """测试 LLM provider 连通性：先测 /models，再测 /chat/completions 并校验响应格式。"""
         import requests as _req
         provider = provider or self.sql_gen_cfg.get('primary', 'enterprise_internal')
         cfg = self.providers.get(provider)
@@ -273,7 +273,10 @@ class LLMClient:
         try:
             resp = _req.get(f"{base_url}/models", headers=headers, timeout=5)
             if resp.status_code == 200:
-                models_list = [m["id"] for m in resp.json().get("data", [])]
+                try:
+                    models_list = [m["id"] for m in resp.json().get("data", [])]
+                except Exception:
+                    models_list = []
             elif resp.status_code in (401, 403):
                 return {"ok": False, "error": "模型列表接口认证失败，请检查 API Key 配置"}
         except _req.ConnectionError:
@@ -283,7 +286,7 @@ class LLMClient:
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
 
-        # 实际测试 chat/completions 端点（用最小请求）
+        # 实际测试 chat/completions 端点（用最小请求 + 校验响应格式）
         model = cfg.get("model", "")
         chat_payload = {
             "model": model,
@@ -308,19 +311,50 @@ class LLMClient:
                     "error": f"对话接口服务端错误（HTTP {chat_resp.status_code}），请检查 LLM 服务状态",
                     "models": models_list,
                 }
+            if chat_resp.status_code == 200:
+                data = chat_resp.json()
+                parsed = self._resolve_response_content(data, cfg)
+                if parsed["ok"]:
+                    return {
+                        "ok": True,
+                        "provider": provider,
+                        "models": models_list,
+                        "configured_model": model,
+                    }
+                else:
+                    # 响应格式非 OpenAI 兼容 → 给出诊断信息
+                    raw_desc = parsed.get("raw_keys", _describe_keys(data))
+                    return {
+                        "ok": False,
+                        "error": (
+                            f"对话接口连通，但响应格式非 OpenAI 兼容。"
+                            f"收到响应结构：{raw_desc}"
+                        ),
+                        "hint": (
+                            "请在 config.yaml 中为此 provider 添加 response_map "
+                            "字段指定响应内容路径。例如：\n"
+                            "  response_map:\n"
+                            "    content_path: \"data.reply\""
+                        ),
+                        "models": models_list,
+                        "configured_model": model,
+                        "raw_response_preview": json.dumps(
+                            data, ensure_ascii=False
+                        )[:500],
+                    }
+            # 非 200/401/403/5xx 的响应
+            return {
+                "ok": False,
+                "error": f"对话接口返回未预期的 HTTP {chat_resp.status_code}",
+                "models": models_list,
+                "configured_model": model,
+            }
         except _req.Timeout:
             return {"ok": False, "error": "对话接口响应超时，但模型列表可访问", "models": models_list}
         except _req.ConnectionError:
             return {"ok": False, "error": f"无法连接 {cfg['url']}，请确认服务已启动"}
-        except Exception:
-            pass
-
-        return {
-            "ok": True,
-            "provider": provider,
-            "models": models_list,
-            "configured_model": model,
-        }
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:300]}
 
     def list_providers(self) -> list[dict]:
         """返回所有已配置的 provider 及其基本信息。"""
@@ -518,12 +552,20 @@ class LLMClient:
 
             if resp.status_code == 200:
                 data = resp.json()
-                text = data['choices'][0]['message']['content']
-                usage = data.get('usage', {})
-                return LLMResponse(
-                    success=True, text=text, endpoint=provider_name, model=model,
-                    token_count=usage.get('total_tokens', 0), elapsed_ms=elapsed_ms,
-                )
+                parsed = self._resolve_response_content(data, provider)
+                if parsed["ok"]:
+                    return LLMResponse(
+                        success=True, text=parsed["content"],
+                        endpoint=provider_name, model=model,
+                        token_count=parsed["usage"].get('total_tokens', 0),
+                        elapsed_ms=elapsed_ms,
+                    )
+                else:
+                    return LLMResponse(
+                        success=False, endpoint=provider_name, model=model,
+                        text="",
+                        error=parsed["error"].replace("{provider}", provider_name),
+                    )
             elif resp.status_code in (401, 403):
                 detail = resp.text[:100] if resp.text else ''
                 return LLMResponse(success=False, endpoint=provider_name, model=model,
@@ -589,31 +631,21 @@ class LLMClient:
 
             if resp.status_code == 200:
                 data = resp.json()
-                choice = data['choices'][0]
-                message = choice.get('message', {})
-                text = message.get('content', '') or ''
-                usage = data.get('usage', {})
-
-                # 解析 tool_calls
-                tool_calls_raw = message.get('tool_calls', [])
-                tool_calls = []
-                for tc in tool_calls_raw:
-                    func = tc.get('function', {})
-                    try:
-                        args = json.loads(func.get('arguments', '{}'))
-                    except json.JSONDecodeError:
-                        args = {}
-                    tool_calls.append({
-                        'id': tc.get('id', ''),
-                        'name': func.get('name', ''),
-                        'arguments': args,
-                    })
-
-                return ChatResult(
-                    success=True, text=text, tool_calls=tool_calls,
-                    raw=data, elapsed_ms=elapsed_ms,
-                    token_count=usage.get('total_tokens', 0), model=model,
-                )
+                parsed = self._resolve_response_content(data, provider)
+                if parsed["ok"]:
+                    return ChatResult(
+                        success=True, text=parsed["content"],
+                        tool_calls=parsed["tool_calls"],
+                        raw=data, elapsed_ms=elapsed_ms,
+                        token_count=parsed["usage"].get('total_tokens', 0),
+                        model=model,
+                    )
+                else:
+                    return ChatResult(
+                        success=False,
+                        error=parsed["error"].replace("{provider}", provider_name),
+                        elapsed_ms=elapsed_ms, model=model,
+                    )
             elif resp.status_code in (401, 403):
                 detail = resp.text[:100] if resp.text else ''
                 return ChatResult(success=False,
@@ -694,8 +726,7 @@ class LLMClient:
                         break
                     try:
                         data = json.loads(data_str)
-                        delta = data['choices'][0].get('delta', {})
-                        content = delta.get('content', '')
+                        content = self._extract_stream_delta(data, provider)
                         if content:
                             full_text += content
                             yield content
@@ -747,6 +778,193 @@ class LLMClient:
         lines.append("")
         lines.append(f"[原始请求: {prompt[:100]}...]")
         return "\n".join(lines)
+
+    # ── 响应解析辅助方法 ────────────────────────────────────────
+
+    @staticmethod
+    def _get_by_path(obj: dict, path: str):
+        """按点号路径从嵌套 dict 中取值，不存在时返回 None。"""
+        if not path or not isinstance(obj, dict):
+            return None
+        current = obj
+        for part in path.split('.'):
+            if isinstance(current, dict):
+                current = current.get(part)
+            else:
+                return None
+        return current
+
+    @staticmethod
+    def _resolve_response_content(
+        data: dict, provider_cfg: dict | None = None
+    ) -> dict:
+        """
+        安全解析 LLM 响应，提取 content 和 tool_calls。
+
+        支持：
+          1. provider 配置的 response_map.content_path 路径
+          2. 标准 OpenAI 格式：choices[0].message.content
+          3. 常见企业网关变体格式自动检测
+
+        返回: {"ok": bool, "content": str, "tool_calls": list[dict],
+               "usage": dict, "error": str, "raw_keys": str}
+        """
+        provider_cfg = provider_cfg or {}
+        response_map = provider_cfg.get('response_map', None)
+
+        # 1) 显式 response_map 配置（优先）
+        if response_map and response_map.get('content_path'):
+            content = LLMClient._get_by_path(data, response_map['content_path'])
+            if content is not None:
+                tc_path = response_map.get('tool_calls_path', '')
+                raw_tc = LLMClient._get_by_path(data, tc_path) if tc_path else None
+                tool_calls = LLMClient._normalize_tool_calls(raw_tc)
+                return {
+                    "ok": True, "content": str(content),
+                    "tool_calls": tool_calls,
+                    "usage": data.get('usage', {}),
+                    "error": "", "raw_keys": "",
+                }
+            # response_map 路径不存在 → 错误提示包含实际 key
+            return {
+                "ok": False, "content": "", "tool_calls": [],
+                "usage": {}, "raw_keys": _describe_keys(data),
+                "error": (
+                    f"response_map.content_path 指向的路径 "
+                    f"\"{response_map['content_path']}\" 在响应中不存在。"
+                    f"响应根级字段：{_describe_keys(data)}"
+                ),
+            }
+
+        # 2) 标准 OpenAI 格式
+        choices = data.get('choices', [])
+        if choices:
+            choice = choices[0] if isinstance(choices, list) else {}
+            msg = choice.get('message', {}) if isinstance(choice, dict) else {}
+            content = (msg.get('content', '') or '') if isinstance(msg, dict) else ''
+            tool_calls = LLMClient._normalize_tool_calls(
+                msg.get('tool_calls', []) if isinstance(msg, dict) else []
+            )
+            return {
+                "ok": True, "content": content,
+                "tool_calls": tool_calls,
+                "usage": data.get('usage', {}),
+                "error": "", "raw_keys": "",
+            }
+
+        # 3) 自动检测常见企业网关变体
+        auto_paths = [
+            'content', 'data.content', 'data.reply', 'data.text',
+            'reply', 'text', 'response', 'data.response',
+            'data.result.content', 'result.content',
+            'data.message', 'message',
+        ]
+        for path in auto_paths:
+            val = LLMClient._get_by_path(data, path)
+            if isinstance(val, str) and val.strip():
+                return {
+                    "ok": True, "content": val,
+                    "tool_calls": [],
+                    "usage": data.get('usage', {}),
+                    "error": "", "raw_keys": "",
+                }
+
+        # 4) 格式无法识别
+        return {
+            "ok": False, "content": "", "tool_calls": [],
+            "usage": {}, "raw_keys": _describe_keys(data),
+            "error": (
+                f"响应格式不匹配（非 OpenAI 兼容），收到根级字段："
+                f"{_describe_keys(data)}。"
+                f"请在 config.yaml 的 {{provider}} 配置中添加 response_map.content_path "
+                f"指向响应中文本内容的 JSON 路径。"
+            ),
+        }
+
+    @staticmethod
+    def _normalize_tool_calls(tool_calls_raw) -> list[dict]:
+        """将 OpenAI 工具调用列表归一化。"""
+        if not tool_calls_raw or not isinstance(tool_calls_raw, list):
+            return []
+        tool_calls = []
+        for tc in tool_calls_raw:
+            if not isinstance(tc, dict):
+                continue
+            func = tc.get('function', {})
+            if not isinstance(func, dict):
+                continue
+            try:
+                args_raw = func.get('arguments', '{}')
+                if isinstance(args_raw, dict):
+                    args = args_raw
+                else:
+                    args = json.loads(args_raw) if isinstance(args_raw, str) else {}
+            except (json.JSONDecodeError, TypeError):
+                args = {}
+            tool_calls.append({
+                'id': tc.get('id', ''),
+                'name': func.get('name', ''),
+                'arguments': args,
+            })
+        return tool_calls
+
+    @staticmethod
+    def _extract_stream_delta(
+        data: dict, provider_cfg: dict | None = None
+    ) -> str:
+        """
+        从流式响应 chunk 中安全提取增量文本。
+
+        支持：
+          1. provider 配置的 response_map 路径
+          2. 标准 OpenAI SSE: choices[0].delta.content
+          3. 常见企业网关流式变体
+        """
+        provider_cfg = provider_cfg or {}
+        response_map = provider_cfg.get('response_map', None)
+
+        # 1) 显式 response_map（优先）
+        if response_map and response_map.get('content_path'):
+            val = LLMClient._get_by_path(data, response_map['content_path'])
+            if isinstance(val, str):
+                return val
+            return ""
+
+        # 2) 标准 OpenAI delta
+        choices = data.get('choices', [])
+        if choices and isinstance(choices, list):
+            delta = choices[0].get('delta', {}) if isinstance(choices[0], dict) else {}
+            content = delta.get('content', '') if isinstance(delta, dict) else ''
+            if content:
+                return content
+
+        # 3) 自动检测流式变体
+        for path in ['delta.content', 'content', 'data.content',
+                      'data.reply', 'reply', 'text', 'data.text',
+                      'data.delta.content']:
+            val = LLMClient._get_by_path(data, path)
+            if isinstance(val, str) and val:
+                return val
+
+        return ""
+
+
+# ── 辅助函数（模块级别）──────────────────────────────────────
+
+def _describe_keys(data: dict, max_depth: int = 2, _depth: int = 0) -> str:
+    """
+    递归描述 JSON 对象的键结构，用于错误诊断。
+    只显示前两层，避免输出过长。
+    """
+    if not isinstance(data, dict) or _depth > max_depth:
+        return type(data).__name__
+    parts = []
+    for k, v in data.items():
+        if _depth < max_depth:
+            parts.append(f"{k}:{_describe_keys(v, max_depth, _depth + 1)}")
+        else:
+            parts.append(k)
+    return "{" + ", ".join(parts) + "}"
 
 
 # ═══════════════════════════════════════════════════════════════

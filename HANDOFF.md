@@ -8,13 +8,60 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-16
-- **提交**：451ed47 chore: sync auto-generated test report and traces
+- **日期**：2026-06-17
+- **提交**：（暂未提交）
 - **分支**：`claude/clever-meitner-fqsa3v`
 
 ---
 
-## 上次会话完成的工作（2026-06-15，第九轮）
+## 本次会话完成的工作（2026-06-17）
+
+### 企业内网 LLM 响应格式适配（核心修复）
+
+**问题**：Windows 上配置企业内网 LLM 通过 `openai_gateway_proxy.py` 桥接，连接测试成功，但实际对话返回 `"操作遇到异常：'choices'"`。
+
+**根因**：企业网关返回的 `txBody.txEntity` 不是标准 OpenAI 格式（无 `choices` 字段），`llm_client.py` 中 `data['choices'][0]` 硬编码访问抛出 `KeyError`。
+
+**修复 `agent/llm_client.py`（+187/-50 行）**：
+- **新增 `_resolve_response_content()`**：三级安全解析策略
+  1. `response_map.content_path` 显式配置路径提取
+  2. 标准 OpenAI `choices[0].message.content`
+  3. 自动检测 12 种常见企业网关变体（`data.content`/`data.reply`/`data.text` 等）
+  4. 兜底返回 `raw_keys` 诊断信息（含实际 JSON 结构描述）
+- **新增 `_extract_stream_delta()`**：流式 delta 安全提取（同三级策略）
+- **新增 `_normalize_tool_calls()`**：工具调用归一化（防 `json.loads` 失败、dict/str 混用）
+- **新增 `_get_by_path()`**：点号路径递归取值
+- **新增 `_describe_keys()`**：递归描述 JSON 键结构，用于错误诊断
+- **修改 `_call()`**：`data['choices'][0]['message']['content']` → `_resolve_response_content()`
+- **修改 `_call_with_messages()`**：同上，删除 15 行手动 tool_calls 解析
+- **修改 `_call_streaming()`**：`data['choices'][0].get('delta', {})` → `_extract_stream_delta()`
+- **修复 `test_connection()`**：HTTP 200 后校验响应体格式；非 OpenAI 格式时返回诊断信息 + `response_map` 配置提示 + `raw_response_preview`（前 500 字符）；修复非 200 状态码被静默忽略的 bug
+
+**新增 `config.example.yaml`（+3 行）**：`enterprise_internal` 配置块添加 `response_map` 注释示例
+
+**新增 `tools/error_translator.py`（+14 行）**：3 条响应格式异常的用户话术翻译
+
+**测试验证**：392/392 测试全通过；DeepSeek API 实测 `test_connection()`/`chat()`/`_resolve_response_content()` 全部 6 个场景通过
+
+### 用户适配方法
+
+用户在企业内网 LLM 配置中添加 `response_map` 字段即可适配非 OpenAI 格式的网关响应：
+```yaml
+enterprise_internal:
+  url: http://localhost:8081/v1
+  response_map:
+    content_path: "data.reply"    # 按实际网关响应结构调整
+```
+
+不配置时，`test_connection()` 会在错误信息中显示实际响应结构，方便排查。<｜end▁of▁thinking｜>_map 字段可选，不配置则自动检测常见格式，或使用标准 OpenAI 路径。
+
+---
+
+## 立即可执行的下一步
+
+1. **Windows 实机测试**：用户将 `DataAgent-v3.0-beta1.zip` 或 `DataAgent-v3.0-beta1-build.zip` 部署到 Windows，配置企业内网 LLM，使用新的 `test_connection()` 查看实际响应格式，然后设置 `response_map.content_path`
+2. **内测反馈收集**：等待业务方对 v3.0-beta1 的反馈
+3. **Phase 4 模板确认**：C-02（周报）/ C-03（月报）/ C-04（Word格式）待业务方确认后进入
 
 ### v3.0 内测 Bug 修复 + UX 优化（全量交付）
 

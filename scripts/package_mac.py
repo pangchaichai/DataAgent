@@ -94,16 +94,39 @@ echo "    DataAgent {BUNDLE_VERSION} 内测版 - macOS 安装程序"
 echo "============================================================"
 echo ""
 
-# 检查 Python 版本
+# 检查 Python 版本（支持 3.11 / 3.12 / 3.13）
 if ! command -v python3 &>/dev/null; then
-    echo "[错误] 未找到 python3，请先安装 Python 3.10+"
+    echo "[错误] 未找到 python3，请先安装 Python 3.11+"
     echo ""
-    echo "推荐：https://www.python.org/downloads/ 或 brew install python"
+    echo "推荐：brew install python@3.13"
+    echo " 或 https://www.python.org/downloads/"
     exit 1
 fi
 
 PYVER=$(python3 --version 2>&1 | awk '{{print $2}}')
+PYMAJOR=$(echo "$PYVER" | cut -d. -f1)
+PYMINOR=$(echo "$PYVER" | cut -d. -f2)
 echo "[检测] Python 版本: $PYVER"
+
+SUPPORTED=0
+for v in 11 12 13; do
+    if [ "$PYMAJOR" = "3" ] && [ "$PYMINOR" = "$v" ]; then
+        SUPPORTED=1
+        break
+    fi
+done
+
+if [ "$SUPPORTED" = "0" ]; then
+    echo ""
+    echo "[错误] 此内测包支持 Python 3.11 / 3.12 / 3.13，当前版本: $PYVER"
+    echo "       请使用受支持的 Python 版本后重试："
+    echo ""
+    echo "         brew install python@3.13"
+    echo "         python3.13 -m venv .venv"
+    echo "         source .venv/bin/activate"
+    echo "         ./setup.sh"
+    exit 1
+fi
 echo ""
 
 # 创建虚拟环境
@@ -166,7 +189,7 @@ DataAgent {BUNDLE_VERSION} — macOS 内测版
   系统要求
 ══════════════════════════════════════════════════
   • macOS 12 Monterey 或更新版本
-  • Python 3.10+（推荐 3.11）
+  • Python 3.11 / 3.12 / 3.13
   • 4 GB+ RAM
 
 ══════════════════════════════════════════════════
@@ -258,24 +281,33 @@ def download_deps(deps_dir: Path) -> None:
             if pkg_name not in to_replace:
                 to_replace[pkg_name] = version
 
+    # 支持的 Python 3.x 版本（cp311/cp312/cp313 ABI）
+    PY_VERSIONS = ["3.11", "3.12", "3.13"]
+    # 支持的 macOS 平台（优先 arm64 → universal2 → x86_64）
+    MAC_PLATFORMS = ["macosx_11_0_arm64", "macosx_10_9_universal2", "macosx_10_15_x86_64"]
+
     for pkg_name, version in sorted(to_replace.items()):
         pkg_spec = f"{pkg_name}=={version}"
-        # 尝试 arm64 → x86_64 → 通用
-        for platform in ["macosx_11_0_arm64", "macosx_10_15_x86_64"]:
-            cmd2 = [
-                sys.executable, "-m", "pip", "download",
-                "--platform", platform,
-                "--python-version", "3.11",
-                "--implementation", "cp",
-                "--only-binary=:all:",
-                "--no-deps",
-                "--dest", str(deps_dir),
-                pkg_spec,
-            ]
-            r2 = subprocess.run(cmd2, capture_output=True, text=True, cwd=PROJECT_ROOT)
-            if r2.returncode == 0:
-                break
-        else:
+        # 为所有 Python 版本 × 所有 macOS 平台下载 wheel（不 break，全部保留）
+        # pip install --no-index 会自动选择兼容的 wheel
+        any_success = False
+        for py_ver in PY_VERSIONS:
+            for platform in MAC_PLATFORMS:
+                cmd2 = [
+                    sys.executable, "-m", "pip", "download",
+                    "--platform", platform,
+                    "--python-version", py_ver,
+                    "--implementation", "cp",
+                    "--only-binary=:all:",
+                    "--no-deps",
+                    "--dest", str(deps_dir),
+                    pkg_spec,
+                ]
+                r2 = subprocess.run(cmd2, capture_output=True, text=True, cwd=PROJECT_ROOT)
+                if r2.returncode == 0:
+                    any_success = True
+                    # 不 break — 继续下载其他平台和 Python 版本
+        if not any_success:
             print(f"   ⚠️  {pkg_spec}: macOS wheel 不可用，保留通用版本")
 
     # 清理 Linux manylinux wheel（已有 macOS 或 none-any 替代品的）

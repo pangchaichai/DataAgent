@@ -10,8 +10,7 @@ data/sessions/*
 !data/sessions/.gitkeep
 data/compliance_audit/*
 !data/compliance_audit/.gitkeep
-*.zip
-!dist/*.zip
+*.zip  # includes dist build artifacts
 *.DS_Store
 config.yaml
 .env

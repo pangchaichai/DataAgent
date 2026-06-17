@@ -25,6 +25,9 @@ llm:
     url: http://[内网LLM地址]/v1
     model: [企业模型名称]
     api_key: ""
+    # response_map:                          # ★ 可选：如内网网关返回非 OpenAI 标准格式则需配置
+    #   content_path: "data.reply"           #   响应文本的 JSON 点号路径（如 data.reply / content / data.text）
+    #   # tool_calls_path: "data.tool_calls" #   工具调用的 JSON 路径（选填）
 
   deepseek:
     url: https://api.deepseek.com/v1

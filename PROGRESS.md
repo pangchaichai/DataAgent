@@ -6,6 +6,17 @@
 
 ## 当前阶段：v2.0 完成 + Windows 内测包就绪 → 等待内测反馈 / Phase 4 模板确认
 
+## 企业内网 LLM 响应格式适配 ✅ 完成（2026-06-17）
+
+- [x] `agent/llm_client.py`: 新增 `_resolve_response_content()` 安全解析（OpenAI + response_map + 自动检测 12 种变体）
+- [x] `agent/llm_client.py`: 新增 `_extract_stream_delta()` 流式安全提取
+- [x] `agent/llm_client.py`: 修复 `test_connection()` 校验响应格式（不再假阳性）
+- [x] `agent/llm_client.py`: `_call()`/`_call_with_messages()`/`_call_streaming()` 全部替换硬编码 `choices[0]` 访问
+- [x] `tools/error_translator.py`: 新增 3 条响应格式异常话术
+- [x] `config.example.yaml`: 新增 `response_map` 配置示例注释
+- [x] 392/392 测试全通过，DeepSeek API 实测 6 个场景通过
+- [x] `dist/DataAgent-v3.0-beta1.zip` + `dist/DataAgent-v3.0-beta1-build.zip` 重新构建
+
 ## Windows 内测包构建 ✅ 完成（2026-06-09）
 
 ### 构建脚本

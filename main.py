@@ -50,9 +50,19 @@ def load_config(path: str = None) -> dict:
     from pathlib import Path
 
     import yaml
-    cfg_path = Path(path) if path else BASE_DIR / 'config.yaml'
-    if not cfg_path.exists():
-        cfg_path = BASE_DIR / 'config.example.yaml'
+
+    if path:
+        cfg_path = Path(path)
+    elif getattr(sys, 'frozen', False):
+        # PyInstaller 打包：优先 exe 同目录 config.yaml（用户可编辑）
+        exe_dir = Path(sys.executable).parent
+        cfg_path = exe_dir / 'config.yaml'
+        if not cfg_path.exists():
+            cfg_path = BASE_DIR / 'config.example.yaml'
+    else:
+        cfg_path = BASE_DIR / 'config.yaml'
+        if not cfg_path.exists():
+            cfg_path = BASE_DIR / 'config.example.yaml'
     try:
         with open(cfg_path, encoding='utf-8') as f:
             return yaml.safe_load(f) or {}
