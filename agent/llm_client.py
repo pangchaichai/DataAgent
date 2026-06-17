@@ -322,26 +322,26 @@ class LLMClient:
                         "configured_model": model,
                     }
                 else:
-                    # 响应格式非 OpenAI 兼容 → 给出诊断信息
+                    # 响应格式异常 → 给出诊断信息
                     raw_desc = parsed.get("raw_keys", _describe_keys(data))
-                    return {
+                    result = {
                         "ok": False,
-                        "error": (
-                            f"对话接口连通，但响应格式非 OpenAI 兼容。"
-                            f"收到响应结构：{raw_desc}"
-                        ),
-                        "hint": (
-                            "请在 config.yaml 中为此 provider 添加 response_map "
-                            "字段指定响应内容路径。例如：\n"
-                            "  response_map:\n"
-                            "    content_path: \"data.reply\""
-                        ),
+                        "error": parsed["error"].replace("{provider}", provider),
                         "models": models_list,
                         "configured_model": model,
                         "raw_response_preview": json.dumps(
                             data, ensure_ascii=False
                         )[:500],
                     }
+                    # 仅当非网关错误时才追加 response_map 提示
+                    if "网关返回错误" not in parsed["error"]:
+                        result["hint"] = (
+                            "请在 config.yaml 中为此 provider 添加 response_map "
+                            "字段指定响应内容路径。例如：\n"
+                            "  response_map:\n"
+                            "    content_path: \"data.reply\""
+                        )
+                    return result
             # 非 200/401/403/5xx 的响应
             return {
                 "ok": False,
@@ -868,6 +868,27 @@ class LLMClient:
                     "usage": data.get('usage', {}),
                     "error": "", "raw_keys": "",
                 }
+
+        # 3.5) 检测网关返回的 error 响应（如认证失败/模型不存在等）
+        err = data.get('error')
+        if isinstance(err, dict):
+            err_msg = err.get('message', '') or str(err)
+            return {
+                "ok": False, "content": "", "tool_calls": [],
+                "usage": {}, "raw_keys": _describe_keys(data),
+                "error": (
+                    f"LLM 网关返回错误：{err_msg[:300]}。"
+                    f"请检查：1) API Key 是否正确 2) 模型名称是否正确 3) 网关服务状态。"
+                ),
+            }
+        if isinstance(err, str) and err.strip():
+            return {
+                "ok": False, "content": "", "tool_calls": [],
+                "usage": {}, "raw_keys": _describe_keys(data),
+                "error": (
+                    f"LLM 网关返回错误：{err[:300]}。"
+                ),
+            }
 
         # 4) 格式无法识别
         return {

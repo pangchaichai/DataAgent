@@ -10,7 +10,8 @@ data/sessions/*
 !data/sessions/.gitkeep
 data/compliance_audit/*
 !data/compliance_audit/.gitkeep
-*.zip  # includes dist build artifacts
+*.zip
+# dist build artifacts (*.zip) excluded - too large for GitHub
 *.DS_Store
 config.yaml
 .env
