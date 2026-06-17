@@ -29,7 +29,7 @@ async function loadSettings(){
     $('cfg-scheduler').checked=!!(d.scheduler||{}).enabled;
     $('cfg-work-dir').value=d.work_dir||'';
     const keySet=d.api_key_set;
-    $('apikeyStatus').innerHTML=keySet?'<span class="material-symbols-outlined text-[14px]" style="vertical-align:middle">check_circle</span> API Key 已配置':'未配置';
+    $('apikeyStatus').textContent=keySet?'✓ API Key 已配置':'未配置';
     $('apikeyStatus').style.color=keySet?'var(--green)':'var(--text-3)';
   }catch(e){toast('加载配置失败','error');}
   try{
@@ -59,7 +59,7 @@ async function loadLLMProviders(){
     (d.providers||[]).forEach(p=>{
       const opt=document.createElement('option');
       opt.value=p.name;
-      opt.textContent=(providerNames[p.name]||p.name)+(p.is_local?' (本地)':'');
+      opt.textContent=(providerNames[p.name]||p.name)+(p.is_local?' 🖥':'');
       if(p.name===d.current)opt.selected=true;
       sel.appendChild(opt);
     });
@@ -79,7 +79,7 @@ function _showLLMHint(provider){
 function onLLMProviderChange(){
   const sel=$('cfg-llm-provider');
   const provider=sel.value;
-  $('llm-status-dot').innerHTML='<span class="w-2.5 h-2.5 rounded-full bg-outline-variant inline-block"></span>';
+  $('llm-status-dot').textContent='⚪';
   if(provider==='deepseek'&&!window._deepseekConfirmed){
     if(!confirm('注意：选择 DeepSeek 后，您的问题文本（含持仓主体等信息）将发送至外部服务器。\n\n请确认已获得合规许可后再继续。'))
     {sel.value=sel.dataset.prev||'lmstudio';_showLLMHint(sel.value);return;}
@@ -96,20 +96,20 @@ function updateLLMProviderHint(current,providers){
 async function testLLMConnection(){
   const provider=$('cfg-llm-provider').value;
   const dot=$('llm-status-dot');
-  dot.innerHTML='<span class="material-symbols-outlined text-[16px] animate-spin">sync</span>';
+  dot.textContent='🔄';
   try{
     const d=await api('POST','/api/llm/test',{provider});
     if(d.ok){
-      dot.innerHTML='<span class="w-2.5 h-2.5 rounded-full bg-success inline-block"></span>';
+      dot.textContent='🟢';
       const modelTip=d.configured_model?(' | 模型: '+d.configured_model):'';
-      $('llm-provider-hint').innerHTML='<span class="material-symbols-outlined text-[14px]" style="vertical-align:middle">check_circle</span> 连接成功'+esc(modelTip)+(d.models&&d.models.length?' | 可用模型: '+esc(d.models.slice(0,3).join(', ')):'');
+      $('llm-provider-hint').textContent='✓ 连接成功'+modelTip+(d.models&&d.models.length?' | 可用模型: '+d.models.slice(0,3).join(', '):'');
     }else{
-      dot.innerHTML='<span class="w-2.5 h-2.5 rounded-full bg-error inline-block"></span>';
-      $('llm-provider-hint').innerHTML='<span class="material-symbols-outlined text-[14px]" style="vertical-align:middle">cancel</span> 连接失败: '+esc(d.error||'未知错误');
+      dot.textContent='🔴';
+      $('llm-provider-hint').textContent='✗ 连接失败: '+(d.error||'未知错误');
     }
   }catch(e){
-    dot.innerHTML='<span class="w-2.5 h-2.5 rounded-full bg-error inline-block"></span>';
-    $('llm-provider-hint').innerHTML='<span class="material-symbols-outlined text-[14px]" style="vertical-align:middle">cancel</span> 请求失败';
+    dot.textContent='🔴';
+    $('llm-provider-hint').textContent='✗ 请求失败';
   }
 }
 

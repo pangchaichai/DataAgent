@@ -1,26 +1,7 @@
 // sidebar.js — Sidebar, sessions, tables, groups, skills, suggestions
 
-function toggleSidebar(){
-  const bw=$('bodyWrap');
-  if(bw)bw.classList.toggle('collapsed');
-  const nav=$('navSidebar');
-  const shell=$('appShell');
-  if(nav&&shell){
-    const hidden=nav.style.display==='none';
-    nav.style.display=hidden?'':'none';
-    shell.style.marginLeft=hidden?'260px':'0';
-  }
-}
-async function refreshSidebar(){
-  // Load sidebar data that legacy pages still use
-  loadTables();
-  try{loadSessions();}catch(e){}
-  try{loadSkills();}catch(e){}
-  try{loadGroups();}catch(e){}
-  try{loadWorkdir();}catch(e){}
-  try{updateStatus();}catch(e){}
-  try{loadSuggestions();}catch(e){}
-}
+function toggleSidebar(){$('bodyWrap').classList.toggle('collapsed');}
+async function refreshSidebar(){loadSessions();loadTables();loadSkills();loadGroups();loadWorkdir();updateStatus();loadSuggestions();}
 function toggleSec(name){const sec=$('sec-'+name);if(sec)sec.classList.toggle('open');}
 function openSec(name){const sec=$('sec-'+name);if(sec&&!sec.classList.contains('open'))sec.classList.add('open');}
 
@@ -30,7 +11,6 @@ async function loadSessions(){
     const d=await api('GET','/api/sessions');
     const s=d.sessions||[];
     const list=$('sessionList');
-    if(!list)return;
     if(!s.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无历史</div>';return;}
     list.innerHTML=s.slice(0,12).map(sess=>{
       const active=sess.id===ST.sessionId;
@@ -47,7 +27,7 @@ async function loadSes(id){
   try{
     const d=await api('GET','/api/sessions/'+id);
     clearChat();ST.sessionId=id;
-    const ct=$('chatTitle');if(ct)ct.textContent=d.title||'历史会话';
+    $('chatTitle').textContent=d.title||'历史会话';
     (d.messages||[]).forEach(m=>{
       if(m.skip_display)return;
       const text=m.display_content||m.content;
@@ -63,7 +43,7 @@ async function deleteSession(id,e){
   if(!confirm('确定要删除这条会话记录吗？'))return;
   const r=await api('DELETE','/api/sessions/'+id);
   if(r.ok){
-    if(ST.sessionId===id){ST.sessionId='';const ct=$('chatTitle');if(ct)ct.textContent='新对话';}
+    if(ST.sessionId===id){ST.sessionId='';$('chatTitle').textContent='新对话';}
     loadSessions();toast('已删除会话');
   }else toast('删除失败：'+(r.error||''),'error');
 }
@@ -76,7 +56,6 @@ async function loadTables(){
     window._cachedTables=tables;
     const cnt=$('tableCountH');if(cnt)cnt.textContent=tables.length;
     const list=$('tableList');
-    if(!list){if(typeof updateWelcomeExamples==='function')updateWelcomeExamples(tables);return;}
     if(!tables.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无数据</div>';
       if(typeof updateWelcomeExamples==='function')updateWelcomeExamples([]);
       return;}
@@ -104,7 +83,6 @@ async function loadSkills(){
   try{
     const d=await api('GET','/api/skills/status');
     const list=$('skillList'),skills=d.skills||[];
-    if(!list)return;
     if(!skills.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">无可用技能</div>';return;}
     list.innerHTML=skills.map(s=>{
       const readyCls=s.ready?'skill-ready':'skill-missing';
@@ -135,7 +113,6 @@ async function loadGroups(){
     const r=await fetch('/api/groups');if(!r.ok)return;
     const d=await r.json();const groups=d.groups||{};
     const list=$('groupList');
-    if(!list)return;
     const entries=Object.entries(groups);
     if(!entries.length){
       list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无集团系</div>';return;
@@ -152,7 +129,7 @@ async function loadGroups(){
       ).join('');
       return '<div class="grp-item" id="'+sid+'">'
         +'<div class="grp-hd" onclick="toggleGrp(\''+sid+'\')">'
-        +'<span class="grp-arr"><span class="material-symbols-outlined text-[12px]">chevron_right</span></span>'
+        +'<span class="grp-arr">▸</span>'
         +'<span class="grp-name">'+esc(name)+'</span>'
         +'<span class="grp-cnt">'+(members||[]).length+'</span>'
         +'<span class="grp-del" onclick="event.stopPropagation();confirmDeleteGroup(\''+sid+'\')" title="删除集团">×</span>'
@@ -208,7 +185,6 @@ async function createGroup(name){
 // Work Directory
 async function loadWorkdir(){
   const list=$('workdirList');
-  if(!list)return;
   try{
     const d=await api('GET','/api/workdir/files');
     if(!d.work_dir){
@@ -255,16 +231,17 @@ async function loadSuggestions(){
   try{
     const d=await api('GET','/api/suggestions');
     const sug=d.suggestions||[];
-    const wrap=$('chat-suggestions');
-    const pills=$('suggestion-pills');
-    if(!sug.length||!wrap||!pills){return;}
-    wrap.style.display='block';
-    pills.innerHTML=sug.map(s=>'<button class="suggestion-pill" onclick="fillAndSend(\''+esc(s)+'\')">'
-      +'<span class="material-symbols-outlined text-[14px]">chat_bubble</span> '+esc(s)+'</button>').join('');
+    const bar=$('suggestionsBar');
+    if(!sug.length||!bar){return;}
+    bar.style.display='block';
+    bar.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:8px;">'
+      +'<span style="font-size:11.5px;color:var(--text-3);align-self:center">推荐：</span>'
+      +sug.map(s=>'<button class="q-btn" onclick="fillAndSend(\''+esc(s)+'\')" style="font-size:11.5px">'+esc(s)+'</button>').join('')
+      +'</div>';
   }catch(e){}
 }
 function fillAndSend(text){
-  const inp=$('input')||$('userInput');if(!inp)return;
+  const inp=$('input');if(!inp)return;
   inp.value=text;autoResize(inp);sendMessage();
 }
 
@@ -276,7 +253,7 @@ const _EXAMPLES={
   '图表':'生成持仓资产类型分布饼图',
 };
 function fillExample(cap){
-  const inp=$('input')||$('userInput');if(!inp)return;
+  const inp=$('input');if(!inp)return;
   inp.value=_EXAMPLES[cap]||cap;
   autoResize(inp);inp.focus();
 }
@@ -296,7 +273,7 @@ function sortTbl(th,col){
   rows.forEach(r=>tbody.appendChild(r));
 }
 function exportCSV(btn){
-  const table=(btn.closest('.stitch-card')||btn.closest('.table-card'))?.querySelector('table');
+  const table=btn.closest('.table-card')?.querySelector('table');
   if(!table)return;
   let csv='';
   table.querySelectorAll('tr').forEach(r=>{
@@ -309,7 +286,7 @@ function exportCSV(btn){
   a.download='export_'+Date.now()+'.csv';a.click();
 }
 function copyTable(btn){
-  const table=(btn.closest('.stitch-card')||btn.closest('.table-card'))?.querySelector('table');
+  const table=btn.closest('.table-card')?.querySelector('table');
   if(!table)return;
   let text='';
   table.querySelectorAll('tr').forEach(r=>{
@@ -317,13 +294,13 @@ function copyTable(btn){
     text+=cells.join('\t')+'\n';
   });
   navigator.clipboard.writeText(text).then(()=>{
-    const orig=btn.innerHTML;btn.innerHTML='<span class="material-symbols-outlined text-[13px]" style="vertical-align:middle">check</span> 已复制';
-    setTimeout(()=>{btn.innerHTML=orig;},1500);
+    const orig=btn.textContent;btn.textContent='已复制✓';
+    setTimeout(()=>{btn.textContent=orig;},1500);
   });
 }
 function chartFromTable(btn){
-  const card=btn.closest('.stitch-card')||btn.closest('.table-card');
-  const title=card?.querySelector('.tc-title')?.textContent||card?.querySelector('.text-body-md.font-semibold')?.textContent||'';
+  const card=btn.closest('.table-card');
+  const title=card?.querySelector('.tc-title')?.textContent||'';
   const table=card?.querySelector('table');if(!table)return;
   const ths=[...table.querySelectorAll('thead th')].map(t=>t.textContent.trim());
   const rows=[...table.querySelectorAll('tbody tr')].map(r=>
@@ -342,11 +319,11 @@ function checkMention(ta){
   const val=ta.value,pos=ta.selectionStart;
   const before=val.slice(0,pos);
   const match=before.match(/@([^\s@]*)$/);
-  if(!match){popup.style.display='none';return;}
+  if(!match){popup.classList.remove('show');return;}
   const query=match[1].toLowerCase();
   const tables=(window._cachedTables||[]).filter(t=>
     !query||t.name.toLowerCase().includes(query));
-  if(!tables.length){popup.style.display='none';return;}
+  if(!tables.length){popup.classList.remove('show');return;}
   _mentionIdx=-1;
   popup.innerHTML=tables.slice(0,8).map(t=>
     '<div class="mention-item" data-name="'+esc(t.name)+'" onclick="mentionSelect(\''+esc(t.name)+'\')">'
@@ -354,7 +331,7 @@ function checkMention(ta){
     +'<span class="mi-name">'+esc(t.name)+'</span>'
     +'<span class="mi-meta">'+t.rows+'行</span></div>'
   ).join('');
-  popup.style.display='block';
+  popup.classList.add('show');
 }
 function mentionNav(dir){
   const popup=$('mentionPopup');
@@ -365,17 +342,17 @@ function mentionNav(dir){
   items[_mentionIdx].classList.add('active');
 }
 function mentionSelect(name){
-  const ta=$('input')||$('userInput');if(!ta)return;const val=ta.value,pos=ta.selectionStart;
+  const ta=$('input'),val=ta.value,pos=ta.selectionStart;
   const before=val.slice(0,pos),after=val.slice(pos);
   const atIdx=before.lastIndexOf('@');
   ta.value=before.slice(0,atIdx)+'@'+name+' '+after;
   ta.selectionStart=ta.selectionEnd=atIdx+name.length+2;
-  $('mentionPopup').style.display='none';
+  $('mentionPopup').classList.remove('show');
   ta.focus();
 }
 function triggerSkill(name){
-  const inp=$('input')||$('userInput');
-  if(inp){inp.value='@skill:'+name+' ';inp.focus();}
+  $('input').value='@skill:'+name+' ';
+  $('input').focus();
 }
 async function openProfile(tableName){
   _profileTable=tableName;
@@ -459,12 +436,12 @@ async function loadQualityTab(tableName){
     }
     if(q.critical_issues&&q.critical_issues.length){
       html+='<div style="margin-top:12px;padding:8px 10px;background:var(--red-bg);border-radius:6px;font-size:12px;color:var(--red)">';
-      q.critical_issues.forEach(c=>{html+='<div><span class="material-symbols-outlined text-[12px]" style="vertical-align:middle">cancel</span> '+esc(c)+'</div>';});
+      q.critical_issues.forEach(c=>{html+='<div>✕ '+esc(c)+'</div>';});
       html+='</div>';
     }
     if(q.warnings&&q.warnings.length){
       html+='<div style="margin-top:12px;padding:8px 10px;background:var(--orange-bg);border-radius:6px;font-size:12px;color:var(--orange)">';
-      q.warnings.forEach(w=>{html+='<div><span class="material-symbols-outlined text-[12px]" style="vertical-align:middle">warning</span> '+esc(w)+'</div>';});
+      q.warnings.forEach(w=>{html+='<div>⚠ '+esc(w)+'</div>';});
       html+='</div>';
     }
     if(!critCount&&!highNullCols.length&&!(q.warnings||[]).length){
