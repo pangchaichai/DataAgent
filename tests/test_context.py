@@ -133,7 +133,7 @@ class TestCompressMessages:
     def test_long_tool_result_compressed(self):
         """超过 500 字符的 tool 消息应被压缩"""
         from agent.context import compress_messages
-        long_content = "x" * 600
+        long_content = "x" * 3000
         msgs = [
             {"role": "system", "content": "sys"},
             {"role": "user", "content": "问题0"},
@@ -146,7 +146,6 @@ class TestCompressMessages:
             {"role": "assistant", "content": "回答3"},
         ]
         compressed = compress_messages(msgs, max_keep_full=4)
-        # 找到 tool 消息
         tool_msgs = [m for m in compressed if m.get("role") == "tool"]
         if tool_msgs:
             assert len(tool_msgs[0]["content"]) < len(long_content)
@@ -173,6 +172,60 @@ class TestCompressMessages:
             if m.get("role") == "assistant" and m.get("content", "").endswith("...[已截断]")
         ]
         assert len(early_assistant) >= 1
+
+
+    def test_smart_compress_preserves_data_rows(self):
+        """智能压缩应保留 run_sql 结果的列名和前 10 行数据"""
+        import json
+        from agent.context import compress_messages
+        big_result = {
+            "ok": True,
+            "columns": ["产品名称", "市值", "持仓量", "资产代码", "主体名称"],
+            "rows": [[f"某某产品基金第{i}号", i * 10000, i * 500, f"ASSET{i:04d}", f"主体企业集团{i}"] for i in range(100)],
+            "row_count": 100,
+            "sql": "SELECT * FROM t LIMIT 100",
+        }
+        long_content = json.dumps(big_result, ensure_ascii=False)
+        msgs = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "问题0"},
+            {"role": "tool", "tool_call_id": "t1", "content": long_content},
+            {"role": "user", "content": "问题1"},
+            {"role": "assistant", "content": "回答1"},
+            {"role": "user", "content": "问题2"},
+            {"role": "assistant", "content": "回答2"},
+            {"role": "user", "content": "问题3"},
+            {"role": "assistant", "content": "回答3"},
+        ]
+        compressed = compress_messages(msgs, max_keep_full=4)
+        tool_msgs = [m for m in compressed if m.get("role") == "tool"]
+        assert len(tool_msgs) == 1
+        parsed = json.loads(tool_msgs[0]["content"])
+        assert parsed["ok"] is True
+        assert parsed["columns"] == ["产品名称", "市值", "持仓量", "资产代码", "主体名称"]
+        assert len(parsed["rows"]) == 10
+        assert parsed["rows"][0][0] == "某某产品基金第0号"
+        assert parsed["compressed"] is True
+        assert "请勿编造" in parsed["compressed_note"]
+
+    def test_small_tool_result_not_compressed(self):
+        """2000 字符以下的工具结果不应被压缩"""
+        from agent.context import compress_messages
+        short_content = "x" * 1500
+        msgs = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "q0"},
+            {"role": "tool", "tool_call_id": "t1", "content": short_content},
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "q2"},
+            {"role": "assistant", "content": "a2"},
+            {"role": "user", "content": "q3"},
+            {"role": "assistant", "content": "a3"},
+        ]
+        compressed = compress_messages(msgs, max_keep_full=4)
+        tool_msgs = [m for m in compressed if m.get("role") == "tool"]
+        assert tool_msgs[0]["content"] == short_content
 
 
 # ═══════════════════════════════════════════════════════════════

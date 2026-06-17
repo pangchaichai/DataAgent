@@ -113,7 +113,7 @@ def compress_messages(messages: list[dict], max_keep_full: int = 6) -> list[dict
       - 保留 system 消息（始终完整）
       - 保留最近 max_keep_full 条非 system 消息完整
       - 更早的消息：assistant text 截断为前 200 字符，
-        tool result 超 500 字符压缩为「[结果已压缩：N字符]」
+        tool result 智能压缩（保留列名和前 10 行数据摘要，防止 LLM 编造）
 
     参数:
         messages:       当前会话消息列表（原地不修改）
@@ -135,10 +135,10 @@ def compress_messages(messages: list[dict], max_keep_full: int = 6) -> list[dict
         role = m.get("role", "")
         if role == "tool":
             content = m.get("content", "")
-            if len(content) > 500:
+            if len(content) > 2000:
                 compressed.append({
                     **m,
-                    "content": f"[工具结果已压缩：原 {len(content)} 字符]",
+                    "content": _compress_tool_result(content),
                 })
             else:
                 compressed.append(m)
@@ -153,6 +153,50 @@ def compress_messages(messages: list[dict], max_keep_full: int = 6) -> list[dict
             compressed.append(m)
 
     return system_msgs + compressed + keep_full
+
+
+def _compress_tool_result(content: str) -> str:
+    """
+    智能压缩工具结果：保留结构化摘要而非完全丢弃。
+
+    对于 run_sql 等返回行数据的结果，保留列名和前 10 行，
+    防止 LLM 因丢失真实数据而编造产品名称等内容。
+    """
+    import json as _json
+    try:
+        data = _json.loads(content)
+    except (ValueError, TypeError):
+        return f"[工具结果已压缩：原 {len(content)} 字符，非 JSON 格式]"
+
+    if not isinstance(data, dict):
+        return f"[工具结果已压缩：原 {len(content)} 字符]"
+
+    if data.get("ok") and "rows" in data and "columns" in data:
+        cols = data["columns"]
+        rows = data["rows"]
+        total = data.get("row_count", len(rows))
+        sql = data.get("sql", "")
+        kept = rows[:10]
+        summary = {
+            "ok": True,
+            "columns": cols,
+            "rows": kept,
+            "row_count": total,
+            "compressed": True,
+            "compressed_note": f"原 {len(rows)} 行，此处仅保留前 {len(kept)} 行摘要。其余数据已省略，请勿编造不在此列表中的数据。",
+        }
+        if sql:
+            summary["sql"] = sql
+        return _json.dumps(summary, ensure_ascii=False, default=str)
+
+    if data.get("ok") and "results" in data:
+        results = data["results"]
+        if isinstance(results, list) and len(results) > 10:
+            summary = {**data, "results": results[:10],
+                       "compressed_note": f"原 {len(results)} 条结果，仅保留前 10 条。请勿编造不在此列表中的数据。"}
+            return _json.dumps(summary, ensure_ascii=False, default=str)
+
+    return f"[工具结果已压缩：原 {len(content)} 字符]"
 
 
 def extract_mention_tables(user_message: str) -> list[str]:
