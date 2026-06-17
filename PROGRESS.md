@@ -4,7 +4,20 @@
 
 ---
 
-## 当前阶段：v2.0 完成 + 计算器字段映射参数化完成 → 等待内测反馈 / Phase 4 模板确认
+## 当前阶段：v2.0 完成 + 反幻觉修复 + 计算器字段映射参数化完成 → 等待内测反馈 / Phase 4 模板确认
+
+## LLM 反幻觉两层压缩架构 ✅ 完成（2026-06-17）
+
+### 改动范围
+- [x] `agent/loop.py` — 新增 `_slim_tool_result_for_llm()`，run_sql 结果写入 session_messages 前截取前 20 行
+- [x] `agent/context.py` — 压缩阈值 2000→1500，保留行数 10→5，docstring 更新
+- [x] `prompts/system_prompt.txt` — 规则 2 扩展覆盖产品名称/主体名称/资产代码/评级
+- [x] `tests/test_context.py` — 更新测试数据匹配新阈值
+
+### 测试结果
+- 603 passed, 2 skipped, 0 failed (77% 覆盖率)
+
+---
 
 ## 计算器字段映射参数化（Path B）✅ 完成（2026-06-17）
 ✅ 已测（L1+L2+L3 通过）— 测试计划：`data/test_plans/20260617_calculator_field_mapping.md`
