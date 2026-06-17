@@ -123,11 +123,19 @@ def main():
     port = find_free_port()
 
     # 初始化运行时日志
+    import logging as _logging
     from tools.runtime_logger import init_logger
     log_mode = config.get('logging', {}).get('mode', 'basic')
     log_max_days = config.get('logging', {}).get('max_days', 30)
     logger = init_logger(mode=log_mode, max_days=log_max_days)
     logger.cleanup_old_logs()
+    # Python logging → 文件 + 控制台（LLM 调试等模块使用标准 logging）
+    _log_level = _logging.DEBUG if log_mode == 'detailed' else _logging.WARNING
+    _logging.basicConfig(
+        level=_log_level,
+        format='%(asctime)s [%(name)s] %(levelname)s: %(message)s',
+        datefmt='%H:%M:%S',
+    )
 
     notify = get_notify_driver()
     notify.push(f"DataAgent 启动中... 端口：{port}", level="info")

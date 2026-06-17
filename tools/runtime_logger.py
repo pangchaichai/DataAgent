@@ -51,7 +51,7 @@ CAT_ERROR = 'error'               # 异常
 CAT_PERFORMANCE = 'performance'   # 内存/耗时
 
 # basic 模式记录的类别（不论级别）
-BASIC_CATEGORIES = {CAT_LIFECYCLE, CAT_ERROR}
+BASIC_CATEGORIES = {CAT_LIFECYCLE, CAT_ERROR, CAT_LLM}
 
 DEFAULT_MAX_DAYS = 30
 DEFAULT_MAX_FILE_MB = 50
@@ -193,12 +193,15 @@ class RuntimeLogger:
 
     def log_llm_call(self, endpoint: str, model: str, ok: bool,
                      tokens_used: int = 0, duration_ms: float = None,
-                     error: str = ""):
+                     error: str = "", raw_response: str = ""):
         level = LEVEL_DEBUG if ok else LEVEL_WARNING
-        self._log(level, CAT_LLM, f'LLM 调用：{endpoint}', {
+        detail = {
             'endpoint': endpoint, 'model': model, 'ok': ok,
             'tokens': tokens_used, 'error': error[:200] if error else '',
-        }, duration_ms)
+        }
+        if raw_response and not ok:
+            detail['raw_response_preview'] = raw_response[:1000]
+        self._log(level, CAT_LLM, f'LLM 调用：{endpoint}', detail, duration_ms)
 
     def log_data_load(self, table_name: str, encoding: str,
                       rows: int, duration_ms: float = None):
@@ -221,6 +224,51 @@ class RuntimeLogger:
             'ok': ok, 'row_count': row_count,
             'error': error[:200] if error else '',
         }, duration_ms)
+
+    def log_llm_request(self, provider: str, model: str, url: str,
+                        message_count: int = 0, has_tools: bool = False):
+        """记录 LLM 请求发送详情（detailed 模式）"""
+        self._log(LEVEL_DEBUG, CAT_LLM, 'LLM 请求发送', {
+            'provider': provider, 'model': model,
+            'url_preview': url[:100],
+            'message_count': message_count,
+            'has_tools': has_tools,
+        })
+
+    def log_llm_response(self, provider: str, status_code: int,
+                         response_keys: list = None,
+                         has_choices: bool = False,
+                         error: str = "",
+                         raw_preview: str = ""):
+        """记录 LLM 响应详情（失败时 basic 也记录）"""
+        level = LEVEL_DEBUG if has_choices else LEVEL_WARNING
+        detail = {
+            'provider': provider,
+            'status_code': status_code,
+            'response_keys': response_keys or [],
+            'has_choices': has_choices,
+        }
+        if error:
+            detail['error'] = error[:500]
+        if raw_preview and not has_choices:
+            detail['raw_preview'] = raw_preview[:1000]
+        self._log(level, CAT_LLM, 'LLM 响应', detail)
+
+    def log_agent_error(self, stage: str, error_msg: str,
+                        context: dict = None):
+        """记录 Agent 运行错误（始终记录）"""
+        detail = {'stage': stage, 'error': error_msg[:500]}
+        if context:
+            detail['context'] = {k: str(v)[:200] for k, v in context.items()}
+        self._log(LEVEL_ERROR, CAT_AGENT, f'Agent 错误：{stage}', detail)
+
+    def log_config_change(self, key: str, old_value: str, new_value: str):
+        """记录配置变更"""
+        self._log(LEVEL_INFO, CAT_LIFECYCLE, '配置变更', {
+            'key': key,
+            'old': str(old_value)[:100],
+            'new': str(new_value)[:100],
+        })
 
     # ── 日志查询 ──────────────────────────────────────────────
 

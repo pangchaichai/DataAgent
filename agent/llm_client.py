@@ -11,6 +11,7 @@ agent/llm_client.py — LLM 调用客户端
 """
 
 import json
+import logging
 import os
 import time
 from collections.abc import Generator
@@ -18,6 +19,8 @@ from dataclasses import dataclass, field
 
 import requests
 import yaml
+
+logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════
 #  Dataclass
@@ -308,6 +311,21 @@ class LLMClient:
                     "error": f"对话接口服务端错误（HTTP {chat_resp.status_code}），请检查 LLM 服务状态",
                     "models": models_list,
                 }
+            if chat_resp.status_code == 200:
+                try:
+                    raw = chat_resp.json()
+                    data = self._extract_openai_response(raw)
+                    if not data.get('choices'):
+                        return {
+                            "ok": False,
+                            "error": f"对话接口连通但响应格式异常：缺少 choices 字段。"
+                                     f"响应 keys: {list(data.keys())}。"
+                                     f"请确认网关代理程序已正确配置。",
+                            "models": models_list,
+                            "raw_response_keys": list(raw.keys()),
+                        }
+                except (ValueError, AttributeError):
+                    pass
         except _req.Timeout:
             return {"ok": False, "error": "对话接口响应超时，但模型列表可访问", "models": models_list}
         except _req.ConnectionError:
@@ -476,6 +494,51 @@ class LLMClient:
         'sk-placeholder',
     })
 
+    @staticmethod
+    def _runtime_log(level: str, event: str, detail: dict = None):
+        """将关键 LLM 事件写入运行时日志（JSONL）"""
+        try:
+            from tools.runtime_logger import get_logger
+            rl = get_logger()
+            if level == 'error':
+                rl.error('llm', event, detail)
+            elif level == 'warning':
+                rl.warning('llm', event, detail)
+            else:
+                rl.log_llm_response(
+                    provider=detail.get('provider', ''),
+                    status_code=detail.get('status_code', 0),
+                    response_keys=detail.get('response_keys'),
+                    has_choices=detail.get('has_choices', False),
+                    error=detail.get('error', ''),
+                    raw_preview=detail.get('raw_preview', ''),
+                )
+        except Exception:
+            pass
+
+    @staticmethod
+    def _extract_openai_response(data: dict) -> dict:
+        """
+        从 LLM 响应中提取标准 OpenAI 格式。
+
+        企业网关代理返回的响应可能包裹在 txBody.txEntity 中：
+          {txHeader: {...}, txBody: {txEntity: {choices: [...]}}}
+        标准 OpenAI / DeepSeek / LM Studio 直接返回 {choices: [...]}.
+
+        本方法自动适配两种格式，返回内层 OpenAI 格式的 dict。
+        """
+        if "choices" in data:
+            return data
+        tx_body = data.get("txBody")
+        if isinstance(tx_body, dict):
+            entity = tx_body.get("txEntity")
+            if isinstance(entity, dict):
+                return entity
+        body = data.get("body")
+        if isinstance(body, dict) and "choices" in body:
+            return body
+        return data
+
     def _call(self, provider_name: str, prompt: str,
               system: str = "", timeout: int = 30, max_tokens: int = 2000) -> LLMResponse:
         """同步调用 LLM，返回 LLMResponse。"""
@@ -517,8 +580,27 @@ class LLMClient:
             elapsed_ms = int((time.time() - start) * 1000)
 
             if resp.status_code == 200:
-                data = resp.json()
-                text = data['choices'][0]['message']['content']
+                raw = resp.json()
+                data = self._extract_openai_response(raw)
+                logger.debug("[LLM _call] provider=%s raw_keys=%s data_keys=%s",
+                             provider_name, list(raw.keys())[:10], list(data.keys())[:10])
+                choices = data.get('choices')
+                if not choices or not isinstance(choices, list):
+                    raw_str = json.dumps(raw, ensure_ascii=False, default=str)[:2000]
+                    logger.warning("[LLM _call] 响应缺少 choices，完整响应：%s", raw_str)
+                    self._runtime_log('warning', 'LLM 响应缺少 choices', {
+                        'provider': provider_name, 'model': model,
+                        'raw_keys': list(raw.keys()),
+                        'data_keys': list(data.keys()),
+                        'raw_preview': raw_str[:1000],
+                    })
+                    return LLMResponse(
+                        success=False, endpoint=provider_name, model=model, text="",
+                        elapsed_ms=elapsed_ms,
+                        error=f"LLM 返回格式异常：响应中缺少 choices 字段。响应 keys: {list(data.keys())}",
+                    )
+                message = choices[0].get('message') or {}
+                text = message.get('content', '') or ''
                 usage = data.get('usage', {})
                 return LLMResponse(
                     success=True, text=text, endpoint=provider_name, model=model,
@@ -532,6 +614,7 @@ class LLMClient:
                 return LLMResponse(success=False, endpoint=provider_name, model=model,
                                    text="", error=f"connection refused (HTTP {resp.status_code})")
             else:
+                logger.warning("[LLM _call] HTTP %d: %s", resp.status_code, resp.text[:500])
                 return LLMResponse(success=False, endpoint=provider_name, model=model,
                                    text="", error=f"HTTP {resp.status_code}: {resp.text[:200]}")
 
@@ -542,6 +625,7 @@ class LLMClient:
             return LLMResponse(success=False, endpoint=provider_name, model=model,
                                text="", error="connection refused")
         except Exception as e:
+            logger.exception("[LLM _call] 未预期异常: %s", e)
             return LLMResponse(success=False, endpoint=provider_name, model=model,
                                text="", error=str(e)[:200])
 
@@ -588,8 +672,27 @@ class LLMClient:
             elapsed_ms = int((time.time() - start) * 1000)
 
             if resp.status_code == 200:
-                data = resp.json()
-                choice = data['choices'][0]
+                raw = resp.json()
+                data = self._extract_openai_response(raw)
+                logger.debug("[LLM chat] provider=%s raw_keys=%s data_keys=%s",
+                             provider_name, list(raw.keys())[:10], list(data.keys())[:10])
+                choices = data.get('choices')
+                if not choices or not isinstance(choices, list):
+                    raw_str = json.dumps(raw, ensure_ascii=False, default=str)[:2000]
+                    logger.warning("[LLM chat] 响应缺少 choices，完整响应：%s", raw_str)
+                    self._runtime_log('warning', 'LLM chat 响应缺少 choices', {
+                        'provider': provider_name, 'model': model,
+                        'raw_keys': list(raw.keys()),
+                        'data_keys': list(data.keys()),
+                        'raw_preview': raw_str[:1000],
+                        'has_tools': bool(tools),
+                        'message_count': len(messages),
+                    })
+                    return ChatResult(
+                        success=False, elapsed_ms=elapsed_ms, model=model,
+                        error=f"LLM 返回格式异常：响应中缺少 choices 字段。响应 keys: {list(data.keys())}",
+                    )
+                choice = choices[0]
                 message = choice.get('message', {})
                 text = message.get('content', '') or ''
                 usage = data.get('usage', {})
@@ -625,6 +728,7 @@ class LLMClient:
                     error=f"connection refused (HTTP {resp.status_code})",
                 )
             else:
+                logger.warning("[LLM chat] HTTP %d: %s", resp.status_code, resp.text[:500])
                 return ChatResult(
                     success=False, elapsed_ms=elapsed_ms, model=model,
                     error=f"HTTP {resp.status_code}: {resp.text[:200]}",
@@ -636,6 +740,7 @@ class LLMClient:
             return ChatResult(success=False, error="connection refused",
                             elapsed_ms=int((time.time() - start) * 1000))
         except Exception as e:
+            logger.exception("[LLM chat] 未预期异常: %s", e)
             return ChatResult(success=False, error=str(e)[:200],
                             elapsed_ms=int((time.time() - start) * 1000))
 
@@ -693,8 +798,12 @@ class LLMClient:
                     if data_str.strip() == '[DONE]':
                         break
                     try:
-                        data = json.loads(data_str)
-                        delta = data['choices'][0].get('delta', {})
+                        chunk = json.loads(data_str)
+                        chunk = LLMClient._extract_openai_response(chunk)
+                        choices = chunk.get('choices', [])
+                        if not choices:
+                            continue
+                        delta = choices[0].get('delta', {})
                         content = delta.get('content', '')
                         if content:
                             full_text += content

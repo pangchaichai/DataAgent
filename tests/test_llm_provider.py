@@ -182,3 +182,220 @@ class TestListProviders:
         providers = client_with_lmstudio.list_providers()
         names = [p['name'] for p in providers]
         assert 'enterprise_internal' not in names
+
+
+# ═══════════════════════════════════════════════════════════════
+#  _extract_openai_response() — 企业网关响应适配
+# ═══════════════════════════════════════════════════════════════
+
+class TestExtractOpenAIResponse:
+
+    def test_standard_openai_format(self):
+        """标准 OpenAI 格式直接返回"""
+        from agent.llm_client import LLMClient
+        data = {"choices": [{"message": {"content": "hello"}}]}
+        result = LLMClient._extract_openai_response(data)
+        assert result is data
+        assert "choices" in result
+
+    def test_gateway_wrapped_format(self):
+        """企业网关 txBody.txEntity 包装格式正确提取"""
+        from agent.llm_client import LLMClient
+        inner = {"choices": [{"message": {"content": "hello"}}], "usage": {"total_tokens": 10}}
+        wrapped = {
+            "txHeader": {"servNo": "390201", "globalBusiTrackNo": "xxx"},
+            "txBody": {"txComin": "", "txEntity": inner},
+        }
+        result = LLMClient._extract_openai_response(wrapped)
+        assert result is inner
+        assert "choices" in result
+        assert result["choices"][0]["message"]["content"] == "hello"
+
+    def test_gateway_empty_tx_entity(self):
+        """网关返回的 txEntity 为空时不崩溃"""
+        from agent.llm_client import LLMClient
+        wrapped = {"txHeader": {}, "txBody": {"txEntity": {}}}
+        result = LLMClient._extract_openai_response(wrapped)
+        assert isinstance(result, dict)
+
+    def test_gateway_error_response(self):
+        """网关返回错误（无 txEntity.choices）时正确处理"""
+        from agent.llm_client import LLMClient
+        wrapped = {
+            "txHeader": {"servNo": "390201"},
+            "txBody": {"txEntity": {"error": {"message": "model not found"}}},
+        }
+        result = LLMClient._extract_openai_response(wrapped)
+        assert "error" in result
+        assert "choices" not in result
+
+    def test_body_wrapper_format(self):
+        """兜底 body 包装格式"""
+        from agent.llm_client import LLMClient
+        inner = {"choices": [{"message": {"content": "ok"}}]}
+        data = {"body": inner}
+        result = LLMClient._extract_openai_response(data)
+        assert result is inner
+
+    def test_unknown_format_returned_as_is(self):
+        """无法识别的格式直接返回原始 dict"""
+        from agent.llm_client import LLMClient
+        data = {"status": "error", "message": "unknown"}
+        result = LLMClient._extract_openai_response(data)
+        assert result is data
+
+
+# ═══════════════════════════════════════════════════════════════
+#  安全响应解析（_call / _call_with_messages 不再 KeyError）
+# ═══════════════════════════════════════════════════════════════
+
+class TestSafeResponseParsing:
+
+    @pytest.fixture
+    def enterprise_client(self, tmp_path):
+        """带企业内网配置的 LLMClient"""
+        import yaml
+        from agent.llm_client import LLMClient
+        cfg = {
+            "llm": {
+                "sql_gen": {"primary": "enterprise_internal", "tool_mode": "native"},
+                "report_text": {"provider": "enterprise_internal"},
+                "enterprise_internal": {
+                    "url": "http://localhost:8081/v1",
+                    "model": "enterprise-model",
+                    "api_key": "",
+                },
+                "deepseek": {"url": "", "model": "", "api_key": ""},
+                "lmstudio": {"url": "", "model": "", "api_key": ""},
+            }
+        }
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(yaml.dump(cfg), encoding="utf-8")
+        return LLMClient(str(cfg_file))
+
+    def test_call_with_gateway_wrapped_response(self, enterprise_client, monkeypatch):
+        """_call 正确处理网关包装的响应"""
+        import requests
+
+        class MockResp:
+            status_code = 200
+            def json(self):
+                return {
+                    "txHeader": {"servNo": "390201"},
+                    "txBody": {"txEntity": {
+                        "choices": [{"message": {"content": "SELECT 1"}}],
+                        "usage": {"total_tokens": 15},
+                    }},
+                }
+
+        monkeypatch.setattr(requests, 'post', lambda *a, **kw: MockResp())
+        result = enterprise_client._call('enterprise_internal', 'test query')
+        assert result.success is True
+        assert result.text == "SELECT 1"
+
+    def test_call_with_no_choices_returns_error(self, enterprise_client, monkeypatch):
+        """_call 收到缺少 choices 的响应时返回 success=False 而不是 KeyError"""
+        import requests
+
+        class MockResp:
+            status_code = 200
+            def json(self):
+                return {"txHeader": {}, "txBody": {"txEntity": {"error": "model busy"}}}
+
+        monkeypatch.setattr(requests, 'post', lambda *a, **kw: MockResp())
+        result = enterprise_client._call('enterprise_internal', 'test query')
+        assert result.success is False
+        assert "choices" in result.error
+
+    def test_chat_with_gateway_wrapped_response(self, enterprise_client, monkeypatch):
+        """_call_with_messages (chat) 正确处理网关包装的响应"""
+        import requests
+
+        class MockResp:
+            status_code = 200
+            def json(self):
+                return {
+                    "txHeader": {},
+                    "txBody": {"txEntity": {
+                        "choices": [{"message": {"content": "hello", "tool_calls": []}}],
+                        "usage": {"total_tokens": 20},
+                    }},
+                }
+
+        monkeypatch.setattr(requests, 'post', lambda *a, **kw: MockResp())
+        result = enterprise_client.chat(
+            messages=[{"role": "user", "content": "hello"}],
+        )
+        assert result.success is True
+        assert result.text == "hello"
+
+    def test_chat_with_no_choices_returns_error(self, enterprise_client, monkeypatch):
+        """chat 收到缺少 choices 的响应时返回 success=False 而不是 KeyError"""
+        import requests
+
+        class MockResp:
+            status_code = 200
+            def json(self):
+                return {"status": "error", "message": "internal gateway error"}
+
+        monkeypatch.setattr(requests, 'post', lambda *a, **kw: MockResp())
+        result = enterprise_client.chat(
+            messages=[{"role": "user", "content": "test"}],
+        )
+        assert result.success is False
+        assert "choices" in result.error
+
+    def test_chat_with_tool_calls_from_gateway(self, enterprise_client, monkeypatch):
+        """chat 正确解析网关包装的 tool_calls 响应"""
+        import requests
+
+        class MockResp:
+            status_code = 200
+            def json(self):
+                return {
+                    "txHeader": {},
+                    "txBody": {"txEntity": {
+                        "choices": [{
+                            "message": {
+                                "content": None,
+                                "tool_calls": [{
+                                    "id": "call_1",
+                                    "function": {
+                                        "name": "run_sql",
+                                        "arguments": '{"sql":"SELECT 1","purpose":"test"}'
+                                    }
+                                }]
+                            }
+                        }],
+                        "usage": {"total_tokens": 50},
+                    }},
+                }
+
+        monkeypatch.setattr(requests, 'post', lambda *a, **kw: MockResp())
+        result = enterprise_client.chat(
+            messages=[{"role": "user", "content": "query"}],
+            tools=[{"type": "function", "function": {"name": "run_sql"}}],
+        )
+        assert result.success is True
+        assert len(result.tool_calls) == 1
+        assert result.tool_calls[0]["name"] == "run_sql"
+
+    def test_connection_detects_missing_choices(self, enterprise_client, monkeypatch):
+        """test_connection 检测到缺少 choices 时报告格式异常"""
+        import requests
+
+        class MockModelsResp:
+            status_code = 200
+            def json(self):
+                return {"data": [{"id": "enterprise-model"}]}
+
+        class MockChatResp:
+            status_code = 200
+            def json(self):
+                return {"txHeader": {}, "txBody": {"txEntity": {"error": "bad request"}}}
+
+        monkeypatch.setattr(requests, 'get', lambda *a, **kw: MockModelsResp())
+        monkeypatch.setattr(requests, 'post', lambda *a, **kw: MockChatResp())
+        result = enterprise_client.test_connection('enterprise_internal')
+        assert result['ok'] is False
+        assert '格式异常' in result.get('error', '') or 'choices' in result.get('error', '')
