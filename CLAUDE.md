@@ -1142,3 +1142,4 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v3.0 Skills | 验收用 Skill 创建：weekly_report_generator（理财周报 5 模板）/ meeting_report v3（谈参要点含集团关系树）| Skills 库 |
 | v2.2 Upload | 文件上传升级：批量上传 + 本地工作目录（workdir_loader / 侧边栏区块 / Skill 预检自动扫描）| 功能升级 |
 | v2.3 FieldMap | 计算器字段映射全参数化（Path B）：columns.py 语义常量 + resolve_columns() + 7 个计算器 cols 参数 + tool_dispatch 解析层 + 26 个新测试（含端到端）| 字段映射 |
+| v2.3 Revert | Stitch UI 回退：Phase 0-5 全部回退到原版 UI（效果不理想），仅 ui/ 目录，后端不受影响 | UI 回退 |

@@ -4,7 +4,7 @@
 
 ---
 
-## 当前阶段：v2.0 完成 + Stitch UI 重构完成 + 计算器字段映射参数化完成 → 等待内测反馈 / Phase 4 模板确认
+## 当前阶段：v2.0 完成 + 计算器字段映射参数化完成 → 等待内测反馈 / Phase 4 模板确认
 
 ## 计算器字段映射参数化（Path B）✅ 完成（2026-06-17）
 ✅ 已测（L1+L2+L3 通过）— 测试计划：`data/test_plans/20260617_calculator_field_mapping.md`
@@ -56,27 +56,19 @@
 ### 发现并修复的 Bug（4 个）
 - [x] mentionPopup ID 不匹配 → @mention 自动补全完全失效
 - [x] suggestions 目标 ID 过时 → 推荐功能永久隐藏
-- [x] 集团系 CRUD UI 在 SPA 迁移后无入口 → 集成到 Sources 页面
-- [x] 工作目录上传 UI 在 SPA 迁移后无入口 → 集成到 Sources 页面
+- [x] 集团系 CRUD UI 在 SPA 迁移后无入口 → 集成到 Sources 页面（⏪ SPA 已回退，此修复随之回退）
+- [x] 工作目录上传 UI 在 SPA 迁移后无入口 → 集成到 Sources 页面（⏪ SPA 已回退，此修复随之回退）
 
 ---
 
-## Stitch Design System UI 重构 ✅ Phase 0-5 完成（2026-06-16）
+## Stitch Design System UI 重构 ⏪ 已回退（2026-06-17）
 
-### Phase 0+1（基础设施 + 导航）
-- [x] Tailwind CSS v4 standalone CLI + `ui/src/input.css` MD3 token 系统
-- [x] Inter / JetBrains Mono / Material Symbols Outlined 字体本地化
-- [x] 客户端 hash 路由（5 页面：Dashboard / Sources / Rules / Chat / Audit）
-- [x] 深色海军蓝侧边栏 + 56px 顶栏 + 5 个页面模块
-
-### Phase 2-5（图标迁移 + 聊天气泡重构）
-- [x] `ui/js/render.js` 完整 Stitch 重写（气泡/表格/图表/卡片）
-- [x] `ui/js/chat.js` 流式气泡 + 过程包装器 Material Symbols
-- [x] `ui/js/main.js` 欢迎面板 Material Symbols 卡片
-- [x] `ui/js/dom.js` 兼容新旧 DOM 结构
-- [x] `ui/js/upload.js` / `settings.js` / `sidebar.js` / `skill_builder.js` 图标迁移
-- [x] `ui/src/input.css` 流式光标动画 + CSS 重编译
-- [x] 遗留 CSS 保留在 `index.html` 内（设置面板/技能构建器/上传确认/状态栏）
+> **回退原因**：UI 效果不理想，用户决定回退到原版 UI。
+> 回退范围仅限 `ui/` 目录，后端代码（calculators / agent / tools / tests）完全不受影响。
+> 回退提交：`a6f0aa3 revert(ui): roll back Stitch design Phase 0-5, restore original UI`
+>
+> 已删除文件：`ui/dist/` / `ui/fonts/` / `ui/js/pages/` / `ui/js/router.js` / `ui/src/input.css`
+> `scripts/build-css.sh` 保留备用（无害）。
 
 ## Windows 内测包构建 ✅ 完成（2026-06-09）
 

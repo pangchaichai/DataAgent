@@ -14,6 +14,28 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-17，第十四轮）
+
+### UI Stitch 设计系统回退 + 项目文档同步
+
+**回退原因**：Stitch UI 重构（Phase 0-5）效果不理想，用户决定回退到原版 UI。
+
+**回退操作**：
+1. `git checkout eefaa55 -- ui/` 将 `ui/` 目录恢复到 Stitch 前的状态
+2. 删除 Stitch 新增的文件：`ui/dist/` / `ui/fonts/` / `ui/js/pages/` / `ui/js/router.js` / `ui/src/input.css`
+3. 保留 `scripts/build-css.sh`（无害备用）
+
+**影响范围**：仅 `ui/` 目录。后端代码（calculators / agent / tools / tests）完全不受影响。
+全量测试 601 passed, 0 failed 确认无回归。
+
+**文档同步**：
+- PROGRESS.md：Stitch 条目标记为"已回退"，当前阶段描述移除 Stitch 引用
+- HANDOFF.md：新增回退记录，更新"立即可执行的下一步"（移除 Stitch 相关项）
+- START_HERE.md：移除 Stitch 阶段引用，更新测试数据
+- CLAUDE.md：版本历史新增回退条目
+
+---
+
 ## 上次会话完成的工作（2026-06-17，第十三轮）
 
 ### 计算器字段映射参数化（Path B 方案实施）
@@ -98,9 +120,9 @@
 
 ---
 
-## 上次会话完成的工作（2026-06-16，第十轮）
+## 上次会话完成的工作（2026-06-16，第十轮）⏪ 已回退
 
-### Stitch Design System — Phase 2-5 图标迁移 + 聊天气泡重构
+### Stitch Design System — Phase 2-5 图标迁移 + 聊天气泡重构（已回退，见第十四轮）
 
 **UI 全面从 emoji/Unicode 图标迁移到 Material Symbols Outlined**，涉及 11 个文件：
 
@@ -230,11 +252,12 @@
 
 ## 立即可执行的下一步
 
-### 1. UAT 验收（L4，10 个场景）
-- 需浏览器/Windows 环境手动验收：聊天流程、中文上传、Skill 执行、@mention、深色模式、5 页面路由、表剖析、Skill Builder、Word 导出
+### 1. UAT 验收（L4）
+- 需浏览器/Windows 环境手动验收：聊天流程、中文上传、Skill 执行、@mention、深色模式、表剖析、Skill Builder、Word 导出
 
-### 2. Stitch UI 细节
-- **agent_status.js 图标迁移**：猫头鹰状态栏仍用 Unicode ✓/✗/≈/⏸，可选择性迁移到 Material Symbols
+### 2. UI 优化（待用户确认方向）
+- Stitch 设计已回退，如需重新设计 UI 需先确认设计方向
+- agent_status.js 猫头鹰状态栏保持现状
 
 ### 3. Phase 5（Windows 打包测试）
 - PyInstaller 打包，WebView2 Runtime 检测
@@ -540,9 +563,10 @@ python scripts/project_check.py
 
 ### 阶段
 ```
-v2.0 全部完成 + Skill v3 已合并主线
-v3.0 Week 1 已完成（快速路径 + ExecutionTracker 写入端）
-下一步：v3.0 Week 2（Skill 卡片 + fund_nav_report 合规修复）
+v2.0 全部完成 + Skill v3 已合并主线 + 计算器字段映射参数化完成
+Stitch UI 重构已回退（效果不理想）
+v3.0 Week 1-4 已完成
+下一步：UAT 验收 / UI 重新设计（待确认方向）/ Phase 5 Windows 打包
 ```
 
 ### 关键文档关系
@@ -559,8 +583,8 @@ docs/v3-evolution-final-plan.md    ← ★最终实施计划（执行依据）
 - [x] `tests/test_fast_path.py` — 11 个测试全绿
 
 ### 测试
-- **结果**：352/352 通过，2 跳过，0 失败
-- **最后运行**：2026-06-14
+- **结果**：601/601 通过，2 跳过，0 失败（77% 覆盖率）
+- **最后运行**：2026-06-17
 
 ### 已知外部阻塞项
 - Phase 4 进入条件：C-02（周报模板）、C-03（月报模板）、C-04（Word 格式）待业务方确认
@@ -608,33 +632,22 @@ docs/v3-evolution-final-plan.md    ← ★最终实施计划（执行依据）
 ## 本次会话修改的文件清单
 
 ```
-# 本轮（第五轮）修改文件：
-agent/fast_path.py                 # 新建：确定性快速路径（跳过 LLM，直接调用固化计算）
-agent/execution_tracker.py         # 新建：执行追踪 JSONL 写入端
-agent/loop.py                      # 修改：preflight 后插入 try_fast_path 分支
-skills/concentration_monitor/SKILL.md  # 修改：新增 default_args 字段
-tests/test_fast_path.py            # 新建：11 个快速路径测试
-tests/test_agent.py                # 修改：更新 2 个测试避免误触发快速路径
+# 本轮（第十四轮）— UI Stitch 回退 + 文档同步：
+ui/                                # 整目录回退到 Stitch 前版本（eefaa55）
+  ↑ 删除：ui/dist/ / ui/fonts/ / ui/js/pages/ / ui/js/router.js / ui/src/input.css
+  ↑ 还原：ui/index.html / ui/js/*.js（9 文件恢复原版）
+HANDOFF.md                         # 新增第十四轮记录，更新下一步（移除 Stitch 项）
+PROGRESS.md                        # Stitch 条目标记"已回退"，当前阶段描述更新
+START_HERE.md                      # 更新分支/测试/阶段状态
+CLAUDE.md                          # 版本历史新增回退条目
 
-# 上轮（第四轮）修改文件：
-scripts/sync_project_state.py      # 新建：项目状态自动同步脚本（运行测试+更新管理文档）
-.claude/settings.json              # 修改：Stop hook 改为自动执行，新增 PostToolUse hook
-
-# 上轮（第三轮）修改文件：
-requirements-dev.txt               # 修改：更新版本约束（固定版本 → >= 兼容范围）
-scripts/project_check.py           # 修改：清除已解决的 KNOWN_GAPS，改为 v3.0 演进任务列表
-START_HERE.md                      # 修改：全面更新至当前状态（分支/测试/阶段/下一步）
-docs/user-guide.md                 # 新建：面向业务用户的完整使用说明文档（~300行）
-data/test_reports/latest_summary.json  # 修改：更新测试结果（341通过，2跳过，0失败）
-HANDOFF.md                         # 更新：本轮工作记录
-
-# 上轮（第二轮）修改文件：
-ui/js/agent_status.js              # 新建：DA 小猫头鹰任务状态动画 IIFE 模块（~230行）
-ui/index.html                      # 修改：猫头鹰 CSS 变量 + keyframes + asb-* 类 + HTML div + script 标签
-ui/js/chat.js                      # 修改：所有 SSE 事件分支追加 AgentStatus 调用
-ui/js/main.js                      # 修改：init 块加 AgentStatus.init()
-docs/v3-evolution-final-plan.md    # 新建：v3.0 最终实施计划（~500行，上轮完成）
-PROGRESS.md                        # 更新：新增 v3.0 演进规划阶段（上轮完成）
+# 上轮（第十三轮）— Path B 字段映射参数化：
+calculators/columns.py             # 新建：语义列名常量 + resolve_columns()
+calculators/*.py（7 个）            # 修改：新增 cols=None 参数
+agent/tool_dispatch.py             # 修改：新增字段映射解析层
+tools/data_loader.py               # 修改：新增 get_field_map_for_table()
+tests/test_column_resolution.py    # 新建：26 个回归测试
+data/test_plans/20260617_calculator_field_mapping.md  # 新建：测试计划
 ```
 
 ---
