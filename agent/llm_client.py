@@ -855,13 +855,19 @@ class LLMClient:
         # 3) 自动检测常见企业网关变体
         auto_paths = [
             'content', 'data.content', 'data.reply', 'data.text',
-            'reply', 'text', 'response', 'data.response',
-            'data.result.content', 'result.content',
-            'data.message', 'message',
+            'reply', 'text', 'data.result.content', 'result.content',
         ]
         for path in auto_paths:
             val = LLMClient._get_by_path(data, path)
             if isinstance(val, str) and val.strip():
+                # 校验：检测到的文本是否为网关错误信息
+                err_detail = _detect_error_content(val)
+                if err_detail:
+                    return {
+                        "ok": False, "content": "", "tool_calls": [],
+                        "usage": {}, "raw_keys": _describe_keys(data),
+                        "error": err_detail,
+                    }
                 return {
                     "ok": True, "content": val,
                     "tool_calls": [],
@@ -869,7 +875,8 @@ class LLMClient:
                     "error": "", "raw_keys": "",
                 }
 
-        # 3.5) 检测网关返回的 error 响应（如认证失败/模型不存在等）
+        # 3.5) 检测网关返回的 error 响应（多种格式）
+        # 格式1: {"error": {"message": "..."}}  (OpenAI/most proxies)
         err = data.get('error')
         if isinstance(err, dict):
             err_msg = err.get('message', '') or str(err)
@@ -881,12 +888,41 @@ class LLMClient:
                     f"请检查：1) API Key 是否正确 2) 模型名称是否正确 3) 网关服务状态。"
                 ),
             }
+        # 格式2: {"error": "plain error string"}
         if isinstance(err, str) and err.strip():
+            err_detail = _detect_error_content(err) or (
+                f"LLM 网关返回错误：{err[:300]}。"
+            )
+            return {
+                "ok": False, "content": "", "tool_calls": [],
+                "usage": {}, "raw_keys": _describe_keys(data),
+                "error": err_detail,
+            }
+        # 格式3: {"code": "APIC.0303", "message": "Incorrect app authentication..."} (企业网关)
+        gateway_msg = data.get('message', '')
+        gateway_code = data.get('code', '') or data.get('errCode', '') or data.get('respCode', '')
+        if isinstance(gateway_msg, str) and gateway_msg.strip():
+            err_detail = _detect_error_content(gateway_msg)
+            if err_detail or gateway_code:
+                return {
+                    "ok": False, "content": "", "tool_calls": [],
+                    "usage": {}, "raw_keys": _describe_keys(data),
+                    "error": (
+                        f"LLM 网关返回错误{(' [' + gateway_code + ']') if gateway_code else ''}："
+                        f"{gateway_msg[:300]}。"
+                        f"请检查：1) API Key / appCode 是否正确 2) 模型名称是否正确 3) 网关服务状态。"
+                    ),
+                }
+        # 格式4: {"errMsg": "...", "errCode": "..."}
+        gw_err_msg = data.get('errMsg', '') or data.get('respMsg', '')
+        gw_err_code = data.get('errCode', '') or data.get('respCode', '')
+        if isinstance(gw_err_msg, str) and gw_err_msg.strip():
             return {
                 "ok": False, "content": "", "tool_calls": [],
                 "usage": {}, "raw_keys": _describe_keys(data),
                 "error": (
-                    f"LLM 网关返回错误：{err[:300]}。"
+                    f"LLM 网关返回错误{(' [' + gw_err_code + ']') if gw_err_code else ''}："
+                    f"{gw_err_msg[:300]}。"
                 ),
             }
 
@@ -988,9 +1024,47 @@ def _describe_keys(data: dict, max_depth: int = 2, _depth: int = 0) -> str:
     return "{" + ", ".join(parts) + "}"
 
 
-# ═══════════════════════════════════════════════════════════════
-#  React 协议辅助函数（兜底模式，本期可后置）
-# ═══════════════════════════════════════════════════════════════
+def _detect_error_content(text: str) -> str:
+    """
+    检测提取到的文本是否为网关错误信息（而非正常 LLM 回复）。
+
+    企业网关在认证失败等场景下可能返回 HTTP 200 + 错误描述文本，
+    需要识别这类情况并返回友好的错误诊断。
+
+    返回: 空字符串表示不是错误；非空字符串为错误诊断信息。
+    """
+    if not text or not isinstance(text, str):
+        return ""
+
+    lower = text.lower()
+
+    # 网关认证/授权错误模式
+    auth_patterns = [
+        ('apic.', 'APIC 错误码'),
+        ('incorrect app authentication', '应用认证信息错误'),
+        ('app not found', '应用未找到（appCode 无效）'),
+        ('appcode', 'appCode 相关错误'),
+        ('authentication information', '认证信息错误'),
+        ('request_id=', '包含 request_id 的网关错误'),
+    ]
+    for pattern, desc in auth_patterns:
+        if pattern in lower:
+            return (
+                f"企业网关返回错误（{desc}）：{text[:300]}。"
+                f"请检查：1) 代理程序的 Config 中 appCode/busiSendInstNo 等认证字段是否正确 "
+                f"2) 模型名称是否与网关支持的模型一致 "
+                f"3) 网关服务是否正常运行。"
+            )
+
+    # 通用网关错误码模式 (如 ERR_xxx, SYS_xxx 等)
+    import re as _re
+    if _re.search(r'\b[A-Z]{2,8}[._-]\d{3,6}\b', text):
+        return (
+            f"企业网关返回错误码：{text[:300]}。"
+            f"请确认网关认证配置和服务状态。"
+        )
+
+    return ""
 
 def _format_tools_for_react(tools: list[dict]) -> str:
     """将 OpenAI 工具定义转为文本描述（供 react 模式 system prompt）"""
