@@ -14,6 +14,29 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-18，第十七轮）
+
+### Windows v3.0-beta3 EXE 打包支持
+
+`scripts/package_windows.py` 新增 PyInstaller EXE 打包流程：
+- 新增 `BUILD_EXE_BAT` — Windows 批处理脚本，检查虚拟环境 → 安装 PyInstaller → 使用 spec 文件打包 → 复制配置文件到输出目录
+- 新增 `PYINSTALLER_SPEC` — 完整的 PyInstaller spec 文件，包含所有 datas（ui/data_dictionary/templates/skills/prompts）、hiddenimports（全部项目模块）、excludes（pytest/matplotlib/scipy）、console=False、UPX 启用
+- `write_scripts()` 更新：额外输出 `build_exe.bat` 和 `DataAgent/dataagent.spec`
+- `README_TXT` 重写：两种安装方式（run.bat 脚本运行 vs build_exe.bat 打包 EXE）、LLM 配置指南、beta3 变更日志
+- 版本号升级为 `v3.0-beta3`
+- 生成包：`dist/DataAgent-v3.0-beta3.zip`（88.1 MB）
+
+### 立即可执行的下一步
+
+1. 将 `DataAgent-v3.0-beta3.zip` 复制到 Windows 机器
+2. 解压后运行 `setup.bat` 安装依赖
+3. 方式 A：`run.bat` 脚本模式运行（开发调试用）
+4. 方式 B：`build_exe.bat` 打包成 EXE（生产部署用）
+5. 编辑 `DataAgent/config.yaml` 配置企业内网 LLM 或 DeepSeek
+6. 收集内测反馈，等待 Phase 4 模板确认（C-02/03/04）
+
+---
+
 ## 上次会话完成的工作（2026-06-17，第十六轮）
 
 ### 企业网关 LLM 适配 + 日志增强

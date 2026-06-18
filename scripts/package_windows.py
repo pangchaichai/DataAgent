@@ -85,7 +85,7 @@ EXCLUDE_PATTERNS = [
 ]
 
 # ── 内测包版本号 ──────────────────────────────────────────────────────
-BUNDLE_VERSION = "v3.0-beta2"
+BUNDLE_VERSION = "v3.0-beta3"
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -499,41 +499,242 @@ README_TXT = """DataAgent %VERSION% — Windows 内测版
   • WebView2 Runtime（Windows 11 自带，Windows 10 可能需要安装）
 
 ══════════════════════════════════════════════════
-  安装步骤（首次）
+  方式一：直接运行（推荐内测使用）
 ══════════════════════════════════════════════════
   1. 安装 Python 3.11（https://www.python.org/downloads/）
      勾选 "Add Python to PATH"
   2. 双击 setup.bat 等待安装完成
-  3. 编辑 config.yaml，填写 LLM API Key 等信息
+  3. 编辑 DataAgent\\config.yaml，填写 LLM 配置
   4. 双击 run.bat 启动
 
 ══════════════════════════════════════════════════
-  启动
+  方式二：打包为 EXE（分发部署使用）
 ══════════════════════════════════════════════════
-  双击 run.bat
+  1. 先完成方式一的步骤 1-3（setup.bat 安装依赖）
+  2. 双击 build_exe.bat 等待打包完成（约 3-5 分钟）
+  3. 打包结果在 output\\DataAgent\\ 目录
+  4. 将 output\\DataAgent\\ 整个目录复制到目标机器
+  5. 目标机器上双击 DataAgent.exe 启动
+  注意：
+  • 打包产物约 200-300 MB（含 Python 运行时和所有依赖）
+  • 首次启动会自动创建 data/ 目录
+  • config.yaml 需放在 DataAgent.exe 同级目录下
 
 ══════════════════════════════════════════════════
-  内测说明
+  配置 LLM（必须）
 ══════════════════════════════════════════════════
-  本版本为 DataAgent v3.0-beta2 内测版。
-  包含功能：
-  • 数据上传（CSV/Excel/Word/PDF，支持 GB18030/UTF-8 自动识别）
-  • 自然语言查询（探索式分析）
-  • 分析技能卡片（就绪状态 + 一键执行）
-  • 固化计算快速路径（集中度 < 0.5s，合规审计日志）
-  • 7 个固化计算器（全部支持字段映射参数化）
-  • 净值/收益率/资产结构/信用分布/杠杆率/流动性/持仓变动
-  • 图表生成（柱状图/饼图/折线图/散点图）
-  • 报告生成（Markdown + Word 导出）
-  • 置信度标签（✓ 已审计 / ~ 需核实 / ✧ AI生成）
-  • 参谈要点 + 合规监控
+  编辑 DataAgent\\config.yaml 的 llm 区块：
 
-  v3.0-beta2 变更（相对 beta1）：
-  • 计算器字段映射参数化（Path B）— 物理列名不同时也能正确计算
-  • UI 回退到稳定原版（Stitch 设计已回退）
-  • 601 个自动化测试全部通过
+  企业内网 LLM：
+    sql_gen.primary: enterprise_internal
+    enterprise_internal.url: http://[网关代理地址]:8081/v1
+    enterprise_internal.model: [企业模型名称]
+
+  DeepSeek（外部）：
+    sql_gen.primary: deepseek
+    deepseek.api_key: 你的API Key
+
+  本地 LM Studio：
+    sql_gen.primary: lmstudio
+    （先启动 LM Studio 的 Local Server）
+
+══════════════════════════════════════════════════
+  v3.0-beta3 变更日志
+══════════════════════════════════════════════════
+  • 修复企业内网 LLM 调用失败（网关响应格式适配）
+  • 修复 Agent 编造产品名称（两层反幻觉压缩架构）
+  • 增强运行日志（LLM 调用始终记录，含原始响应预览）
+  • 新增 PyInstaller 打包支持（build_exe.bat）
+  • 615 个自动化测试全部通过
 
   反馈请联系：<内部沟通渠道>
+"""
+
+
+# ── PyInstaller build 脚本 ──────────────────────────────────────────────
+
+BUILD_EXE_BAT = r"""@echo off
+title DataAgent - 打包 EXE
+chcp 65001 >nul 2>&1
+
+echo.
+echo ============================================================
+echo      DataAgent EXE 打包工具
+echo ============================================================
+echo.
+
+:: 检查虚拟环境
+if not exist .venv (
+    echo [错误] 请先运行 setup.bat 安装依赖
+    pause
+    exit /b 1
+)
+
+call .venv\Scripts\activate.bat
+
+:: 安装 PyInstaller（如果没有）
+pip show pyinstaller >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo [安装] PyInstaller ...
+    pip install pyinstaller>=6.6.0
+)
+
+echo.
+echo [打包] 正在构建 DataAgent.exe ...
+echo        （这可能需要 3-5 分钟，请耐心等待）
+echo.
+
+:: 使用 spec 文件打包
+pyinstaller DataAgent\dataagent.spec --noconfirm
+
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo [错误] 打包失败，请查看上方错误信息
+    pause
+    exit /b 1
+)
+
+:: 复制配置文件到输出目录
+if not exist output\DataAgent\config.yaml (
+    if exist DataAgent\config.yaml (
+        copy DataAgent\config.yaml output\DataAgent\config.yaml >nul
+    ) else if exist DataAgent\config.example.yaml (
+        copy DataAgent\config.example.yaml output\DataAgent\config.yaml >nul
+    )
+)
+
+echo.
+echo ============================================================
+echo   打包完成！
+echo   输出目录: output\DataAgent\
+echo   启动文件: output\DataAgent\DataAgent.exe
+echo.
+echo   部署方式:
+echo     将 output\DataAgent\ 整个文件夹复制到目标机器
+echo     编辑 config.yaml 配置 LLM
+echo     双击 DataAgent.exe 启动
+echo ============================================================
+echo.
+pause
+"""
+
+PYINSTALLER_SPEC = r"""# -*- mode: python ; coding: utf-8 -*-
+# DataAgent PyInstaller spec 文件
+# 用法: pyinstaller dataagent.spec --noconfirm
+
+import os
+import sys
+
+block_cipher = None
+
+# 项目根目录（spec 文件在 DataAgent/ 子目录中）
+PROJECT_ROOT = os.path.abspath('.')
+
+a = Analysis(
+    ['main.py'],
+    pathex=[PROJECT_ROOT],
+    binaries=[],
+    datas=[
+        # UI 文件
+        ('ui', 'ui'),
+        # 数据字典
+        ('data_dictionary', 'data_dictionary'),
+        # 报告模板
+        ('templates', 'templates'),
+        # Skills 定义
+        ('skills', 'skills'),
+        # Prompt 模板
+        ('prompts', 'prompts'),
+        # 配置模板
+        ('config.example.yaml', '.'),
+        # groups.yaml
+        ('groups.yaml', '.'),
+    ],
+    hiddenimports=[
+        # Flask 相关
+        'flask', 'flask_cors',
+        # 数据引擎
+        'duckdb', 'pandas', 'openpyxl',
+        # 工具链
+        'chardet', 'yaml', 'jinja2', 'docx', 'sqlglot',
+        'requests', 'schedule', 'pypdf',
+        # Windows 专属
+        'webview', 'winotify',
+        'clr_loader', 'pythonnet',
+        # 系统
+        'psutil', 'rank_bm25',
+        # 项目模块（确保被收集）
+        'agent', 'agent.loop', 'agent.llm_client', 'agent.context',
+        'agent.planner', 'agent.executor', 'agent.self_check',
+        'agent.hooks', 'agent.skill_loader', 'agent.skill_preflight',
+        'agent.tool_defs', 'agent.tool_dispatch', 'agent.tools_spec',
+        'agent.fast_path', 'agent.memory', 'agent.execution_tracker',
+        'calculators', 'calculators.columns',
+        'calculators.concentration', 'calculators.nav_metrics',
+        'calculators.asset_structure', 'calculators.credit_distribution',
+        'calculators.leverage', 'calculators.liquidity',
+        'calculators.position_diff',
+        'tools', 'tools.data_loader', 'tools.query_runner',
+        'tools.profiler', 'tools.quality',
+        'tools.report_builder', 'tools.chart_builder',
+        'tools.file_reader', 'tools.web_search',
+        'tools.cost_tracker', 'tools.runtime_logger',
+        'tools.error_translator', 'tools.compliance_audit',
+        'tools.entity_manager', 'tools.entity_normalizer',
+        'tools.skill_builder', 'tools.notify',
+        'tools.workdir_loader',
+        'platform_adapter', 'platform_adapter.ui_driver',
+        'platform_adapter.notify_driver',
+        'session_store',
+        'api', 'api.chat', 'api.data', 'api.config_api',
+        'api.skill_api', 'api.report_api', 'api.system_api',
+        'scheduler', 'scheduler.task_manager',
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[
+        'pytest', 'pytest_cov', 'coverage',
+        'tkinter', 'matplotlib', 'scipy', 'numpy.testing',
+        'IPython', 'notebook', 'jupyter',
+    ],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='DataAgent',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=False,           # 无控制台窗口（PyWebView 提供 UI）
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=None,               # 可替换为 icon='dataagent.ico'
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='DataAgent',
+)
 """
 
 
@@ -556,6 +757,18 @@ def write_scripts(bundle_root: Path) -> None:
     # 写入 bundle 专用的 requirements 文件
     req_path = bundle_root / "requirements-bundle.txt"
     req_path.write_text("\n".join(RUNTIME_DEPS))
+
+    # PyInstaller 打包脚本（放在 bundle 根目录）
+    (bundle_root / "build_exe.bat").write_text(
+        BUILD_EXE_BAT.replace("\n", "\r\n"), encoding="gbk"
+    )
+
+    # PyInstaller spec 文件（放在 DataAgent/ 子目录中，与源码同级）
+    proj_dir = bundle_root / "DataAgent"
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    (proj_dir / "dataagent.spec").write_text(
+        PYINSTALLER_SPEC, encoding="utf-8"
+    )
 
     print("   ✅ 脚本生成完成")
 

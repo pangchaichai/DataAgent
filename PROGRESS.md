@@ -4,7 +4,15 @@
 
 ---
 
-## 当前阶段：v2.0 完成 + 企业网关适配 + 反幻觉修复 + 字段映射参数化 → 等待内测反馈 / Phase 4 模板确认
+## 当前阶段：v3.0-beta3 已构建 → 待 Windows 内测 / Phase 4 模板确认
+
+## Windows v3.0-beta3 EXE 打包 ✅ 完成（2026-06-18）
+
+### 改动范围
+- [x] `scripts/package_windows.py` — 新增 `BUILD_EXE_BAT` + `PYINSTALLER_SPEC` 常量，`write_scripts()` 输出 build_exe.bat 和 dataagent.spec
+- [x] `dist/DataAgent-v3.0-beta3.zip` — 88.1 MB，含两种部署方式
+
+---
 
 ## 企业网关 LLM 适配 + 日志增强 ✅ 完成（2026-06-17）
 
