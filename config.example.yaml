@@ -22,9 +22,11 @@ llm:
     fallback: none                     # ★ 显式禁止 fallback，内网挂了降级模板
 
   enterprise_internal:
-    url: http://[内网LLM地址]/v1
-    model: [企业模型名称]
-    api_key: ""
+    url: http://[网关代理地址]:8081/v1   # openai_gateway_proxy.py 运行的地址
+    model: [企业模型名称]               # 与代理程序 DEFAULT_MODEL 保持一致
+    api_key: ""                         # 留空：代理统一鉴权，DataAgent 不发 Bearer Token
+    auth_type: none                     # none=不发 Authorization 头（代理已配置 APP_CODE 时用此值）
+                                        # bearer=发送 Bearer {api_key}（默认，适用于 DeepSeek/LMStudio）
 
   deepseek:
     url: https://api.deepseek.com/v1

@@ -399,3 +399,142 @@ class TestSafeResponseParsing:
         result = enterprise_client.test_connection('enterprise_internal')
         assert result['ok'] is False
         assert '格式异常' in result.get('error', '') or 'choices' in result.get('error', '')
+
+
+# ═══════════════════════════════════════════════════════════════
+#  APIC 网关错误识别 + auth_type: none
+# ═══════════════════════════════════════════════════════════════
+
+class TestAPICGatewayError:
+
+    @pytest.fixture
+    def proxy_client(self, tmp_path):
+        """配置 auth_type: none 的企业内网 client（代理统一鉴权）"""
+        import yaml
+        from agent.llm_client import LLMClient
+        cfg = {
+            "llm": {
+                "sql_gen": {"primary": "enterprise_internal", "tool_mode": "native"},
+                "report_text": {"provider": "enterprise_internal"},
+                "enterprise_internal": {
+                    "url": "http://localhost:8081/v1",
+                    "model": "Qwen25-72B-1-test",
+                    "api_key": "",
+                    "auth_type": "none",
+                },
+                "deepseek": {"url": "", "model": "", "api_key": ""},
+                "lmstudio": {"url": "", "model": "", "api_key": ""},
+            }
+        }
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(yaml.dump(cfg), encoding="utf-8")
+        return LLMClient(str(cfg_file))
+
+    def test_auth_type_none_no_authorization_header(self, proxy_client):
+        """auth_type=none 时不应发送 Authorization 头"""
+        headers = proxy_client._build_request_headers(
+            'enterprise_internal',
+            proxy_client.providers['enterprise_internal'],
+        )
+        assert 'Authorization' not in headers
+        assert 'Content-Type' in headers
+
+    def test_auth_type_bearer_sends_token(self, proxy_client, tmp_path):
+        """auth_type=bearer（默认）时应发送 Authorization: Bearer"""
+        import yaml
+        from agent.llm_client import LLMClient
+        cfg = {
+            "llm": {
+                "sql_gen": {"primary": "deepseek"},
+                "report_text": {"provider": "deepseek"},
+                "enterprise_internal": {"url": "", "model": "", "api_key": ""},
+                "deepseek": {"url": "https://api.deepseek.com/v1", "model": "deepseek-chat", "api_key": "real-key"},
+                "lmstudio": {"url": "", "model": "", "api_key": ""},
+            }
+        }
+        cfg_file = tmp_path / "cfg2.yaml"
+        cfg_file.write_text(yaml.dump(cfg), encoding="utf-8")
+        c = LLMClient(str(cfg_file))
+        headers = c._build_request_headers('deepseek', c.providers['deepseek'])
+        assert headers.get('Authorization') == 'Bearer real-key'
+
+    def test_parse_gateway_error_apic_auth(self):
+        """_parse_gateway_error 能识别 APIC.0303 认证错误"""
+        from agent.llm_client import LLMClient
+        data = {
+            "globalBusiTrackNo": "",
+            "servRespDescInfo": "MA返回错误",
+            "message": "APIC.0303, Incorrect app authentication information: app not found with specified appCode",
+            "servRespCd": "X99LG001ATF00004",
+            "resCode": "XLLM00500001",
+        }
+        err = LLMClient._parse_gateway_error(data)
+        assert err is not None
+        assert "认证失败" in err
+        assert "APP_CODE" in err
+
+    def test_parse_gateway_error_returns_none_for_openai_format(self):
+        """标准 OpenAI 响应不应被识别为网关错误"""
+        from agent.llm_client import LLMClient
+        data = {"choices": [{"message": {"content": "hello"}}]}
+        assert LLMClient._parse_gateway_error(data) is None
+
+    def test_parse_gateway_error_generic_business_error(self):
+        """非认证的网关业务错误也能提取描述"""
+        from agent.llm_client import LLMClient
+        data = {
+            "resCode": "XLLM00500099",
+            "servRespDescInfo": "模型不可用",
+            "message": "",
+        }
+        err = LLMClient._parse_gateway_error(data)
+        assert err is not None
+        assert "XLLM00500099" in err
+
+    def test_call_apic_auth_error_gives_specific_message(self, proxy_client, monkeypatch):
+        """_call 遇到 APIC 认证错误时应返回具体错误信息而非'缺少choices'"""
+        import requests
+
+        class MockResp:
+            status_code = 200
+            def json(self):
+                return {
+                    "globalBusiTrackNo": "",
+                    "servRespDescInfo": "MA返回错误",
+                    "message": "APIC.0303, Incorrect app authentication information: app not found with specified appCode",
+                    "servRespCd": "X99LG001ATF00004",
+                    "resCode": "XLLM00500001",
+                }
+
+        monkeypatch.setattr(requests, 'post', lambda *a, **kw: MockResp())
+        result = proxy_client._call('enterprise_internal', 'test')
+        assert result.success is False
+        assert "认证失败" in result.error
+        assert "APP_CODE" in result.error
+
+    def test_test_connection_apic_error_specific_message(self, proxy_client, monkeypatch):
+        """test_connection 遇到 APIC 认证错误时给出具体提示"""
+        import requests
+
+        class MockModelsResp:
+            status_code = 200
+            def json(self):
+                return {"data": [{"id": "Qwen25-72B-1-test"}]}
+
+        class MockChatResp:
+            status_code = 200
+            def json(self):
+                return {
+                    "globalBusiTrackNo": "",
+                    "servRespDescInfo": "MA返回错误",
+                    "message": "APIC.0303, Incorrect app authentication information: app not found with specified appCode",
+                    "servRespCd": "X99LG001ATF00004",
+                    "resCode": "XLLM00500001",
+                }
+
+        monkeypatch.setattr(requests, 'get', lambda *a, **kw: MockModelsResp())
+        monkeypatch.setattr(requests, 'post', lambda *a, **kw: MockChatResp())
+        result = proxy_client.test_connection('enterprise_internal')
+        assert result['ok'] is False
+        assert "认证失败" in result.get('error', '')
+        assert "APP_CODE" in result.get('error', '')

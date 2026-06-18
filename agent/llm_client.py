@@ -267,10 +267,7 @@ class LLMClient:
         if not cfg or not cfg.get('url'):
             return {"ok": False, "error": f"未配置 provider: {provider}"}
         base_url = cfg["url"].rstrip("/")
-        api_key = self._resolve_api_key(provider, cfg)
-        headers = {'Content-Type': 'application/json'}
-        if api_key:
-            headers['Authorization'] = f'Bearer {api_key}'
+        headers = self._build_request_headers(provider, cfg)
 
         models_list = []
         try:
@@ -316,11 +313,14 @@ class LLMClient:
                     raw = chat_resp.json()
                     data = self._extract_openai_response(raw)
                     if not data.get('choices'):
+                        gw_err = self._parse_gateway_error(data)
                         return {
                             "ok": False,
-                            "error": f"对话接口连通但响应格式异常：缺少 choices 字段。"
-                                     f"响应 keys: {list(data.keys())}。"
-                                     f"请确认网关代理程序已正确配置。",
+                            "error": gw_err or (
+                                f"对话接口连通但响应格式异常：缺少 choices 字段。"
+                                f"响应 keys: {list(data.keys())}。"
+                                "请确认网关代理程序（openai_gateway_proxy.py）的 APP_CODE 已正确配置。"
+                            ),
                             "models": models_list,
                             "raw_response_keys": list(raw.keys()),
                         }
@@ -494,6 +494,43 @@ class LLMClient:
         'sk-placeholder',
     })
 
+    def _build_request_headers(self, provider_name: str, provider_cfg: dict) -> dict:
+        """Build HTTP request headers, respecting auth_type in provider config.
+
+        auth_type values:
+          bearer (default) — Authorization: Bearer {api_key}
+          none             — no auth header (useful when proxy handles auth internally)
+        """
+        api_key = self._resolve_api_key(provider_name, provider_cfg)
+        auth_type = provider_cfg.get('auth_type', 'bearer')
+        headers = {'Content-Type': 'application/json'}
+        if auth_type == 'none':
+            pass
+        elif api_key:
+            headers['Authorization'] = f'Bearer {api_key}'
+        return headers
+
+    @staticmethod
+    def _parse_gateway_error(data: dict) -> str | None:
+        """从企业网关错误响应（APIC/MA 格式）中提取可读错误信息。
+
+        企业 APIC 网关认证失败时会返回包含 resCode/servRespCd 的平铺 JSON，
+        而不是 OpenAI choices 格式。本方法识别这类响应并返回具体提示。
+        """
+        if 'resCode' not in data and 'servRespCd' not in data:
+            return None
+        res_code = data.get('resCode') or data.get('servRespCd', '')
+        msg = data.get('message', '')
+        desc = data.get('servRespDescInfo', '')
+        if 'appCode' in msg or 'APIC.0303' in msg or 'app authentication' in msg:
+            return (
+                f"企业网关认证失败（{res_code}）：{msg[:150]}。"
+                "请检查：① 网关代理程序（openai_gateway_proxy.py）中 APP_CODE 是否已正确填写；"
+                "② config.yaml enterprise_internal.api_key 是否为空或可填任意值（代理统一鉴权时）。"
+            )
+        detail = msg or desc
+        return f"企业网关返回错误（{res_code}）：{detail[:150]}" if detail else None
+
     @staticmethod
     def _runtime_log(level: str, event: str, detail: dict = None):
         """将关键 LLM 事件写入运行时日志（JSONL）"""
@@ -555,9 +592,7 @@ class LLMClient:
             return LLMResponse(success=False, endpoint=provider_name, model=model,
                                text="", error="LLM 服务地址未配置")
 
-        headers = {'Content-Type': 'application/json'}
-        if api_key:
-            headers['Authorization'] = f'Bearer {api_key}'
+        headers = self._build_request_headers(provider_name, provider)
 
         messages = []
         if system:
@@ -594,10 +629,11 @@ class LLMClient:
                         'data_keys': list(data.keys()),
                         'raw_preview': raw_str[:1000],
                     })
+                    gw_err = self._parse_gateway_error(data)
                     return LLMResponse(
                         success=False, endpoint=provider_name, model=model, text="",
                         elapsed_ms=elapsed_ms,
-                        error=f"LLM 返回格式异常：响应中缺少 choices 字段。响应 keys: {list(data.keys())}",
+                        error=gw_err or f"LLM 返回格式异常：响应中缺少 choices 字段。响应 keys: {list(data.keys())}",
                     )
                 message = choices[0].get('message') or {}
                 text = message.get('content', '') or ''
@@ -649,9 +685,7 @@ class LLMClient:
         if not url or url.startswith('http://['):
             return ChatResult(success=False, error="LLM 服务地址未配置")
 
-        headers = {'Content-Type': 'application/json'}
-        if api_key:
-            headers['Authorization'] = f'Bearer {api_key}'
+        headers = self._build_request_headers(provider_name, provider)
 
         payload = {
             'model': model,
@@ -688,9 +722,10 @@ class LLMClient:
                         'has_tools': bool(tools),
                         'message_count': len(messages),
                     })
+                    gw_err = self._parse_gateway_error(data)
                     return ChatResult(
                         success=False, elapsed_ms=elapsed_ms, model=model,
-                        error=f"LLM 返回格式异常：响应中缺少 choices 字段。响应 keys: {list(data.keys())}",
+                        error=gw_err or f"LLM 返回格式异常：响应中缺少 choices 字段。响应 keys: {list(data.keys())}",
                     )
                 choice = choices[0]
                 message = choice.get('message', {})
@@ -760,9 +795,7 @@ class LLMClient:
             return iter([]), LLMResponse(success=False, endpoint=provider_name, model=model,
                                          text="", error="LLM 服务地址未配置")
 
-        headers = {'Content-Type': 'application/json'}
-        if api_key:
-            headers['Authorization'] = f'Bearer {api_key}'
+        headers = self._build_request_headers(provider_name, provider)
 
         messages = []
         if system:
