@@ -38,3 +38,4 @@ data/test_reports/coverage.json
 !data/test_reports/latest_summary.json
 !data/test_reports/iteration_*.md
 tools/bin/
+data/traces/
