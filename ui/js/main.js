@@ -120,7 +120,9 @@ Router.register('/chat', {
   onEnter() { scrollBottom(); setTimeout(()=>$('input').focus(),100); }
 });
 Router.register('/audit', {});
-Router.register('/settings', {});
+Router.register('/settings', {
+  onEnter() { loadSettings(); }
+});
 
 // Init
 AgentStatus.init();

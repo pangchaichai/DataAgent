@@ -3,13 +3,10 @@
 let _products=[];
 
 async function openSettings(){
-  await loadSettings();
-  $('settingsOverlay').classList.add('show');
-  $('settingsPanel').classList.add('show');
+  Router.navigateTo('/settings');
 }
 function closeSettings(){
-  $('settingsOverlay').classList.remove('show');
-  $('settingsPanel').classList.remove('show');
+  Router.navigateTo('/chat');
 }
 async function loadSettings(){
   try{
@@ -158,7 +155,6 @@ async function saveSettings(){
     if(r.ok){
       toast('配置已保存','success');
       if(apikey)$('cfg-apikey').value='';
-      closeSettings();
     }else toast('保存失败：'+(r.error||''),'error');
   }catch(e){toast('保存失败','error');}
 }

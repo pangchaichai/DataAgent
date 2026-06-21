@@ -245,26 +245,13 @@
     </div>
   </div>
 
-  <!-- PAGE: Settings (placeholder, Phase 2) -->
+  <!-- PAGE: Settings -->
   <div id="page-settings" class="page">
-    <div class="page-placeholder">
-      <h2>设置</h2>
-      <p>功能建设中，请使用左侧导航访问其他页面</p>
-    </div>
-  </div>
-
-  </div><!-- end appShell -->
-
-<!-- SETTINGS OVERLAY -->
-<div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
-
-<!-- SETTINGS PANEL -->
-<div class="settings-panel" id="settingsPanel">
-  <div class="sp-header">
-    <span>设置</span>
-    <button class="iconbtn" onclick="closeSettings()" style="font-size:13px">✕</button>
-  </div>
-  <div class="sp-body">
+    <div class="settings-page">
+      <div class="settings-page-header">
+        <h2>设置</h2>
+      </div>
+      <div class="settings-page-body">
 
     <!-- 用户档案 -->
     <div class="sp-section">
@@ -414,12 +401,20 @@
       <button class="sp-btn" onclick="cleanupLogs()">清理过期日志</button>
     </div>
 
+      </div><!-- end settings-page-body -->
+      <div class="settings-page-actions">
+        <button class="btn primary" onclick="saveSettings()">保存配置</button>
+        <button class="btn ghost" onclick="closeSettings()">返回</button>
+      </div>
+    </div>
   </div>
-  <div class="sp-actions">
-    <button class="btn primary" onclick="saveSettings()">保存配置</button>
-    <button class="btn ghost" onclick="closeSettings()">取消</button>
-  </div>
-</div>
+
+  </div><!-- end appShell -->
+
+<!-- SETTINGS OVERLAY (kept empty — settings now in #page-settings) -->
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+<!-- SETTINGS PANEL (kept empty for JS compatibility) -->
+<div class="settings-panel" id="settingsPanel"></div>
 
 <!-- SKILL BUILDER OVERLAY -->
 <div class="settings-overlay" id="sbOverlay" onclick="closeSkillBuilder()"></div>
