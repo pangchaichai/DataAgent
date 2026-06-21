@@ -59,11 +59,36 @@
     </div>
   </nav>
 
-  <!-- PAGE: Home (placeholder) -->
+  <!-- PAGE: Home -->
   <div id="page-home" class="page">
-    <div class="page-placeholder">
-      <h2>首页</h2>
-      <p>功能建设中，请使用左侧导航访问其他页面</p>
+    <div class="data-page">
+      <div class="data-page-header">
+        <div><h2>DataAgent</h2><p class="dp-subtitle">金融资管数据分析助手</p></div>
+      </div>
+      <div class="data-page-body">
+        <div class="dp-section" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+          <div class="rp-quick-card" onclick="Router.navigateTo('/chat')">
+            <div class="rp-qc-icon">💬</div>
+            <div class="rp-qc-title">开始对话</div>
+            <div class="rp-qc-desc">自然语言查询与分析</div>
+          </div>
+          <div class="rp-quick-card" onclick="Router.navigateTo('/data')">
+            <div class="rp-qc-icon">📊</div>
+            <div class="rp-qc-title">数据源管理</div>
+            <div class="rp-qc-desc">上传 CSV/Excel 数据文件</div>
+          </div>
+          <div class="rp-quick-card" onclick="Router.navigateTo('/rules')">
+            <div class="rp-qc-icon">⚡</div>
+            <div class="rp-qc-title">分析技能</div>
+            <div class="rp-qc-desc">管理与执行分析 Skill</div>
+          </div>
+          <div class="rp-quick-card" onclick="Router.navigateTo('/settings')">
+            <div class="rp-qc-icon">⚙</div>
+            <div class="rp-qc-title">设置</div>
+            <div class="rp-qc-desc">配置 LLM 与计算口径</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -98,11 +123,33 @@
     </div>
   </div>
 
-  <!-- PAGE: Rules (placeholder, Phase 4) -->
+  <!-- PAGE: Rules (Phase 4) -->
   <div id="page-rules" class="page">
-    <div class="page-placeholder">
-      <h2>分析规则</h2>
-      <p>功能建设中，请使用左侧导航访问其他页面</p>
+    <div class="data-page">
+      <div class="data-page-header">
+        <div>
+          <h2>分析规则</h2>
+          <p class="dp-subtitle">管理分析技能与集团系关系</p>
+        </div>
+        <button class="btn primary" onclick="openSkillBuilder()">+ 创建 Skill</button>
+      </div>
+      <div class="data-page-body">
+        <div class="dp-section">
+          <div class="dp-section-title">
+            分析技能
+            <span class="dp-refresh" onclick="RulesPage._renderSkills()" title="刷新">↻</span>
+          </div>
+          <div id="rulesPageSkillList"></div>
+        </div>
+        <div class="dp-section">
+          <div class="dp-section-title">
+            集团系关系
+            <span class="dp-refresh" onclick="RulesPage._renderGroups()" title="刷新">↻</span>
+            <span class="dp-refresh" onclick="showCreateGroup()" title="新建集团系" style="margin-left:4px;font-size:16px">+</span>
+          </div>
+          <div id="rulesPageGroupList"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -540,6 +587,7 @@
 <script src="/static/js/sidebar.js"></script>
 <script src="/static/js/settings.js"></script>
 <script src="/static/js/pages/data_page.js"></script>
+<script src="/static/js/pages/rules_page.js"></script>
 <script src="/static/js/skill_builder.js"></script>
 <script src="/static/js/main.js"></script>
 <script src="/static/js/agent_status.js"></script>
