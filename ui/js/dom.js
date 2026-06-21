@@ -3,7 +3,7 @@
 const $=id=>document.getElementById(id);
 const chat=$('chat');
 
-function scrollBottom(){chat.scrollTop=chat.scrollHeight;}
+function scrollBottom(){if(!chat.closest('.page.active'))return;chat.scrollTop=chat.scrollHeight;}
 function add(node){chat.appendChild(node);scrollBottom();return node;}
 function el(h){const d=document.createElement('div');d.innerHTML=h.trim();return d.firstElementChild||d;}
 function esc(s){

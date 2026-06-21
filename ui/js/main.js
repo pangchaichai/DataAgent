@@ -6,6 +6,7 @@ document.addEventListener('keydown',e=>{
     if(ST._es)stopStream();
     else if($('sbPanel').classList.contains('show'))closeSkillBuilder();
     else if($('settingsPanel').classList.contains('show'))closeSettings();
+    else if(ST.currentPage && ST.currentPage !== '/chat')Router.navigateTo('/chat');
   }
 });
 
@@ -111,8 +112,20 @@ async function pollHealth(){
   try{const d=await api('GET','/api/health');_applyHealth(d);}catch(e){}
 }
 
+// Router setup
+Router.register('/home', {});
+Router.register('/data', {});
+Router.register('/rules', {});
+Router.register('/chat', {
+  onEnter() { scrollBottom(); setTimeout(()=>$('input').focus(),100); }
+});
+Router.register('/audit', {});
+Router.register('/settings', {});
+
 // Init
 AgentStatus.init();
+initNav();
+Router.init();
 // Render initial welcome panel (no data yet)
 const _initWelcome=buildWelcomePanel([]);
 const _chatEl=document.getElementById('chat');

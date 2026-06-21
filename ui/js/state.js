@@ -6,6 +6,7 @@ const ST={
   sessionId:'',
   pendingCharts:[],
   pendingPlanSteps:[],
+  currentPage:'/chat',
 };
 let streamEl=null, streamBuf='', streamConf=null;
 let _pw=null, _pwBd=null, _pwN=0;
