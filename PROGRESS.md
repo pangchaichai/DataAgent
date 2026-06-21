@@ -4,7 +4,34 @@
 
 ---
 
-## 当前阶段：v3.0-beta3 已构建 → 待 Windows 内测 / Phase 4 模板确认
+## 当前阶段：多页面导航 UI 重构完成 → 待浏览器 UAT 验收 / 合入主线 / Windows 内测
+
+## 多页面导航 UI 重构 ✅ 完成（2026-06-21）
+✅ 已测（后端 622 tests 通过，前端待 UAT 浏览器验收）
+
+### 改动范围
+- [x] `ui/css/main.css`（新建）— 原 index.html 609 行内联 CSS 迁出
+- [x] `ui/css/nav.css`（新建）— 主导航栏样式（折叠/展开/active/tooltip）
+- [x] `ui/css/pages.css`（扩充）— 设置页/数据页/规则页/首页快捷卡片样式
+- [x] `ui/js/router.js`（新建）— Hash SPA 路由器
+- [x] `ui/js/nav.js`（新建）— 导航折叠/展开/localStorage 持久化
+- [x] `ui/js/data_tables.js`（新建）— 从 sidebar.js 提取的表管理函数
+- [x] `ui/js/groups.js`（新建）— 从 sidebar.js 提取的集团 CRUD
+- [x] `ui/js/pages/data_page.js`（新建）— 数据源管理页生命周期
+- [x] `ui/js/pages/rules_page.js`（新建）— 分析规则页生命周期（技能+集团）
+- [x] `ui/index.html`（大幅修改）— 多页面结构 + 导航栏 + 各页面 HTML
+- [x] `ui/js/state.js`（修改）— 新增 currentPage 属性
+- [x] `ui/js/dom.js`（修改）— scrollBottom() 加可见性守卫
+- [x] `ui/js/sidebar.js`（重写）— 精简为 ~150 行，加页面感知
+- [x] `ui/js/settings.js`（修改）— openSettings/closeSettings 改为路由跳转
+- [x] `ui/js/upload.js`（修改）— confirmUploadFile() 加页面感知
+- [x] `ui/js/main.js`（修改）— Router 初始化 + ESC 多页支持 + 6 个路由注册
+
+### 测试结果
+- 后端：622 passed, 2 skipped, 0 failed（零回归）
+- 前端：[ ] L4 UAT — 待浏览器手动验收（6 个导航项、数据页上传、规则页技能、Chat SSE 跨页保活）
+
+---
 
 ## Windows v3.0-beta3 EXE 打包 ✅ 完成（2026-06-18）
 

@@ -8,9 +8,52 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-16
-- **提交**：451ed47 chore: sync auto-generated test report and traces
-- **分支**：`claude/clever-meitner-fqsa3v`
+- **日期**：2026-06-21
+- **提交**：f9018f5 feat(ui): Phase 4 — Rules page + Home quick-nav, all pages functional
+- **分支**：`claude/happy-euler-awvv3j`
+
+---
+
+## 上次会话完成的工作（2026-06-21，第十八轮）
+
+### 多页面导航 UI 重构（Phase 0–4 全部完成）
+
+**背景**：现有 DataAgent 所有功能塞在单页面中，目标是引入可折叠主导航侧边栏，将功能拆分到 6 个独立页面（首页/数据/规则/会话/审计/设置），以平稳过渡为首要原则，不破坏任何现有功能。
+
+**Phase 0 — 基础设施（提交 `1ba8531`）**
+- 新建 `ui/css/main.css`：将 index.html 609 行内联 CSS 原封迁出
+- 新建 `ui/css/nav.css`：主导航栏专属样式（折叠 52px / 展开 200px + localStorage 持久化）
+- 新建 `ui/css/pages.css`：各页面专属样式（随 Phase 逐步填入）
+- 新建 `ui/js/router.js`：Hash-based SPA 路由器（navigateTo / register / onHashChange / back）
+- 新建 `ui/js/nav.js`：导航折叠/展开/激活状态管理（initNav / toggleNav / setNavActive / navClick）
+- 修改 `ui/index.html`：body 结构重组为 `app-shell`（nav-rail + 6 个 page 容器）；header 引入外部 CSS
+- 修改 `ui/js/state.js`：新增 `currentPage:'/chat'` 属性
+- 修改 `ui/js/dom.js`：`scrollBottom()` 加 `.page.active` 可见性守卫，防 SSE 跨页滚动
+
+**Phase 1 — sidebar.js 拆分 + Chat 页面隔离（提交 `3719c51`）**
+- `sidebar.js`（453行 → ~150行）：保留 sessions / compact tables / compact skills / refreshSidebar（加页面感知）
+- 新建 `ui/js/data_tables.js`（~190行）：loadTables / deleteTable / loadWorkdir / openProfile / closeProfile / switchProfileTab / loadQualityTab / sortTbl / exportCSV / copyTable / chartFromTable
+- 新建 `ui/js/groups.js`（~80行）：loadGroups / toggleGrp / addMember / removeMember / confirmDeleteGroup / showCreateGroup / createGroup
+- `main.js`：Router 初始化 + 6 个页面路由注册（含 chat onEnter scrollBottom + focus，settings onEnter loadSettings）
+
+**Phase 2 — Settings 独立页面（提交 `9576a87`）**
+- 设置表单 HTML 从弹层（`#settingsPanel`）迁移到 `#page-settings` 容器
+- `#settingsPanel` / `#settingsOverlay` 保留为空 shell，防既有 JS 引用报错
+- `settings.js`：openSettings() → `Router.navigateTo('/settings')`；closeSettings() → `Router.navigateTo('/chat')`
+- `pages.css` 新增设置页布局样式（`.settings-page-*`）
+
+**Phase 3 — 数据源管理页（提交 `b51d6d8`）**
+- 新建 `ui/js/pages/data_page.js`：DataPage 对象（onEnter / \_renderTableList / \_loadWorkdir）+ dpTriggerUpload / dpRefreshTableList / dpRefreshWorkdir
+- `index.html`：`#page-data` 增加页头（上传按钮）+ 已加载数据区块（`#dataPageTableList`）+ 工作目录区块（`#dataPageWorkdirList`）
+- `upload.js`：confirmUploadFile() 加页面感知：Chat 页用 addSysMsg，其他页用 toast；`ST.currentPage==='/data'` 时刷新数据页表格
+- `pages.css` 新增数据页样式（`.data-page-*`, `.dp-*`）
+
+**Phase 4 — 分析规则页 + 首页（提交 `f9018f5`）**
+- 新建 `ui/js/pages/rules_page.js`：RulesPage 对象（onEnter / \_renderSkills / \_renderGroups），技能列表从 `/api/skills/status` 加载，集团列表从 `/api/groups` 加载
+- `index.html`：`#page-rules` 增加技能列表区块（`#rulesPageSkillList`）+ 集团列表区块（`#rulesPageGroupList`）；`#page-home` 增加 4 个快捷导航卡片（数据管理/合规检查/分析技能/开始对话）；`#page-audit` 增加占位内容
+- `pages.css` 新增规则页样式（`.rp-skill-card / .rp-group-card / .rp-member-tag`）+ 首页快捷卡片样式（`.rp-quick-card`）
+
+**全程验证**：后端 622 passed, 2 skipped, 0 failed。所有前端页面路由正常，Escape 键支持跨页返回 Chat，导航栏折叠/展开/localStorage 持久化正常。
 
 ---
 
@@ -26,14 +69,18 @@
 - 版本号升级为 `v3.0-beta3`
 - 生成包：`dist/DataAgent-v3.0-beta3.zip`（88.1 MB）
 
-### 立即可执行的下一步
+### 立即可执行的下一步（多页面导航完成后）
 
-1. 将 `DataAgent-v3.0-beta3.zip` 复制到 Windows 机器
-2. 解压后运行 `setup.bat` 安装依赖
-3. 方式 A：`run.bat` 脚本模式运行（开发调试用）
-4. 方式 B：`build_exe.bat` 打包成 EXE（生产部署用）
-5. 编辑 `DataAgent/config.yaml` 配置企业内网 LLM 或 DeepSeek
-6. 收集内测反馈，等待 Phase 4 模板确认（C-02/03/04）
+1. **浏览器 UAT 验收**（必须）：`python main.py` → 浏览器打开，验证：
+   - 左侧 6 个导航项均可点击切换
+   - 数据页：上传 CSV → 表格出现在数据页 + Chat 侧栏
+   - 规则页：Skills 列表和集团列表正确加载
+   - 设置页：保存配置正常，LLM 连接测试正常
+   - Chat 页：流式输出中切换到其他页再返回，消息完整
+   - 导航栏折叠/展开持久化（刷新后保持状态）
+2. **将 `claude/happy-euler-awvv3j` 合入主线**（用户确认 UAT 通过后）
+3. **Windows 内测包重建**：在 Windows 机器上重建 beta 包（包含新 UI）
+4. 等待 Phase 4 模板确认（C-02/03/04）
 
 ---
 
