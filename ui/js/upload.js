@@ -91,9 +91,15 @@ async function confirmUploadFile(){
     });
     const d=await r.json();
     if(d.ok){
-      addSysMsg('已加载：<b>'+esc(d.table_name)+'</b>（'+d.row_count+'行 × '+d.col_count+'列）','green');
-      if(d.quality_report)renderQuality(d.quality_report,d.table_name);
-      openSec('tables');refreshSidebar();
+      if(ST.currentPage==='/chat'){
+        addSysMsg('已加载：<b>'+esc(d.table_name)+'</b>（'+d.row_count+'行 × '+d.col_count+'列）','green');
+        if(d.quality_report)renderQuality(d.quality_report,d.table_name);
+        openSec('tables');
+      }else{
+        toast('已加载：'+d.table_name+'（'+d.row_count+'行）','success');
+      }
+      refreshSidebar();
+      if(ST.currentPage==='/data')DataPage._renderTableList();
     }else{addSysMsg('加载失败：'+esc(d.error),'red');}
   }catch(e){addSysMsg('加载异常：'+esc(e.message),'red');}
   _pendingUpload=null;

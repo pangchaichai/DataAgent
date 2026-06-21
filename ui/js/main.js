@@ -114,7 +114,7 @@ async function pollHealth(){
 
 // Router setup
 Router.register('/home', {});
-Router.register('/data', {});
+Router.register('/data', DataPage);
 Router.register('/rules', {});
 Router.register('/chat', {
   onEnter() { scrollBottom(); setTimeout(()=>$('input').focus(),100); }

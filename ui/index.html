@@ -67,11 +67,34 @@
     </div>
   </div>
 
-  <!-- PAGE: Data (placeholder, Phase 3) -->
+  <!-- PAGE: Data (Phase 3) -->
   <div id="page-data" class="page">
-    <div class="page-placeholder">
-      <h2>数据源管理</h2>
-      <p>功能建设中，请使用左侧导航访问其他页面</p>
+    <div class="data-page">
+      <div class="data-page-header">
+        <div>
+          <h2>数据源管理</h2>
+          <p class="dp-subtitle">上传并管理分析所需的数据文件</p>
+        </div>
+        <button class="btn primary" onclick="dpTriggerUpload()">+ 上传数据</button>
+      </div>
+      <div class="data-page-body">
+        <!-- Loaded tables -->
+        <div class="dp-section">
+          <div class="dp-section-title">
+            已加载数据表
+            <span class="dp-refresh" onclick="dpRefreshTableList()" title="刷新">↻</span>
+          </div>
+          <div id="dataPageTableList"></div>
+        </div>
+        <!-- Work directory -->
+        <div class="dp-section">
+          <div class="dp-section-title">
+            工作目录文件
+            <span class="dp-refresh" onclick="dpRefreshWorkdir()" title="刷新">↻</span>
+          </div>
+          <div id="dataPageWorkdirList"><div class="s-item" style="color:var(--text-3)">未配置</div></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -516,6 +539,7 @@
 <script src="/static/js/groups.js"></script>
 <script src="/static/js/sidebar.js"></script>
 <script src="/static/js/settings.js"></script>
+<script src="/static/js/pages/data_page.js"></script>
 <script src="/static/js/skill_builder.js"></script>
 <script src="/static/js/main.js"></script>
 <script src="/static/js/agent_status.js"></script>
