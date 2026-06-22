@@ -90,7 +90,7 @@ ibar.addEventListener('drop',e=>{
   e.preventDefault();ibar.classList.remove('dragover');
   handleFiles(e.dataTransfer.files);
 });
-$('uploadLink').addEventListener('click',()=>{openSec('tables');$('fileInput').click();});
+const _ul=$('uploadLink');if(_ul)_ul.addEventListener('click',()=>{$('fileInput').click();});
 
 function updateTableCountHeader(n){
   const chip=$('tableCountChip');if(!chip)return;

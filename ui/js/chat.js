@@ -29,9 +29,43 @@ function updatePWLabel(){
 
 function stopStream(){
   if(ST._es){ST._es.close();ST._es=null;}
+  _clearStreamTimeout();
   finPW();endStream();
   addSysMsg('已停止','orange');
   if(typeof AgentStatus!=='undefined')AgentStatus.onStop();
+}
+
+// SSE connection timeout: if no message for 90s, treat as dead
+let _streamTimer=null;
+function _resetStreamTimeout(){
+  _clearStreamTimeout();
+  _streamTimer=setTimeout(()=>{
+    if(!ST._es)return;
+    console.warn('SSE stream timeout (90s no data)');
+    ST._es.close();ST._es=null;
+    finPW();endStream();
+    addSysMsg('响应超时，连接已断开。请重试或点击「新对话」开始。','orange');
+    if(typeof AgentStatus!=='undefined')AgentStatus.onError('stream_timeout');
+  },90000);
+}
+function _clearStreamTimeout(){
+  if(_streamTimer){clearTimeout(_streamTimer);_streamTimer=null;}
+}
+
+function _setupSSE(es){
+  ST._es=es;
+  _resetStreamTimeout();
+  es.onmessage=function(e){
+    _resetStreamTimeout();
+    try{handleChunk(JSON.parse(e.data));}catch(ex){console.error(ex);}
+  };
+  es.onerror=function(){
+    if(!ST._es)return;
+    _clearStreamTimeout();
+    es.close();ST._es=null;finPW();endStream();
+    addSysMsg('连接中断，请重试或点击「新对话」开始。','orange');
+    if(typeof AgentStatus!=='undefined')AgentStatus.onError('stream_error');
+  };
 }
 
 // Send message
@@ -56,12 +90,7 @@ async function sendMessage(){
     if(!d.ok){setSendMode('idle');setBusy(false);addSysMsg(d.error||'请求失败','red');return;}
     ST.streamId=d.stream_id;
     const es=new EventSource('/api/stream/'+ST.streamId);
-    ST._es=es;
-    es.onmessage=function(e){try{handleChunk(JSON.parse(e.data));}catch(ex){console.error(ex);}};
-    es.onerror=function(){
-      if(!ST._es)return;
-      es.close();ST._es=null;finPW();endStream();
-    };
+    _setupSSE(es);
   }catch(e){setSendMode('idle');setBusy(false);addSysMsg('请求失败：'+esc(e.message),'red');}
 }
 
@@ -160,6 +189,7 @@ function handleChunk(chunk){
   }
   else if(t==='chart'){ST.pendingCharts.push(d);}
   else if(t==='stream_end'){
+    _clearStreamTimeout();
     if(ST._es){ST._es.close();ST._es=null;}
     finPW();endStream();refreshSidebar();
     ST.pendingCharts.forEach(opt=>renderChart(opt));ST.pendingCharts=[];
@@ -203,9 +233,7 @@ async function doConfirm(confirmed){
     if(!d.ok){setSendMode('idle');setBusy(false);addSysMsg(d.error||'续跑失败','red');return;}
     ST.streamId=d.stream_id;
     const es=new EventSource('/api/stream/'+ST.streamId);
-    ST._es=es;
-    es.onmessage=function(e){try{handleChunk(JSON.parse(e.data));}catch(ex){console.error(ex);}};
-    es.onerror=function(){if(!ST._es)return;es.close();ST._es=null;finPW();endStream();};
+    _setupSSE(es);
   }catch(e){setSendMode('idle');setBusy(false);addSysMsg('续跑失败：'+esc(e.message),'red');}
 }
 function doAsk(choice){
@@ -230,11 +258,6 @@ async function executeSkill(skillName){
     if(!d.ok){setSendMode('idle');setBusy(false);addSysMsg(d.error||'执行失败','red');return;}
     ST.streamId=d.stream_id;
     const es=new EventSource('/api/stream/'+ST.streamId);
-    ST._es=es;
-    es.onmessage=function(e){try{handleChunk(JSON.parse(e.data));}catch(ex){console.error(ex);}};
-    es.onerror=function(){
-      if(!ST._es)return;
-      es.close();ST._es=null;finPW();endStream();
-    };
+    _setupSSE(es);
   }catch(e){setSendMode('idle');setBusy(false);addSysMsg('执行请求失败：'+esc(e.message),'red');}
 }

@@ -78,4 +78,21 @@ function lockInput(lock){
   $('inrow').classList.toggle('disabled',lock);
   $('hint').classList.toggle('show',lock);
 }
-function autoResize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';}
+let _inputExpanded=false;
+function autoResize(ta){
+  if(_inputExpanded)return;
+  ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';
+}
+function toggleInputExpand(){
+  const ta=$('input'),btn=$('inputExpandBtn');
+  _inputExpanded=!_inputExpanded;
+  if(_inputExpanded){
+    ta.style.height='200px';ta.classList.add('expanded');
+    btn.textContent='⤡';btn.title='收起输入框';
+  }else{
+    ta.classList.remove('expanded');
+    ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';
+    btn.textContent='⤢';btn.title='展开输入框';
+  }
+  ta.focus();
+}

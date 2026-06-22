@@ -54,6 +54,8 @@ def api_chat():
         from agent.planner import build_plan, should_plan
         from agent.skill_loader import SkillLoader
         from tools.data_loader import get_loaded_tables, init_duckdb_connection
+        from tools.runtime_logger import get_logger as _get_log_bg
+        _get_log_bg().info('agent', 'Agent 后台线程启动', {'stream_id': sid})
 
         init_duckdb_connection()
         cfg_path = str(BASE_DIR / 'config.yaml')
@@ -100,10 +102,10 @@ def api_chat():
                 _session["turn_count"] += 1
                 _save_session_messages()
         except Exception as e:
-            from tools.runtime_logger import get_logger as _get_log
-            _get_log().log_exception('agent', 'Agent 循环异常', e)
-            q.put({"type": "error", "data": f"Agent 处理异常：{str(e)}"})
+            _get_log_bg().log_exception('agent', 'Agent 循环异常', e)
+            q.put({"type": "error", "data": {"message": f"Agent 处理异常：{str(e)}"}})
         finally:
+            _get_log_bg().info('agent', 'Agent 后台线程结束', {'stream_id': sid})
             q.put(None)
 
     t = threading.Thread(target=run_agent_bg, daemon=True)
@@ -123,12 +125,19 @@ def api_stream(sid):
     q, bg_thread = entry
 
     def generate():
+        from tools.runtime_logger import get_logger as _get_log
+        _get_log().info('lifecycle', 'SSE 流开始', {'stream_id': sid})
+        _keepalive_count = 0
         try:
             while True:
                 try:
                     event = q.get(timeout=30)
                 except queue.Empty:
+                    _keepalive_count += 1
                     if bg_thread is not None and not bg_thread.is_alive():
+                        _get_log().warning('agent', 'Agent 线程已死亡，强制结束 SSE 流', {
+                            'stream_id': sid, 'keepalive_count': _keepalive_count,
+                        })
                         yield f"data: {json.dumps({'type': 'stream_end', 'data': None}, ensure_ascii=False)}\n\n"
                         break
                     yield ": keep-alive\n\n"
@@ -137,7 +146,10 @@ def api_stream(sid):
                     yield f"data: {json.dumps({'type': 'stream_end', 'data': None}, ensure_ascii=False)}\n\n"
                     break
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except GeneratorExit:
+            _get_log().info('lifecycle', 'SSE 流客户端断开', {'stream_id': sid})
         finally:
+            _get_log().info('lifecycle', 'SSE 流结束', {'stream_id': sid})
             with _stream_queues_lock:
                 _stream_queues.pop(sid, None)
 

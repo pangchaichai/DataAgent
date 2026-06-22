@@ -8,9 +8,56 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-21
-- **提交**：f9018f5 feat(ui): Phase 4 — Rules page + Home quick-nav, all pages functional
+- **日期**：2026-06-22
+- **提交**：（待提交）
 - **分支**：`claude/happy-euler-awvv3j`
+
+---
+
+## 上次会话完成的工作（2026-06-22，第十九轮）
+
+### Windows UAT 反馈修复（6 项问题）
+
+**背景**：用户在 Windows 上进行 UAT 测试，报告了 6 项 UI 和稳定性问题（a-f），本轮全部修复。
+
+**a. Chat 侧边栏去冗余**
+- `ui/index.html`：Chat 页侧边栏移除重复的"数据表/分析功能/工作目录/集团系/设置"区块（已有独立导航页面），仅保留会话历史
+- 添加隐藏占位 div（`#tableList` / `#skillList` / `#workdirList` / `#groupList`）保持 JS 兼容
+
+**b. 导航栏文字标签常驻**
+- `ui/css/nav.css` 重写：折叠态 nav 改为图标 + 10px 文字标签垂直排列，展开态水平排列
+- `--nav-w` 从 52px 调整为 60px，移除 tooltip 方案
+
+**c. 可展开输入框**
+- `ui/index.html`：textarea 旁添加 `⤢` 展开按钮
+- `ui/js/dom.js`：新增 `toggleInputExpand()` 和 `autoResize()` 展开保护
+- `ui/css/main.css`：新增 `.input-expand-btn` 和 `textarea.expanded` 样式
+
+**d. 暗色模式对比度修复**
+- `ui/css/main.css`：`[data-theme="dark"]` 变量全面调整，`--text:#C9D1D9`（从#e6edf3提升可读性），`--text-2:#8B929A`，`--text-3:#6E7681`
+- 新增暗色模式 Skill 徽章覆盖规则
+
+**e. Agent 挂起修复（SSE 稳定性）**
+- `ui/js/chat.js`：
+  - `es.onerror` 从静默关闭改为显示用户可见错误提示（"连接中断，请重试"）
+  - 新增 90 秒无数据超时检测（`_resetStreamTimeout` / `_clearStreamTimeout`）
+  - 抽取 `_setupSSE()` 共享函数，统一 sendMessage / doConfirm / executeSkill 三处 SSE 行为
+- `api/chat.py`：
+  - SSE 流生成器增加生命周期日志（流开始/结束/客户端断开/线程死亡）
+  - Agent 线程启动/结束增加日志
+  - 错误事件数据格式修正为 `{"message": ...}` 字典格式
+
+**f. 运行日志增强（Agent 循环诊断能力）**
+- `agent/loop.py`：
+  - Agent 循环开始/正常结束/异常退出/达到最大轮数均记录日志
+  - 每轮 turn 开始记录 `log_agent_turn()`
+  - 日志包含 user_message_preview / table_count / total_turns / reason 等诊断信息
+
+**其他修复**
+- `ui/js/sidebar.js`：移除 `loadSkills()` 函数（已有规则页专属加载），`refreshSidebar()` 精简为仅加载 sessions + tables
+- `ui/js/main.js`：`$('uploadLink')` 添加 null 安全检查
+
+**测试结果**：622 passed, 2 skipped, 0 failed（零回归）
 
 ---
 
@@ -69,17 +116,17 @@
 - 版本号升级为 `v3.0-beta3`
 - 生成包：`dist/DataAgent-v3.0-beta3.zip`（88.1 MB）
 
-### 立即可执行的下一步（多页面导航完成后）
+### 立即可执行的下一步（UAT 修复完成后）
 
-1. **浏览器 UAT 验收**（必须）：`python main.py` → 浏览器打开，验证：
-   - 左侧 6 个导航项均可点击切换
-   - 数据页：上传 CSV → 表格出现在数据页 + Chat 侧栏
-   - 规则页：Skills 列表和集团列表正确加载
-   - 设置页：保存配置正常，LLM 连接测试正常
-   - Chat 页：流式输出中切换到其他页再返回，消息完整
-   - 导航栏折叠/展开持久化（刷新后保持状态）
+1. **Windows 二次 UAT 验收**：在 Windows 上验证本轮修复效果：
+   - Chat 侧边栏是否只显示会话历史（无冗余区块）
+   - 导航栏折叠/展开态文字标签是否清晰可读
+   - 输入框展开/收起功能是否正常
+   - 暗色模式文字对比度是否改善
+   - Agent 挂起后是否显示错误提示，而非静默失败
+   - 新对话是否能正常恢复
 2. **将 `claude/happy-euler-awvv3j` 合入主线**（用户确认 UAT 通过后）
-3. **Windows 内测包重建**：在 Windows 机器上重建 beta 包（包含新 UI）
+3. **Windows 内测包重建**：在 Windows 机器上重建 beta 包（包含新 UI + 修复）
 4. 等待 Phase 4 模板确认（C-02/03/04）
 
 ---

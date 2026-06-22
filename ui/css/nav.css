@@ -1,5 +1,5 @@
 /* nav.css — Main navigation sidebar */
-:root{--nav-w:52px;}
+:root{--nav-w:60px;}
 
 .app-shell{display:grid;grid-template-columns:var(--nav-w) 1fr;height:100%;min-height:0;overflow:hidden;}
 .app-shell.nav-expanded{--nav-w:200px;}
@@ -27,8 +27,18 @@
 .nav-item svg{flex-shrink:0;width:20px;height:20px;}
 .nav-item .nav-label{overflow:hidden;text-overflow:ellipsis;}
 
-.nav-rail:not(.nav-expanded) .nav-label{display:none;}
-.app-shell:not(.nav-expanded) .nav-label{display:none;}
+/* Collapsed state: stack icon + label vertically, show short label */
+.app-shell:not(.nav-expanded) .nav-item{
+  flex-direction:column;gap:2px;
+  padding:8px 4px;align-items:center;justify-content:center;
+}
+.app-shell:not(.nav-expanded) .nav-label{
+  display:block;font-size:10px;text-align:center;
+  overflow:hidden;text-overflow:ellipsis;max-width:100%;
+}
+
+/* Expanded state: horizontal layout with full label */
+.app-shell.nav-expanded .nav-label{display:block;}
 
 .nav-toggle{
   display:flex;align-items:center;justify-content:center;
@@ -51,16 +61,3 @@
   height:100%;color:var(--text-3);gap:12px;padding:40px;}
 .page-placeholder h2{font-size:18px;color:var(--text);font-weight:600;}
 .page-placeholder p{font-size:14px;max-width:400px;text-align:center;line-height:1.6;}
-
-/* Nav item tooltip (collapsed state) */
-.nav-item{position:relative;}
-.nav-item[data-tooltip]:not(.nav-expanded *)::after{
-  content:attr(data-tooltip);
-  position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);
-  padding:4px 10px;border-radius:5px;
-  background:var(--text);color:var(--bg-s);
-  font-size:12px;white-space:nowrap;
-  opacity:0;pointer-events:none;
-  transition:opacity .15s;z-index:100;
-}
-.app-shell:not(.nav-expanded) .nav-item[data-tooltip]:hover::after{opacity:1;}

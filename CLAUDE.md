@@ -1144,3 +1144,4 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v2.3 FieldMap | 计算器字段映射全参数化（Path B）：columns.py 语义常量 + resolve_columns() + 7 个计算器 cols 参数 + tool_dispatch 解析层 + 26 个新测试（含端到端）| 字段映射 |
 | v2.3 Revert | Stitch UI 回退：Phase 0-5 全部回退到原版 UI（效果不理想），仅 ui/ 目录，后端不受影响 | UI 回退 |
 | v3.1 NavUI | 多页面导航 UI 重构（Phase 0-4）：Hash SPA 路由器 + 可折叠主导航侧栏（6页面）+ sidebar.js 拆分为 data_tables.js/groups.js + 数据源管理页/分析规则页/设置独立页/首页快捷卡片 + SSE 跨页保活 + 零后端改动，622 tests 通过 | 前端多页面 |
+| v3.1 UAT | Windows UAT 修复 6 项：Chat 侧边栏去冗余 / 导航栏文字标签常驻 / 可展开输入框 / 暗色模式对比度 / SSE 挂起修复（超时检测+错误提示+共享setupSSE）/ Agent 循环+SSE 流生命周期日志增强 | UAT 修复 |

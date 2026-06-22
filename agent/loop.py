@@ -288,7 +288,14 @@ def run_agent_loop(
     # ── Tool-calling 循环 ──────────────────────────────────
     from agent.context import compress_messages
     _logger = _get_logger()
+    _logger.info('agent', 'Agent 循环开始', {
+        'user_message_preview': user_message[:50],
+        'table_count': len(tables) if tables else 0,
+        'has_pending': bool(pending),
+        'max_turns': MAX_TURNS,
+    })
     for _turn in range(MAX_TURNS):
+        _logger.log_agent_turn(_turn, tool_name='llm_call', tool_ok=True)
         # C 层：历史消息压缩（超过 8 条非系统消息时启用）
         messages_to_send = compress_messages(session_messages)
         _llm_t0 = time.perf_counter()
@@ -296,6 +303,9 @@ def run_agent_loop(
             result = llm_client.chat(messages_to_send, tools=active_tools)
         except Exception as e:
             _logger.log_exception('llm', 'LLM 调用异常', e)
+            _logger.error('agent', 'Agent 循环异常退出', {
+                'turn': _turn, 'reason': 'llm_exception',
+            })
             yield _error(f"LLM 调用失败：{str(e)}")
             yield _stream_end()
             return
@@ -339,6 +349,10 @@ def run_agent_loop(
         if not result.tool_calls:
             assistant_msg = {"role": "assistant", "content": result.text}
             session_messages.append(assistant_msg)
+            _logger.info('agent', 'Agent 循环正常结束', {
+                'total_turns': _turn + 1,
+                'reason': 'final_answer',
+            })
             yield _stream_end()
             return
 
@@ -463,6 +477,10 @@ def run_agent_loop(
             })
 
     # 达到最大轮数
+    _logger.warning('agent', 'Agent 循环达到最大轮数', {
+        'max_turns': MAX_TURNS,
+        'user_message_preview': user_message[:50],
+    })
     yield _error(
         f"当前任务步骤较多，已达到单次执行上限（{MAX_TURNS}步）。"
         "请点击「新对话」后将任务拆分为更小的步骤重新描述。"

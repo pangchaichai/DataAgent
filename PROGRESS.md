@@ -4,10 +4,29 @@
 
 ---
 
-## 当前阶段：多页面导航 UI 重构完成 → 待浏览器 UAT 验收 / 合入主线 / Windows 内测
+## 当前阶段：Windows UAT 修复完成 → 待二次 UAT 验收 / 合入主线 / Windows 内测
+
+## Windows UAT 反馈修复 ✅ 完成（2026-06-22）
+✅ 已测（后端 622 tests 通过，前端待二次 UAT 验收）
+
+### 改动范围
+- [x] `ui/index.html`（修改）— Chat 侧边栏去冗余 + 输入框展开按钮
+- [x] `ui/css/main.css`（修改）— 暗色模式对比度修复 + 展开按钮样式
+- [x] `ui/css/nav.css`（重写）— 导航栏折叠态文字标签常驻
+- [x] `ui/js/chat.js`（修改）— SSE 错误提示 + 90s 超时检测 + _setupSSE 共享
+- [x] `ui/js/dom.js`（修改）— toggleInputExpand() 可展开输入框
+- [x] `ui/js/sidebar.js`（修改）— 移除 loadSkills()，精简 refreshSidebar()
+- [x] `ui/js/main.js`（修改）— uploadLink null 安全检查
+- [x] `agent/loop.py`（修改）— Agent 循环生命周期日志增强
+- [x] `api/chat.py`（修改）— SSE 流生命周期日志 + Agent 线程日志
+
+### 测试结果
+- 622 passed, 2 skipped, 0 failed（零回归）
+
+---
 
 ## 多页面导航 UI 重构 ✅ 完成（2026-06-21）
-✅ 已测（后端 622 tests 通过，前端待 UAT 浏览器验收）
+✅ 已测（后端 622 tests 通过）
 
 ### 改动范围
 - [x] `ui/css/main.css`（新建）— 原 index.html 609 行内联 CSS 迁出

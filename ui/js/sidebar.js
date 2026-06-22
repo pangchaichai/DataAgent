@@ -3,7 +3,9 @@
 function toggleSidebar(){$('bodyWrap').classList.toggle('collapsed');}
 async function refreshSidebar(){
   if(ST.currentPage==='/chat'){loadSessions();loadSuggestions();}
-  loadTables();loadSkills();loadGroups();loadWorkdir();updateStatus();
+  loadTables();updateStatus();
+  if(ST.currentPage==='/data')DataPage._renderTableList();
+  if(ST.currentPage==='/rules'){RulesPage._renderSkills();RulesPage._renderGroups();}
 }
 function toggleSec(name){const sec=$('sec-'+name);if(sec)sec.classList.toggle('open');}
 function openSec(name){const sec=$('sec-'+name);if(sec&&!sec.classList.contains('open'))sec.classList.add('open');}
@@ -50,32 +52,6 @@ async function deleteSession(id,e){
     if(ST.sessionId===id){ST.sessionId='';$('chatTitle').textContent='新对话';}
     loadSessions();toast('已删除会话');
   }else toast('删除失败：'+(r.error||''),'error');
-}
-
-// Skills
-async function loadSkills(){
-  try{
-    const d=await api('GET','/api/skills/status');
-    const list=$('skillList'),skills=d.skills||[];
-    if(!skills.length){list.innerHTML='<div class="s-item" style="color:var(--text-3)">无可用技能</div>';return;}
-    list.innerHTML=skills.map(s=>{
-      const readyCls=s.ready?'skill-ready':'skill-missing';
-      const readyLabel=s.ready?'就绪':'缺数据';
-      const desc=(s.description||'').slice(0,55)+(s.description&&s.description.length>55?'…':'');
-      return '<div class="skill-card">'
-        +'<div class="skill-card-hd">'
-        +'<span class="s-text">'+esc(s.name)+'</span>'
-        +'<span class="skill-badge '+readyCls+'">'+readyLabel+'</span>'
-        +'</div>'
-        +(desc?'<div class="skill-desc">'+esc(desc)+'</div>':'')
-        +'<div class="skill-card-ft">'
-        +(s.ready
-          ?'<button class="skill-exec-btn" onclick="executeSkill(\''+esc(s.name)+'\')">执行</button>'
-          :'<span class="skill-hint">缺：'+esc((s.missing_files||[]).slice(0,2).join('、'))+'</span>')
-        +'</div>'
-        +'</div>';
-    }).join('');
-  }catch(e){}
 }
 
 // Status & suggestions
