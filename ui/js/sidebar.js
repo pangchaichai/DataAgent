@@ -16,7 +16,7 @@ function toggleSidebar(){
   const handle=$('resizeHandle');
   const bw=$('bodyWrap');
   if(!handle||!bw)return;
-  const MIN_W=120,MAX_W=480,COLLAPSE_THRESHOLD=60;
+  const MIN_W=120,MAX_W=480,COLLAPSE_THRESHOLD=60,DEFAULT_W=240;
   let startX,startW,dragging=false;
 
   const saved=localStorage.getItem('da_sidebar_w');
@@ -24,16 +24,21 @@ function toggleSidebar(){
   if(localStorage.getItem('da_sidebar_collapsed')==='1')bw.classList.add('collapsed');
 
   handle.addEventListener('mousedown',e=>{
-    if(bw.classList.contains('collapsed'))return;
     e.preventDefault();
+    if(bw.classList.contains('collapsed')){
+      toggleSidebar();
+      return;
+    }
     dragging=true;
     startX=e.clientX;
-    startW=parseInt(getComputedStyle(bw).getPropertyValue('--sidebar-w'))||240;
+    startW=parseInt(getComputedStyle(bw).getPropertyValue('--sidebar-w'))||DEFAULT_W;
     bw.classList.add('resizing');
     handle.classList.add('active');
     document.addEventListener('mousemove',onMove);
     document.addEventListener('mouseup',onUp);
   });
+  handle.addEventListener('dblclick',()=>toggleSidebar());
+
   function onMove(e){
     if(!dragging)return;
     const diff=e.clientX-startX;
@@ -55,7 +60,7 @@ function toggleSidebar(){
       localStorage.setItem('da_sidebar_collapsed','1');
     }else{
       localStorage.removeItem('da_sidebar_collapsed');
-      const cur=parseInt(getComputedStyle(bw).getPropertyValue('--sidebar-w'))||240;
+      const cur=parseInt(getComputedStyle(bw).getPropertyValue('--sidebar-w'))||DEFAULT_W;
       localStorage.setItem('da_sidebar_w',cur);
     }
   }
