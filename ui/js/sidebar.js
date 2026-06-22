@@ -1,6 +1,65 @@
-// sidebar.js — Sidebar core, sessions, skills, @mention, suggestions
+// sidebar.js — Sidebar core, sessions, skills, @mention, suggestions, resize
 
-function toggleSidebar(){$('bodyWrap').classList.toggle('collapsed');}
+function toggleSidebar(){
+  const bw=$('bodyWrap');
+  bw.classList.toggle('collapsed');
+  if(bw.classList.contains('collapsed')){
+    localStorage.setItem('da_sidebar_collapsed','1');
+  }else{
+    localStorage.removeItem('da_sidebar_collapsed');
+    const saved=localStorage.getItem('da_sidebar_w');
+    if(saved)bw.style.setProperty('--sidebar-w',saved+'px');
+  }
+}
+
+(function initSidebarResize(){
+  const handle=$('resizeHandle');
+  const bw=$('bodyWrap');
+  if(!handle||!bw)return;
+  const MIN_W=120,MAX_W=480,COLLAPSE_THRESHOLD=60;
+  let startX,startW,dragging=false;
+
+  const saved=localStorage.getItem('da_sidebar_w');
+  if(saved)bw.style.setProperty('--sidebar-w',saved+'px');
+  if(localStorage.getItem('da_sidebar_collapsed')==='1')bw.classList.add('collapsed');
+
+  handle.addEventListener('mousedown',e=>{
+    if(bw.classList.contains('collapsed'))return;
+    e.preventDefault();
+    dragging=true;
+    startX=e.clientX;
+    startW=parseInt(getComputedStyle(bw).getPropertyValue('--sidebar-w'))||240;
+    bw.classList.add('resizing');
+    handle.classList.add('active');
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+  function onMove(e){
+    if(!dragging)return;
+    const diff=e.clientX-startX;
+    const newW=Math.min(MAX_W,Math.max(0,startW+diff));
+    if(newW<COLLAPSE_THRESHOLD){
+      bw.classList.add('collapsed');
+    }else{
+      bw.classList.remove('collapsed');
+      bw.style.setProperty('--sidebar-w',Math.max(MIN_W,newW)+'px');
+    }
+  }
+  function onUp(){
+    dragging=false;
+    bw.classList.remove('resizing');
+    handle.classList.remove('active');
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    if(bw.classList.contains('collapsed')){
+      localStorage.setItem('da_sidebar_collapsed','1');
+    }else{
+      localStorage.removeItem('da_sidebar_collapsed');
+      const cur=parseInt(getComputedStyle(bw).getPropertyValue('--sidebar-w'))||240;
+      localStorage.setItem('da_sidebar_w',cur);
+    }
+  }
+})();
 async function refreshSidebar(){
   if(ST.currentPage==='/chat'){loadSessions();loadSuggestions();}
   loadTables();updateStatus();

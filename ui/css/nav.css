@@ -5,7 +5,7 @@
 .app-shell.nav-expanded{--nav-w:200px;}
 
 .nav-rail{
-  background:var(--bg-s);border-right:1px solid var(--border);
+  background:var(--bg-nav);border-right:1px solid var(--border);
   display:flex;flex-direction:column;
   overflow:hidden;transition:width .2s ease;
   width:var(--nav-w);min-width:var(--nav-w);

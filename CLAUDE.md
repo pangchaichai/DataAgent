@@ -1146,3 +1146,4 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v3.1 NavUI | 多页面导航 UI 重构（Phase 0-4）：Hash SPA 路由器 + 可折叠主导航侧栏（6页面）+ sidebar.js 拆分为 data_tables.js/groups.js + 数据源管理页/分析规则页/设置独立页/首页快捷卡片 + SSE 跨页保活 + 零后端改动，622 tests 通过 | 前端多页面 |
 | v3.1 UAT | Windows UAT 修复 6 项：Chat 侧边栏去冗余 / 导航栏文字标签常驻 / 可展开输入框 / 暗色模式对比度 / SSE 挂起修复（超时检测+错误提示+共享setupSSE）/ Agent 循环+SSE 流生命周期日志增强 | UAT 修复 |
 | v3.2 Upload | 上传体验优化：确认弹窗全局化（移出 page-chat，任何页面可用）/ 批量上传支持（多文件一键导入+逐文件状态反馈）/ 数据页拖拽上传 / 页面感知消息（_uploadMsg） | UX 优化 |
+| v3.3 UI | UI 三项优化：可调宽度会话侧边栏（拖拽+折叠+localStorage 持久化）/ 明暗模式区域色彩分层（4 个区域专属变量）/ 欢迎页清晰分区重设计 | UX 优化 |

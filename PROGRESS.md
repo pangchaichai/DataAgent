@@ -4,7 +4,22 @@
 
 ---
 
-## 当前阶段：上传体验优化完成 → 待 UAT 验收 / 下一阶段（三个优化方向）
+## 当前阶段：UI 三项优化完成 → 待 UAT 验收 / 下一阶段（三个优化方向）
+
+## UI 三项优化 ✅ 完成（2026-06-22）
+✅ 已测（后端 622 tests 通过，前端待 UAT 验收）
+
+### 改动范围
+- [x] `ui/index.html`（修改）— 插入 resize-handle 拖拽条
+- [x] `ui/css/main.css`（修改）— 区域色彩分层变量 + 侧边栏 resize 样式 + 欢迎页重设计
+- [x] `ui/css/nav.css`（修改）— 导航栏背景改用 --bg-nav
+- [x] `ui/js/sidebar.js`（修改）— 侧边栏拖拽调宽/折叠 + localStorage 持久化
+- [x] `ui/js/main.js`（修改）— buildWelcomePanel() 重写（清晰分区布局）
+
+### 测试结果
+- 622 passed, 2 skipped, 0 failed（零回归）
+
+---
 
 ## 上传体验优化 ✅ 完成（2026-06-22）
 ✅ 已测（后端 622 tests 通过，前端待 UAT 验收）

@@ -14,6 +14,40 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-22，第二十一轮）
+
+### UI 三项优化：可调侧边栏 + 区域色彩分层 + 欢迎页重设计
+
+**背景**：用户在 Windows UAT 期间提出三项 UI 视觉和交互问题。
+
+**改动一：可调宽度会话侧边栏**
+- `ui/index.html`：sidebar 与 main 之间插入 `<div class="resize-handle" id="resizeHandle">`
+- `ui/css/main.css`：`.body-wrap` 改为三列 grid（`var(--sidebar-w,240px) 4px 1fr`），新增 `.resize-handle` 样式（hover 高亮蓝色、光标 col-resize）、`.resizing` 类（禁用过渡）
+- `ui/js/sidebar.js`：新增 `initSidebarResize()` IIFE——mousedown/mousemove/mouseup 拖拽逻辑，支持拖到 60px 以下自动折叠，宽度和折叠状态持久化到 localStorage（`da_sidebar_w` / `da_sidebar_collapsed`），`toggleSidebar()` 同步 localStorage
+
+**改动二：明暗模式区域色彩分层**
+- `ui/css/main.css`：新增 4 个区域专属 CSS 变量（`--bg-header`/`--bg-sidebar`/`--bg-inputbar`/`--bg-nav`），明暗两套配色，形成微妙色调梯度——导航栏最深、头部次深、侧边栏中间色、输入栏最浅、主内容区最亮
+- `.header` 改用 `--bg-header` + 添加底部 box-shadow（明0.04/暗0.2）
+- `.sidebar` 改用 `--bg-sidebar`
+- `.inputbar` 改用 `--bg-inputbar`
+- `.topbar` 添加 `background:var(--bg-s)` 使 topbar 与内容区区分
+- `ui/css/nav.css`：`.nav-rail` 改用 `--bg-nav`
+
+**改动三：欢迎页重设计**
+- `ui/css/main.css`：`.welcome` 重构——标题区 `.welcome-header` 独立居中，卡片 `.wc-card` 改为横排（icon + 文字 body 左右布局），新增 `.welcome-divider` 分隔线、`.welcome-section-title` 小标签、`.wex-item` 改为全宽竖排列表（带箭头图标），新增 `.welcome-skills` 容器类
+- `ui/js/main.js`：`buildWelcomePanel()` 重写——无数据时卡片用 icon+body 结构、有数据时技能按钮和示例问题用分隔线+标题清晰分区
+
+**测试结果**：622 passed, 2 skipped, 0 failed（零回归）
+
+---
+
+## 立即可执行的下一步
+
+1. 用户在 Windows/浏览器中验收三项 UI 优化
+2. 实施 `docs/next-phase-optimization-plan.md` 中的三个方向（同类表列名重叠/Excel多Sheet/金融计量）
+
+---
+
 ## 上次会话完成的工作（2026-06-22，第二十轮）
 
 ### 上传体验优化：页面内确认 + 批量上传
