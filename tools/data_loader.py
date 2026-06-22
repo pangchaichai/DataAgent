@@ -574,7 +574,10 @@ def load_file(
 
     elif ext in ('.xlsx', '.xls'):
         encoding = 'n/a'
-        df = pd.read_excel(file_path, dtype=str)
+        from tools.excel_preprocessor import preprocess_excel
+        prep = preprocess_excel(file_path)
+        df = prep.df
+        warnings.extend(prep.warnings)
     else:
         raise ValueError(f"不支持的文件格式：{ext}（支持 .csv, .xlsx, .xls）")
 

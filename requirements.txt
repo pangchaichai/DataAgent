@@ -30,6 +30,7 @@ pyinstaller==6.6.0
 
 # 数值处理辅助
 openpyxl==3.1.2   # Excel读写支持
+xlrd>=2.0.1       # .xls格式读取支持
 
 # 定时任务调度
 schedule==1.2.1

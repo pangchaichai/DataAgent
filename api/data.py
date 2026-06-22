@@ -77,8 +77,11 @@ def api_upload():
             with open(file_path, 'rb') as _f:
                 row_estimate = sum(1 for _ in _f) - 1
         else:
-            df_preview = pd.read_excel(file_path, dtype=str, nrows=3)
-            row_estimate = len(pd.read_excel(file_path, dtype=str))
+            from tools.excel_preprocessor import preprocess_excel
+            prep = preprocess_excel(file_path)
+            df_full = prep.df
+            df_preview = df_full.head(3)
+            row_estimate = len(df_full)
     except Exception as e:
         return jsonify({"ok": False, "error": f"文件读取失败：{str(e)[:200]}"}), 400
 
@@ -89,7 +92,7 @@ def api_upload():
     detected_type = requested_type if requested_type and requested_type != 'unknown' else auto_type
     detected_date = extract_date_from_filename(file.filename)
 
-    return jsonify({
+    resp = {
         "ok": True,
         "file_path": file_path,
         "filename": file.filename,
@@ -100,7 +103,19 @@ def api_upload():
         "preview_rows": df_preview.values.tolist(),
         "row_estimate": max(row_estimate, len(df_preview)),
         "col_count": len(df_preview.columns),
-    })
+    }
+    if ext in ('.xlsx', '.xls'):
+        resp["sheets"] = [{"name": s.name, "rows": s.row_count, "cols": s.col_count}
+                          for s in prep.sheet_info]
+        resp["sheets_concatenated"] = prep.sheets_concatenated
+        resp["preprocess_warnings"] = prep.warnings
+        first = prep.sheet_info[0] if prep.sheet_info else None
+        if first:
+            resp["preprocess_info"] = {
+                "title_rows_skipped": first.title_rows_skipped,
+                "header_levels": first.header_levels,
+            }
+    return jsonify(resp)
 
 
 @data_bp.route('/api/upload/confirm', methods=['POST'])
@@ -209,8 +224,11 @@ def api_workdir_preview():
             with open(str(file_path), 'rb') as _f:
                 row_estimate = sum(1 for _ in _f) - 1
         else:
-            df_preview = pd.read_excel(str(file_path), dtype=str, nrows=3)
-            row_estimate = len(pd.read_excel(str(file_path), dtype=str))
+            from tools.excel_preprocessor import preprocess_excel
+            prep_wd = preprocess_excel(str(file_path))
+            df_full_wd = prep_wd.df
+            df_preview = df_full_wd.head(3)
+            row_estimate = len(df_full_wd)
     except Exception as e:
         return jsonify({"ok": False, "error": f"文件读取失败：{str(e)[:200]}"}), 400
 
@@ -220,7 +238,7 @@ def api_workdir_preview():
     import re as _re
     safe_stem = _re.sub(r'[^a-zA-Z0-9一-鿿_\-]', '_', stem)
 
-    return jsonify({
+    resp_wd = {
         "ok": True,
         "file_path": str(file_path),
         "filename": filename,
@@ -233,7 +251,19 @@ def api_workdir_preview():
         "row_estimate": max(row_estimate, len(df_preview)),
         "col_count": len(df_preview.columns),
         "suggested_table_name": f"{auto_type}_{safe_stem}",
-    })
+    }
+    if ext in ('.xlsx', '.xls'):
+        resp_wd["sheets"] = [{"name": s.name, "rows": s.row_count, "cols": s.col_count}
+                             for s in prep_wd.sheet_info]
+        resp_wd["sheets_concatenated"] = prep_wd.sheets_concatenated
+        resp_wd["preprocess_warnings"] = prep_wd.warnings
+        first_wd = prep_wd.sheet_info[0] if prep_wd.sheet_info else None
+        if first_wd:
+            resp_wd["preprocess_info"] = {
+                "title_rows_skipped": first_wd.title_rows_skipped,
+                "header_levels": first_wd.header_levels,
+            }
+    return jsonify(resp_wd)
 
 
 @data_bp.route('/api/workdir/load', methods=['POST'])

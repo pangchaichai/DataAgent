@@ -4,7 +4,29 @@
 
 ---
 
-## 当前阶段：UI 三项优化完成 → 待 UAT 验收 / 下一阶段（三个优化方向）
+## 当前阶段：数据上传增强完成 → 待 UAT 验收
+
+## 数据上传增强（Excel 预处理 + 分组管理）✅ 完成（2026-06-22）
+✅ 已测（642 tests 通过，前端待 UAT 验收）
+
+### 改动范围
+- [x] `tools/excel_preprocessor.py`（**新建**）— Excel 合并单元格预处理器（场景 A/B/C）
+- [x] `tests/test_excel_preprocessor.py`（**新建**）— 20 个单元测试（含样本文件验证）
+- [x] `tools/data_loader.py`（修改 3 行）— Excel 分支调用预处理器
+- [x] `api/data.py`（修改两处预览端点）— 使用预处理器 + 返回 sheet/preprocess 信息
+- [x] `ui/js/pages/data_page.js`（修改）— 按类型分组渲染 + 折叠区块 + 日期排序
+- [x] `ui/js/data_tables.js`（修改）— _groupTablesByType() + 侧边栏日期标签
+- [x] `ui/js/upload.js`（修改）— showUploadConfirm() 显示预处理信息
+- [x] `ui/index.html`（修改）— 新增 #ucPreprocessInfo div
+- [x] `ui/css/pages.css`（修改）— 类型分组样式
+- [x] `ui/css/main.css`（修改）— .uc-preprocess-info 样式
+- [x] `requirements.txt`（修改）— 新增 xlrd>=2.0.1
+- [x] `requirements-dev.txt`（修改）— 新增 xlrd>=2.0.1
+
+### 测试结果
+- 642 passed, 2 skipped, 0 failed（+20 新测试，零回归）
+
+---
 
 ## UI 三项优化 ✅ 完成（2026-06-22）
 ✅ 已测（后端 622 tests 通过，前端待 UAT 验收）

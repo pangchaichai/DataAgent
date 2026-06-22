@@ -14,6 +14,39 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-22，第二十二轮）
+
+### 数据上传增强：Excel 预处理 + 数据源分组管理
+
+**背景**：用户每天上传类似的数据源文件（持仓表、净值表、评级表），存在三个痛点：(1) 数据页为扁平列表无法按类型/日期分组 (2) Excel 合并单元格导致列名错误 (3) 多Sheet文件只读首个Sheet。
+
+**增强一：Excel 合并单元格预处理器（新建 `tools/excel_preprocessor.py`）**
+- 场景 A：标题行检测（单合并格横跨 ≥80% 列宽 或 仅1个非空单元格）→ 自动跳过
+- 场景 B：双层表头（横跨+竖跨混合合并格）→ 填充合并值 → 逐列拼接去重 → `_` 连接列名
+- 场景 C：多Sheet同构拼接（所有Sheet列名完全一致 → 纵向合并，不一致 → 仅首Sheet+警告）
+- 统一处理 .xlsx（openpyxl）和 .xls（xlrd），坐标系自动转换
+- 20 个单元测试全部通过（含 3 个真实样本文件验证）
+
+**增强二：后端集成（data_loader + api/data）**
+- `tools/data_loader.py`：Excel 分支改为调用 `preprocess_excel()`（3行改动）
+- `api/data.py`：两个预览端点（upload + workdir）改用预处理器，响应新增 `sheets`/`sheets_concatenated`/`preprocess_info` 字段
+
+**增强三：数据源分组管理（前端）**
+- `ui/js/pages/data_page.js`：`_renderTableList()` 按 type 分组渲染为可折叠区块，组内按 date_tag 降序
+- `ui/js/data_tables.js`：新增 `_groupTablesByType()` 工具函数 + 侧边栏表列表增加日期标签
+- `ui/css/pages.css`：类型分组样式（折叠/展开、彩色类型圆点、日期徽章）
+
+**增强四：上传确认弹窗预处理信息**
+- `ui/index.html`：新增 `#ucPreprocessInfo` div
+- `ui/js/upload.js`：`showUploadConfirm()` 显示标题行跳过/多层表头/多Sheet合并信息
+- `ui/css/main.css`：`.uc-preprocess-info` 蓝色信息条样式
+
+**依赖更新**：`requirements.txt` 和 `requirements-dev.txt` 新增 `xlrd>=2.0.1`
+
+**测试结果**：642 passed, 2 skipped, 0 failed（新增 20 个测试，零回归）
+
+---
+
 ## 上次会话完成的工作（2026-06-22，第二十一轮）
 
 ### UI 三项优化 + 折叠恢复 Bug 修复 + 配色增强
@@ -45,8 +78,9 @@
 
 ## 立即可执行的下一步
 
-1. 用户在 Windows/浏览器中验收三项 UI 优化
-2. 实施 `docs/next-phase-optimization-plan.md` 中的三个方向（同类表列名重叠/Excel多Sheet/金融计量）
+1. 用户在浏览器/Windows 中验收数据上传增强功能：上传含合并单元格的 Excel → 确认弹窗显示预处理信息 → 列名正确
+2. 验收数据页分组显示：上传多种类型/多日数据 → 按类型折叠分组 → 日期标签醒目
+3. 继续 `docs/next-phase-optimization-plan.md` 中的优化方向（同类表列名重叠/金融计量等）
 
 ---
 

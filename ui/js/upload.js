@@ -79,6 +79,28 @@ function showUploadConfirm(d){
   $('ucDate').value=d.detected_date||'';
   const stem=d.filename.replace(/\.[^.]+$/,'').replace(/[^a-zA-Z0-9一-鿿_\-]/g,'_');
   $('ucTableName').value=(d.detected_type||'unknown')+'_'+stem;
+
+  // Preprocess info for Excel files
+  const ppEl=$('ucPreprocessInfo');
+  if(ppEl){
+    const pp=d.preprocess_info;const sheets=d.sheets||[];
+    const msgs=[];
+    if(pp&&pp.title_rows_skipped>0)
+      msgs.push('已自动跳过 '+pp.title_rows_skipped+' 行标题行');
+    if(pp&&pp.header_levels>1)
+      msgs.push('已合并 '+pp.header_levels+' 层表头');
+    if(sheets.length>1&&d.sheets_concatenated)
+      msgs.push('此文件包含 '+sheets.length+' 个工作表（结构相同），已自动合并（共 '+(d.row_estimate||0)+' 行）');
+    else if(sheets.length>1&&!d.sheets_concatenated)
+      msgs.push('<span style="color:var(--orange)">此文件包含 '+sheets.length+' 个工作表（结构不同），仅导入首张工作表「'+esc(sheets[0].name)+'」</span>');
+    if(msgs.length){
+      ppEl.innerHTML='<div class="uc-preprocess-info">'+msgs.map(m=>'<div>'+m+'</div>').join('')+'</div>';
+      ppEl.style.display='';
+    }else{
+      ppEl.style.display='none';ppEl.innerHTML='';
+    }
+  }
+
   const cols=d.columns||[];const rows=d.preview_rows||[];
   let th='<tr>'+cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr>';
   let tbody=rows.map(r=>'<tr>'+r.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>').join('');

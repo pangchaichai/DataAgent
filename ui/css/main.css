@@ -654,6 +654,10 @@ select.sp-input{cursor:pointer;}
   background:var(--bg-s);color:var(--text);cursor:pointer;font-size:14px;}
 .uc-btn:hover{background:var(--bg-hover);}
 .uc-btn-primary{border:none;background:var(--blue);color:#fff;}
+.uc-preprocess-info{
+  font-size:12px;padding:8px 12px;border-radius:6px;
+  background:var(--blue-bg);color:var(--blue);line-height:1.6;
+}
 .uc-btn-primary:hover{background:#1d4ed8;}
 .uc-btn-primary:disabled{opacity:.5;cursor:not-allowed;}
 

@@ -1,5 +1,19 @@
 // data_tables.js — Table management, profile, quality, workdir, table actions
 
+function _groupTablesByType(tables) {
+  const order = ['holding','nav','rating_entity','rating_bond','monitoring','unknown'];
+  const map = {};
+  tables.forEach(t => {
+    const type = t.type || 'unknown';
+    if (!map[type]) map[type] = [];
+    map[type].push(t);
+  });
+  const result = [];
+  order.forEach(k => { if (map[k]) { result.push({type:k, tables:map[k]}); delete map[k]; } });
+  Object.keys(map).forEach(k => result.push({type:k, tables:map[k]}));
+  return result;
+}
+
 async function loadTables(){
   try{
     const d=await api('GET','/api/tables');
@@ -12,10 +26,11 @@ async function loadTables(){
       return;}
     list.innerHTML=tables.map(t=>{
       const color=t.type==='holding'?'var(--green)':t.type==='nav'?'var(--blue)':'var(--text-3)';
+      const dateMeta=t.date_tag?' · '+t.date_tag:'';
       return '<div class="s-item">'
         +'<span class="dot" style="background:'+color+'"></span>'
         +'<span class="s-text s-clickable" onclick="openProfile(\''+esc(t.name)+'\')" title="查看表结构">'+esc(t.name)+'</span>'
-        +'<span class="s-meta">'+t.rows+'行</span>'
+        +'<span class="s-meta">'+t.rows+'行'+esc(dateMeta)+'</span>'
         +'<span class="item-del" onclick="deleteTable(\''+esc(t.name)+'\')" title="移除此表">×</span>'
         +'</div>';
     }).join('');

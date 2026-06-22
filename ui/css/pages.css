@@ -55,6 +55,26 @@
 .dp-btn:hover{background:var(--blue-bg);color:var(--blue);border-color:var(--blue);}
 .dp-btn-del:hover{background:var(--red-bg,#fff0f0);color:var(--red);border-color:var(--red);}
 
+/* Data page type groups */
+.dp-type-group{margin-bottom:12px;}
+.dp-type-group.collapsed .dp-type-body{display:none;}
+.dp-type-group.collapsed .dp-type-chevron{transform:rotate(-90deg);}
+.dp-type-header{
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  padding:6px 10px;border-radius:6px;user-select:none;
+  transition:background .12s;
+}
+.dp-type-header:hover{background:var(--bg-s);}
+.dp-type-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.dp-type-label{font-size:13px;font-weight:600;color:var(--text);}
+.dp-type-count{font-size:12px;color:var(--text-3);}
+.dp-type-chevron{font-size:11px;color:var(--text-3);margin-left:auto;transition:transform .15s;}
+.dp-type-body{display:flex;flex-direction:column;gap:6px;padding:6px 0 0 18px;}
+.dp-date-badge{
+  font-size:11px;padding:1px 7px;border-radius:10px;
+  background:var(--blue-bg);color:var(--blue);white-space:nowrap;flex-shrink:0;
+}
+
 /* Rules page skill cards */
 .rp-skill-card{
   border:1px solid var(--border);border-radius:8px;padding:12px 14px;
