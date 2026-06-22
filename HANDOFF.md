@@ -14,6 +14,36 @@
 
 ---
 
+## 上次会话完成的工作（2026-06-22，第二十轮）
+
+### 上传体验优化：页面内确认 + 批量上传
+
+**背景**：用户在数据源管理页上传文件后，确认弹窗出现在 Chat 页（因 overlay 在 `page-chat` 内部、`display:none` 时不可见），被迫切换页面。同时仅支持逐个文件确认上传，无批量能力。
+
+**改动一：上传确认弹窗全局化（不再依赖页面）**
+- `ui/index.html`：将上传确认 overlay（`#uploadConfirmOverlay` + `#uploadConfirmPanel`）和 file input 从 `page-chat` 内部移至 `</div><!-- end appShell -->` 之后的顶层位置，确保任何页面均可见
+- `ui/js/upload.js`：新增 `_uploadMsg()` 页面感知函数——在 `/chat` 页用 `addSysMsg()`，在 `/data` 等其他页用 `toast()`；所有上传流程的消息输出替换为此函数
+- `ui/js/data_tables.js`：`loadWorkdirFile()` 中的 `addSysMsg` 替换为 `_uploadMsg`
+- `ui/js/main.js`：`triggerUpload()` 移除 `openSec('tables')` 调用（不再需要切换侧栏）
+- `ui/css/main.css`：新增 `.uc-overlay` / `.uc-panel` / `.uc-input` / `.uc-btn` 样式类（替代行内 style）
+
+**改动二：批量上传支持**
+- `ui/js/upload.js`：`handleFiles()` 根据文件数量分流——单文件走现有预览+确认流程，多文件走新的批量流程
+- 批量流程：所有文件并行解析 → `showBatchConfirm()` 弹出批量面板，每个文件一张卡片（文件名/行列数/状态标签），用户可调整表类型、日期、表名 → 点击"全部导入"逐个加载，实时更新卡片状态（待导入→导入中→已加载/失败）
+- `ui/index.html`：新增 `#batchUploadOverlay` + `#batchUploadPanel` HTML
+- `ui/css/main.css`：新增 `.bf-card` / `.bf-card-header` / `.bf-card-status` 等批量卡片样式
+
+**改动三：数据页拖拽上传**
+- `ui/js/pages/data_page.js`：`onEnter()` 初始化拖拽事件（dragover/dragleave/drop → `handleFiles()`）
+- `ui/css/pages.css`：新增 `#page-data.dragover` 视觉反馈样式
+
+**其他**
+- `docs/next-phase-optimization-plan.md`：保存三个优化方向设计方案（同类表列名重叠/Excel多Sheet/复杂金融计量），作为下一阶段工作计划
+
+**测试结果**：622 passed, 2 skipped, 0 failed（零回归）
+
+---
+
 ## 上次会话完成的工作（2026-06-22，第十九轮）
 
 ### Windows UAT 反馈修复（6 项问题）

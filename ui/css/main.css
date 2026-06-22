@@ -610,3 +610,39 @@ select.sp-input{cursor:pointer;}
 @keyframes owlPulseGlow{
   0%,100%{filter:drop-shadow(0 0 0px var(--blue));}
   50%{filter:drop-shadow(0 0 6px var(--blue));}}
+
+/* ── Upload confirm panels (global, not page-scoped) ── */
+.uc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;}
+.uc-panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:1001;width:640px;max-width:92vw;max-height:80vh;overflow-y:auto;padding:24px;
+  background:var(--bg);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);}
+.uc-input{width:100%;margin-top:4px;padding:8px 12px;border:1px solid var(--border);
+  border-radius:6px;background:var(--bg-s);color:var(--text);font-size:14px;box-sizing:border-box;}
+.uc-btn{padding:8px 20px;border:1px solid var(--border);border-radius:6px;
+  background:var(--bg-s);color:var(--text);cursor:pointer;font-size:14px;}
+.uc-btn:hover{background:var(--bg-hover);}
+.uc-btn-primary{border:none;background:var(--blue);color:#fff;}
+.uc-btn-primary:hover{background:#1d4ed8;}
+.uc-btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+
+/* Batch file card */
+.bf-card{border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--bg-s);}
+.bf-card-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.bf-card-name{font-size:14px;font-weight:500;color:var(--text);flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bf-card-meta{font-size:12px;color:var(--text-3);}
+.bf-card-status{font-size:12px;padding:2px 8px;border-radius:12px;}
+.bf-card-status.pending{background:var(--blue-bg);color:var(--blue);}
+.bf-card-status.loading{background:var(--orange-bg);color:var(--orange);}
+.bf-card-status.done{background:var(--green-bg);color:var(--green);}
+.bf-card-status.error{background:var(--red-bg);color:var(--red);}
+.bf-card-fields{display:flex;gap:10px;flex-wrap:wrap;}
+.bf-card-fields label{font-size:12px;color:var(--text-3);}
+.bf-card-fields select,.bf-card-fields input{
+  padding:4px 8px;border:1px solid var(--border);border-radius:4px;
+  background:var(--bg);color:var(--text);font-size:12px;}
+.bf-card-fields select{min-width:100px;}
+.bf-card-fields input{width:100px;}
+.bf-card-remove{color:var(--text-3);cursor:pointer;font-size:16px;padding:0 4px;line-height:1;}
+.bf-card-remove:hover{color:var(--red);}
+.bf-progress{margin-top:6px;font-size:12px;color:var(--text-3);}

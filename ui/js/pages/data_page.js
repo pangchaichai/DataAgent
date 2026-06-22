@@ -4,6 +4,21 @@ const DataPage = {
   onEnter() {
     loadTables().then(() => this._renderTableList());
     this._loadWorkdir();
+    this._initDragDrop();
+  },
+
+  _initDragDrop() {
+    const page = $('page-data');
+    if (!page || page._dragInited) return;
+    page._dragInited = true;
+    page.addEventListener('dragover', e => { e.preventDefault(); page.classList.add('dragover'); });
+    page.addEventListener('dragleave', e => {
+      if (!page.contains(e.relatedTarget)) page.classList.remove('dragover');
+    });
+    page.addEventListener('drop', e => {
+      e.preventDefault(); page.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
   },
 
   async _loadWorkdir() {

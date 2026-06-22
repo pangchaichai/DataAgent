@@ -11,7 +11,7 @@ document.addEventListener('keydown',e=>{
 });
 
 function onKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
-function triggerUpload(){openSec('tables');$('fileInput').click();}
+function triggerUpload(){$('fileInput').click();}
 function clearChat(){chat.innerHTML='';}
 
 function buildWelcomePanel(tables){

@@ -212,61 +212,8 @@
             onkeydown="onKey(event)"></textarea>
           <button class="send" id="sendBtn" onclick="sendMessage()">发送</button>
         </div>
-        <input type="file" id="fileInput" style="display:none"
-          accept=".csv,.xlsx,.xls,.pdf,.docx,.doc,.txt"
-          onchange="handleFiles(this.files)" multiple/>
       </div>
     </main>
-
-    <!-- UPLOAD CONFIRM OVERLAY -->
-    <div class="settings-overlay" id="uploadConfirmOverlay" style="display:none"
-         onclick="event.stopPropagation()"></div>
-    <div class="settings-panel" id="uploadConfirmPanel"
-         style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-                z-index:1001;width:640px;max-height:80vh;overflow-y:auto;padding:24px;
-                background:var(--bg);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3)">
-      <div style="font-size:16px;font-weight:600;margin-bottom:16px">确认上传数据</div>
-      <div style="margin-bottom:12px;color:var(--text-2)">
-        文件名：<span id="ucFilename" style="color:var(--text)">-</span>
-      </div>
-      <div style="margin-bottom:12px;color:var(--text-2)">
-        数据规模：<span id="ucRows" style="color:var(--text)">-</span>
-        &nbsp;<span id="ucCols" style="color:var(--text)">-</span>
-      </div>
-      <div style="margin-bottom:12px">
-        <label style="color:var(--text-2);font-size:13px">表类型</label>
-        <select id="ucType" style="width:100%;margin-top:4px;padding:8px 12px;border:1px solid var(--border);
-          border-radius:6px;background:var(--bg-s);color:var(--text);font-size:14px">
-          <option value="holding">持仓表</option>
-          <option value="nav">净值表</option>
-          <option value="rating_entity">主体评级</option>
-          <option value="rating_bond">债券评级</option>
-          <option value="monitoring">监控数据</option>
-          <option value="unknown">未知类型</option>
-        </select>
-      </div>
-      <div style="margin-bottom:12px">
-        <label style="color:var(--text-2);font-size:13px">数据日期</label>
-        <input type="text" id="ucDate" placeholder="如 20260609"
-          style="width:100%;margin-top:4px;padding:8px 12px;border:1px solid var(--border);
-          border-radius:6px;background:var(--bg-s);color:var(--text);font-size:14px">
-      </div>
-      <div style="margin-bottom:12px">
-        <label style="color:var(--text-2);font-size:13px">表名</label>
-        <input type="text" id="ucTableName"
-          style="width:100%;margin-top:4px;padding:8px 12px;border:1px solid var(--border);
-          border-radius:6px;background:var(--bg-s);color:var(--text);font-size:14px">
-      </div>
-      <div style="margin-bottom:16px;max-height:200px;overflow-y:auto" id="ucPreview"></div>
-      <div style="display:flex;gap:12px;justify-content:flex-end">
-        <button onclick="cancelUploadConfirm()"
-          style="padding:8px 20px;border:1px solid var(--border);border-radius:6px;
-          background:var(--bg-s);color:var(--text);cursor:pointer">取消</button>
-        <button onclick="confirmUploadFile()"
-          style="padding:8px 20px;border:none;border-radius:6px;
-          background:var(--blue);color:#fff;cursor:pointer">确认导入</button>
-      </div>
-    </div>
 
   </div>
 </div>
@@ -444,6 +391,60 @@
   </div>
 
   </div><!-- end appShell -->
+
+<!-- GLOBAL FILE INPUT (shared by all pages) -->
+<input type="file" id="fileInput" style="display:none"
+  accept=".csv,.xlsx,.xls,.pdf,.docx,.doc,.txt"
+  onchange="handleFiles(this.files)" multiple/>
+
+<!-- SINGLE FILE UPLOAD CONFIRM OVERLAY -->
+<div class="uc-overlay" id="uploadConfirmOverlay" style="display:none" onclick="event.stopPropagation()"></div>
+<div class="uc-panel" id="uploadConfirmPanel" style="display:none">
+  <div style="font-size:16px;font-weight:600;margin-bottom:16px">确认上传数据</div>
+  <div style="margin-bottom:12px;color:var(--text-2)">
+    文件名：<span id="ucFilename" style="color:var(--text)">-</span>
+  </div>
+  <div style="margin-bottom:12px;color:var(--text-2)">
+    数据规模：<span id="ucRows" style="color:var(--text)">-</span>
+    &nbsp;<span id="ucCols" style="color:var(--text)">-</span>
+  </div>
+  <div style="margin-bottom:12px">
+    <label style="color:var(--text-2);font-size:13px">表类型</label>
+    <select id="ucType" class="uc-input">
+      <option value="holding">持仓表</option>
+      <option value="nav">净值表</option>
+      <option value="rating_entity">主体评级</option>
+      <option value="rating_bond">债券评级</option>
+      <option value="monitoring">监控数据</option>
+      <option value="unknown">未知类型</option>
+    </select>
+  </div>
+  <div style="margin-bottom:12px">
+    <label style="color:var(--text-2);font-size:13px">数据日期</label>
+    <input type="text" id="ucDate" placeholder="如 20260609" class="uc-input">
+  </div>
+  <div style="margin-bottom:12px">
+    <label style="color:var(--text-2);font-size:13px">表名</label>
+    <input type="text" id="ucTableName" class="uc-input">
+  </div>
+  <div style="margin-bottom:16px;max-height:200px;overflow-y:auto" id="ucPreview"></div>
+  <div style="display:flex;gap:12px;justify-content:flex-end">
+    <button class="uc-btn" onclick="cancelUploadConfirm()">取消</button>
+    <button class="uc-btn uc-btn-primary" onclick="confirmUploadFile()">确认导入</button>
+  </div>
+</div>
+
+<!-- BATCH UPLOAD CONFIRM OVERLAY -->
+<div class="uc-overlay" id="batchUploadOverlay" style="display:none" onclick="event.stopPropagation()"></div>
+<div class="uc-panel" id="batchUploadPanel" style="display:none">
+  <div style="font-size:16px;font-weight:600;margin-bottom:4px">批量上传数据</div>
+  <div style="margin-bottom:16px;color:var(--text-3);font-size:13px" id="batchSummary"></div>
+  <div id="batchFileList" style="display:flex;flex-direction:column;gap:10px;max-height:50vh;overflow-y:auto;margin-bottom:16px"></div>
+  <div style="display:flex;gap:12px;justify-content:flex-end">
+    <button class="uc-btn" onclick="cancelBatchUpload()">取消</button>
+    <button class="uc-btn uc-btn-primary" id="batchConfirmBtn" onclick="confirmBatchUpload()">全部导入</button>
+  </div>
+</div>
 
 <!-- SETTINGS OVERLAY (kept empty — settings now in #page-settings) -->
 <div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>

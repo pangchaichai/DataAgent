@@ -18,6 +18,7 @@
 }
 
 /* Data page */
+#page-data.dragover{outline:2px dashed var(--blue);outline-offset:-4px;background:var(--blue-bg);}
 .data-page{display:flex;flex-direction:column;height:100%;overflow:hidden;}
 .data-page-header{
   flex-shrink:0;padding:16px 24px 12px;

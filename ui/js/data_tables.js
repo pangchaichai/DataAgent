@@ -57,12 +57,12 @@ async function loadWorkdir(){
 function refreshWorkdir(){openSec('workdir');loadWorkdir();}
 
 async function loadWorkdirFile(filename){
-  addSysMsg('正在预览工作目录文件：<b>'+esc(filename)+'</b>…','blue');
+  _uploadMsg('正在预览工作目录文件：<b>'+esc(filename)+'</b>…','blue');
   try{
     const d=await api('POST','/api/workdir/preview',{filename});
-    if(!d.ok){addSysMsg('预览失败：'+esc(d.error),'red');return;}
+    if(!d.ok){_uploadMsg('预览失败：'+esc(d.error),'red');return;}
     showUploadConfirm(d);
-  }catch(e){addSysMsg('预览请求失败：'+esc(e.message),'red');}
+  }catch(e){_uploadMsg('预览请求失败：'+esc(e.message),'red');}
 }
 
 // Table actions

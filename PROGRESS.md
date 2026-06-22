@@ -4,7 +4,25 @@
 
 ---
 
-## 当前阶段：Windows UAT 修复完成 → 待二次 UAT 验收 / 合入主线 / Windows 内测
+## 当前阶段：上传体验优化完成 → 待 UAT 验收 / 下一阶段（三个优化方向）
+
+## 上传体验优化 ✅ 完成（2026-06-22）
+✅ 已测（后端 622 tests 通过，前端待 UAT 验收）
+
+### 改动范围
+- [x] `ui/index.html`（修改）— 上传确认 overlay + file input 移至顶层；新增批量上传面板
+- [x] `ui/js/upload.js`（重写）— _uploadMsg 页面感知；批量上传流程（uploadBatch/showBatchConfirm/confirmBatchUpload）
+- [x] `ui/js/data_tables.js`（修改）— loadWorkdirFile 使用 _uploadMsg
+- [x] `ui/js/main.js`（修改）— triggerUpload 移除 openSec 调用
+- [x] `ui/js/pages/data_page.js`（修改）— 新增拖拽上传支持
+- [x] `ui/css/main.css`（修改）— 新增 .uc-overlay/.uc-panel/.bf-card 等上传面板样式
+- [x] `ui/css/pages.css`（修改）— 新增 #page-data.dragover 拖拽反馈
+- [x] `docs/next-phase-optimization-plan.md`（新建）— 三个优化方向设计方案
+
+### 测试结果
+- 622 passed, 2 skipped, 0 failed（零回归）
+
+---
 
 ## Windows UAT 反馈修复 ✅ 完成（2026-06-22）
 ✅ 已测（后端 622 tests 通过，前端待二次 UAT 验收）
