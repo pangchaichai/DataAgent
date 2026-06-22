@@ -16,22 +16,24 @@
 
 ## 上次会话完成的工作（2026-06-22，第二十一轮）
 
-### UI 三项优化：可调侧边栏 + 区域色彩分层 + 欢迎页重设计
+### UI 三项优化 + 折叠恢复 Bug 修复 + 配色增强
 
-**背景**：用户在 Windows UAT 期间提出三项 UI 视觉和交互问题。
+**背景**：用户在 Windows UAT 期间提出三项 UI 视觉和交互问题，实施后用户测试发现两个问题并立即修复。
 
 **改动一：可调宽度会话侧边栏**
-- `ui/index.html`：sidebar 与 main 之间插入 `<div class="resize-handle" id="resizeHandle">`
-- `ui/css/main.css`：`.body-wrap` 改为三列 grid（`var(--sidebar-w,240px) 4px 1fr`），新增 `.resize-handle` 样式（hover 高亮蓝色、光标 col-resize）、`.resizing` 类（禁用过渡）
-- `ui/js/sidebar.js`：新增 `initSidebarResize()` IIFE——mousedown/mousemove/mouseup 拖拽逻辑，支持拖到 60px 以下自动折叠，宽度和折叠状态持久化到 localStorage（`da_sidebar_w` / `da_sidebar_collapsed`），`toggleSidebar()` 同步 localStorage
+- `ui/index.html`：sidebar 与 main 之间插入 `<div class="resize-handle" id="resizeHandle">`；topbar 新增 `☰` 侧边栏切换按钮
+- `ui/css/main.css`：`.body-wrap` 改为三列 grid（`var(--sidebar-w,240px) 4px 1fr`），新增 `.resize-handle` 样式（hover 高亮蓝色、光标 col-resize）、`.resizing` 类（禁用过渡）；折叠时 resize-handle 保持 6px 宽可见条（点击恢复）
+- `ui/js/sidebar.js`：新增 `initSidebarResize()` IIFE——mousedown/mousemove/mouseup 拖拽逻辑，支持拖到 60px 以下自动折叠，宽度和折叠状态持久化到 localStorage（`da_sidebar_w` / `da_sidebar_collapsed`）；折叠时点击 handle 或双击 handle 恢复；`toggleSidebar()` 同步 localStorage
 
-**改动二：明暗模式区域色彩分层**
-- `ui/css/main.css`：新增 4 个区域专属 CSS 变量（`--bg-header`/`--bg-sidebar`/`--bg-inputbar`/`--bg-nav`），明暗两套配色，形成微妙色调梯度——导航栏最深、头部次深、侧边栏中间色、输入栏最浅、主内容区最亮
-- `.header` 改用 `--bg-header` + 添加底部 box-shadow（明0.04/暗0.2）
-- `.sidebar` 改用 `--bg-sidebar`
-- `.inputbar` 改用 `--bg-inputbar`
-- `.topbar` 添加 `background:var(--bg-s)` 使 topbar 与内容区区分
-- `ui/css/nav.css`：`.nav-rail` 改用 `--bg-nav`
+**Bug 修复：侧边栏折叠后整个会话页面变空白**
+- 原因：折叠时 resize-handle 设为 `display:none`，且无其他 UI 元素可以恢复，用户卡在空白页
+- 修复：(1) 折叠时 resize-handle 保持可见为 6px 彩色条，点击恢复 (2) topbar 新增 ☰ 按钮 (3) 双击 handle 切换折叠
+
+**改动二：明暗模式区域色彩分层（第二版，加强对比度）**
+- 新增 4 个区域专属 CSS 变量（`--bg-header`/`--bg-sidebar`/`--bg-inputbar`/`--bg-nav`）
+- 明亮模式：导航栏 `#DDE0E7`(最深,亮度224) → 头部 `#E8EBF0`(235) → 侧栏 `#ECEEF3`(238) → 主区 `#FAFBFC`(251)，最大亮度差 27 点
+- 暗色模式（VS Code 风格，周边略亮于内容区）：主区 `#0D1117`(16) → 侧栏 `#141A26`(26) → 头部 `#171D2A`(29) → 导航 `#1C2333`(35)，最大亮度差 19 点
+- `.header` 添加 box-shadow（明 0.04 / 暗 0.2）
 
 **改动三：欢迎页重设计**
 - `ui/css/main.css`：`.welcome` 重构——标题区 `.welcome-header` 独立居中，卡片 `.wc-card` 改为横排（icon + 文字 body 左右布局），新增 `.welcome-divider` 分隔线、`.welcome-section-title` 小标签、`.wex-item` 改为全宽竖排列表（带箭头图标），新增 `.welcome-skills` 容器类
