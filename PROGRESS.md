@@ -4,7 +4,21 @@
 
 ---
 
-## 当前阶段：大数据量适配完成 → 待 Windows 实机验证
+## 当前阶段：大数据量适配完成 + 测试数据生成器 → 待 Windows 实机验证
+
+## 测试数据生成器 + 集成测试 ✅ 完成（2026-06-23）
+✅ 已测（722 tests 通过，L4 待 Windows 实机 UAT）
+
+### 改动范围
+- [x] `scripts/generate_test_data.py`（**新建**）— 14 种文件类型数据生成，UAT + 性能 + CSV
+- [x] `tests/test_large_data_integration.py`（**新建**）— 38 个集成测试
+
+### 生成的测试数据（.gitignore 已排除）
+- UAT（14 files, ~450KB）：50-200 行，真实列名/文件名，验证加载和映射
+- PERF（14 files, ~27MB）：含 12.1MB 多 Sheet XLS、30K 行 XLSX
+- PERF-CSV（4 files, ~75MB）：50K 行 UTF-8/GB18030 CSV，验证原生加载
+
+---
 
 ## 大数据量适配（Phase 0/1/2）✅ 完成（2026-06-23）
 ✅ 已测（684 tests 通过，L4 待 Windows 实机 UAT）

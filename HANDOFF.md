@@ -14,34 +14,30 @@
 
 ---
 
-## 上次会话完成的工作（2026-06-23，第二十三轮）
+## 上次会话完成的工作（2026-06-23，第二十四轮）
 
-### 大数据量适配方案 — Phase 0/1/2 全部完成
+### 测试数据生成器 + UAT/性能集成测试
 
-**背景**：用户实际使用场景为每日 14 个 Excel/CSV 文件，总计 ~490MB / 115万行，超出原始内存模式设计预期。
+**背景**：基于用户提供的 14 个真实 Excel 样例文件（zip包），生成 UAT 和性能测试数据，验证大数据量适配方案的功能正确性和性能容量。
 
-**Phase 0：DuckDB 文件持久化 + 内存优化加载**
-- `config.example.yaml`：新增 `duckdb.db_path` 配置项，`max_memory` 提升到 300MB
-- `main.py`：DuckDB 文件模式早期初始化（在 Flask/API 之前），读取 config 配置
-- `tools/data_loader.py`：
-  - DuckDB 原生 CSV 加载 `_load_csv_native()` — 绕过 Pandas，零内存开销
-  - Excel 逐Sheet流式加载 `_load_excel_streaming()` — 降低大文件内存峰值
-  - 日期提取增强：支持 `YYYY-MM-DD` 和 ISO timestamp 格式
-  - 版本淘汰 `evict_old_versions()` — 按 date_tag 降序保留最新 N 个
-- `tools/excel_preprocessor.py`：新增 `preprocess_excel_streaming()` + `sheet_select` 参数
-- `.gitignore`：新增 `data/*.duckdb.wal`
+**测试数据生成器 `scripts/generate_test_data.py`**
+- 14 种文件类型的数据生成函数，列名和数据格式完全匹配真实样本
+- UAT 数据（`data/test_data/uat/`）：14 个小文件（40-200 行），验证加载+映射正确性
+- 性能数据（`data/test_data/perf/`）：含 12.1MB 多Sheet XLS（3 sheets × 5K rows）、30K 行 XLSX、多个千行级文件
+- 性能 CSV 数据（`data/test_data/perf/csv/`）：50K 行 UTF-8 CSV（24.3MB）、GB18030 编码 CSV（19.7MB）
+- 支持 `--uat` / `--perf` / `--perf-csv` 独立生成
 
-**Phase 1：工作目录自动加载**
-- `config.example.yaml`：新增 `app.auto_load` 配置段（14 种文件规则）
-- `tools/workdir_loader.py`：新增 `auto_load_workdir()` — 启动时自动/增量加载
-- `main.py`：自动加载入口集成
+**集成测试 `tests/test_large_data_integration.py`**（38 个测试，全部通过）
+- `TestUATFileLoading`：14 种文件加载 + 10 种日期提取
+- `TestUATTableTypes`：DICT_TABLE_MAP 覆盖验证
+- `TestUATFieldMapping`：持仓/底层持仓/净值/监控 4 种表字段映射
+- `TestUATAutoLoad`：auto_load_workdir 14 文件全匹配（patch get_work_dir）
+- `TestPerfLargeExcel`：>10MB XLS 流式加载、30K 行 XLSX、多Sheet 合并
+- `TestPerfNativeCSV`：50K 行 UTF-8/GB18030 原生加载、3 CSV 串行基准
+- `TestPerfVersionEviction`：版本淘汰保留最新
+- `TestPerfMemory`：Python 内存峰值 <500MB 验证
 
-**Phase 2：字段映射扩展**
-- 9 个新数据字典 YAML（data_dictionary/）：holding_detail, valuation, subscription, asset_position, cashflow_gap, bond_pledge, account_flow, repo_trade, fund_position
-- `data_dictionary/shared_synonyms.yaml`（**新建**）：跨表共享同义词库
-- `tools/data_loader.py`：`DICT_TABLE_MAP` 扩展 + `_merge_shared_synonyms()` + 冲突检测
-
-**测试结果**：684 passed, 5 skipped, 0 failed（+45 新测试，零回归）
+**测试结果**：722 passed, 5 skipped, 0 failed（+38 新集成测试，零回归）
 
 ---
 
