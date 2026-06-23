@@ -1,0 +1,27 @@
+description: 实时资产头寸查询表
+table_type: asset_position
+fields:
+  - semantic: 统计日期
+    dtype: date
+    required: true
+    physical_candidates: [统计日期, 数据日期, 查询日]
+  - semantic: 产品名称
+    dtype: str
+    required: true
+    physical_candidates: [产品名称, 产品简称, 组合名称]
+  - semantic: 资产大类
+    dtype: str
+    physical_candidates: [资产大类, 资产类型, 投资品种]
+  - semantic: 市值
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [市值, 资产市值, 头寸金额]
+  - semantic: 占比
+    dtype: float
+    physical_candidates: [占比, 比例, 资产占比]
+  - semantic: 资产代码
+    dtype: str
+    physical_candidates: [资产代码, 证券代码]
+  - semantic: 资产名称
+    dtype: str
+    physical_candidates: [资产名称, 证券简称]

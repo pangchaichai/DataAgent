@@ -74,6 +74,44 @@ app:
   max_agent_turns: 15
   max_tool_retry: 3
   context_budget_ratio: 0.75
+  work_dir: ""
+  auto_load:
+    enabled: false
+    max_versions: 3
+    file_rules:
+      - pattern: "持仓产品管理-*.xls"
+        table_type: holding
+        sheet_mode: merge_all
+      - pattern: "底层资产持仓及债券信息表*.xlsx"
+        table_type: holding_detail
+      - pattern: "估值表查询(*.xlsx"
+        table_type: valuation
+        sheet_select: first
+      - pattern: "监控值查询*.xlsx"
+        table_type: monitoring
+      - pattern: "净值结果管理*.xlsx"
+        table_type: nav
+      - pattern: "评级结果[0-9]*.xls"
+        table_type: rating_entity
+      - pattern: "申赎数据*.xlsx"
+        table_type: subscription
+        sheet_select: first
+      - pattern: "实时资产头寸查询(*.xlsx"
+        table_type: asset_position
+      - pattern: "投资债券评级结果*.xls"
+        table_type: rating_bond
+        sheet_mode: merge_all
+      - pattern: "现金流缺口分析(*.xlsx"
+        table_type: cashflow_gap
+      - pattern: "债券质押查询(*.xlsx"
+        table_type: bond_pledge
+        sheet_select: first
+      - pattern: "账户流水(*.xlsx"
+        table_type: account_flow
+      - pattern: "质押式回购投资交易查询(*.xlsx"
+        table_type: repo_trade
+      - pattern: "组合资金账户头寸(*.xlsx"
+        table_type: fund_position
 
 # ── Skills 目录 ────────────────────────────────────────────
 skills:
@@ -82,8 +120,9 @@ skills:
 
 # ── 数据引擎 ───────────────────────────────────────────────
 duckdb:
-  max_memory: "200MB"
+  max_memory: "300MB"
   threads: 2
+  db_path: "data/dataagent.duckdb"
 
 # ── 定时任务 ───────────────────────────────────────────────
 scheduler:

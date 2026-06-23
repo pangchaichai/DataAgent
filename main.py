@@ -140,6 +140,27 @@ def main():
     notify = get_notify_driver()
     notify.push(f"DataAgent 启动中... 端口：{port}", level="info")
 
+    # ── DuckDB 文件模式初始化（在 Flask 和 API 之前）──────
+    import tools.data_loader as _dl
+    db_cfg = config.get('duckdb', {})
+    db_path = db_cfg.get('db_path', '')
+    if db_path and db_path != ':memory:':
+        _dl._db_path = str(BASE_DIR / db_path)
+        (BASE_DIR / db_path).parent.mkdir(parents=True, exist_ok=True)
+    _dl.init_duckdb_connection(
+        max_memory=str(db_cfg.get('max_memory', '200MB')),
+        threads=int(db_cfg.get('threads', 2)),
+    )
+
+    # ── 自动加载工作目录数据 ───────────────────────────────
+    auto_cfg = config.get('app', {}).get('auto_load', {})
+    if auto_cfg.get('enabled', False):
+        from tools.workdir_loader import auto_load_workdir
+        auto_loaded = auto_load_workdir(config)
+        if auto_loaded:
+            logger.info('auto_load', f"自动加载 {len(auto_loaded)} 个数据文件")
+            print(f"[DataAgent] 自动加载 {len(auto_loaded)} 个数据文件")
+
     if config.get('scheduler', {}).get('enabled', False):
         from scheduler.task_manager import TaskManager
         task_mgr = TaskManager(

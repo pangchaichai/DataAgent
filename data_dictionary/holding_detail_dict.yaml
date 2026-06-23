@@ -1,0 +1,43 @@
+description: 底层资产持仓及债券信息表
+table_type: holding_detail
+fields:
+  - semantic: 持仓日期
+    dtype: date
+    required: true
+    physical_candidates: [持仓日期, 数据日期, 统计日期]
+  - semantic: 产品名称
+    dtype: str
+    required: true
+    physical_candidates: [产品简称, 产品名称, 组合名称]
+  - semantic: 资产代码
+    dtype: str
+    required: true
+    physical_candidates: [资产代码, 债券代码, 证券代码]
+  - semantic: 资产名称
+    dtype: str
+    physical_candidates: [资产简称, 资产名称, 债券名称]
+  - semantic: 资产市值_穿透后
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [资产市值_穿透后, 穿透后市值, 市值]
+  - semantic: 限额占用主体
+    dtype: str
+    physical_candidates: [限额占用方主体, 发行人, 评级主体, 实际信用承担方名称]
+  - semantic: 外部评级
+    dtype: str
+    physical_candidates: [外部评级, 债项评级, 信用评级]
+  - semantic: 资产大类
+    dtype: str
+    physical_candidates: [资产大类, 投资品种, 资产类型]
+  - semantic: 持有量
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [持有量, 持仓量, 数量]
+  - semantic: 面值
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [面值, 票面面值]
+  - semantic: 成本
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [成本, 摊余成本, 账面价值]

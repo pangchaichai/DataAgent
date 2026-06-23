@@ -1,0 +1,31 @@
+description: 申赎数据表
+table_type: subscription
+fields:
+  - semantic: 统计日期
+    dtype: date
+    required: true
+    physical_candidates: [统计日期, 数据日期, 申请日期, 确认日期]
+  - semantic: 产品名称
+    dtype: str
+    required: true
+    physical_candidates: [产品名称, 产品简称, 组合名称, 理财产品名称]
+  - semantic: 申购金额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [申购金额, 认购金额, 买入金额]
+  - semantic: 赎回金额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [赎回金额, 卖出金额]
+  - semantic: 净申购
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [净申购, 净申赎, 净额]
+  - semantic: 申购份额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [申购份额, 认购份额]
+  - semantic: 赎回份额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [赎回份额]

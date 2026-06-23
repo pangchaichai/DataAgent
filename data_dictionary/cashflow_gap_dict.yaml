@@ -1,0 +1,30 @@
+description: 现金流缺口分析表
+table_type: cashflow_gap
+fields:
+  - semantic: 统计日期
+    dtype: date
+    required: true
+    physical_candidates: [统计日期, 数据日期, 分析日期]
+  - semantic: 产品名称
+    dtype: str
+    required: true
+    physical_candidates: [产品名称, 产品简称, 组合名称]
+  - semantic: 期限区间
+    dtype: str
+    physical_candidates: [期限区间, 到期区间, 期限段, 剩余期限]
+  - semantic: 资产到期金额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [资产到期金额, 资产到期, 到期金额]
+  - semantic: 负债到期金额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [负债到期金额, 负债到期]
+  - semantic: 缺口金额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [缺口金额, 现金流缺口, 缺口]
+  - semantic: 累计缺口
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [累计缺口, 累计现金流缺口]

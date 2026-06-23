@@ -1,0 +1,32 @@
+description: 估值表
+table_type: valuation
+fields:
+  - semantic: 估值日期
+    dtype: date
+    required: true
+    physical_candidates: [估值日期, 数据日期, 统计日期]
+  - semantic: 产品名称
+    dtype: str
+    required: true
+    physical_candidates: [产品名称, 产品简称, 组合名称, 资产名称]
+  - semantic: 资产代码
+    dtype: str
+    physical_candidates: [资产代码, 证券代码]
+  - semantic: 资产名称
+    dtype: str
+    physical_candidates: [资产名称, 证券简称]
+  - semantic: 市值
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [市值, 资产市值, 估值]
+  - semantic: 成本
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [成本, 账面成本]
+  - semantic: 净值
+    dtype: float
+    physical_candidates: [单位净值, 净值, 累计净值]
+  - semantic: 总份额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [总份额, 份额, 基金份额]

@@ -96,9 +96,15 @@ def auto_detect_table_type(df: pd.DataFrame, filename: str = "") -> str:
 def extract_date_from_filename(filename: str) -> str | None:
     """
     从文件名提取日期字符串（返回 YYYYMMDD 格式）。
-    支持模式：20260515 / 260515（两位年→补20） / 0515（当前年）
+    支持模式（按优先级）：
+      YYYY-MM-DD（如 2026-06-16）/ YYYY-MM-DDThhmm（如 2026-06-22T084857）
+      YYYYMMDD / YYMMDD（两位年→补20） / MMDD（当前年）
     """
     from datetime import datetime
+    # YYYY-MM-DD 或 YYYY-MM-DDT...（如 2026-06-16, 2026-06-22T084857.169）
+    m = re.search(r'(20\d{2})-(\d{2})-(\d{2})', filename)
+    if m:
+        return m.group(1) + m.group(2) + m.group(3)
     # 8位完整日期
     m = re.search(r'(20\d{6})', filename)
     if m:
@@ -211,11 +217,19 @@ def get_all_field_maps() -> dict[str, str]:
     """
     返回所有已加载表的合并字段映射 {语义名 → 物理列名}。
     用于 SQL 执行前的列名自动替换。
+    多表映射冲突时 last-one-wins 并记录 warning。
     """
     combined: dict[str, str] = {}
     for r in _loaded_tables.values():
         if r.field_map:
-            combined.update(r.field_map)
+            for semantic, physical in r.field_map.items():
+                if semantic in combined and combined[semantic] != physical:
+                    print(
+                        f"[data_loader] ⚠️ 字段映射冲突：「{semantic}」"
+                        f" 在 {r.table_name} 中映射为「{physical}」"
+                        f"（先前映射为「{combined[semantic]}」），使用后者"
+                    )
+                combined[semantic] = physical
     return combined
 
 
@@ -387,11 +401,75 @@ DICT_TABLE_MAP = {
     "rating_bond": "rating_bond_dict.yaml",
     "monitoring": "monitoring_dict.yaml",
     "weekly_report": "weekly_report_dict.yaml",
+    "holding_detail": "holding_detail_dict.yaml",
+    "valuation": "valuation_dict.yaml",
+    "subscription": "subscription_dict.yaml",
+    "asset_position": "asset_position_dict.yaml",
+    "cashflow_gap": "cashflow_gap_dict.yaml",
+    "bond_pledge": "bond_pledge_dict.yaml",
+    "account_flow": "account_flow_dict.yaml",
+    "repo_trade": "repo_trade_dict.yaml",
+    "fund_position": "fund_position_dict.yaml",
 }
 
 
+_shared_synonyms_cache: dict | None = None
+
+
+def _load_shared_synonyms() -> dict[str, list[str]]:
+    """加载共享同义词库，返回 {synonym_group_name: [候选列名]}。"""
+    global _shared_synonyms_cache
+    if _shared_synonyms_cache is not None:
+        return _shared_synonyms_cache
+    path = Path(__file__).resolve().parent.parent / "data_dictionary" / "shared_synonyms.yaml"
+    if not path.exists():
+        _shared_synonyms_cache = {}
+        return _shared_synonyms_cache
+    with open(path, encoding='utf-8') as f:
+        data = yaml.safe_load(f) or {}
+    _shared_synonyms_cache = data.get('synonym_groups', {})
+    return _shared_synonyms_cache
+
+
+_SEMANTIC_TO_SYNONYM_GROUP = {
+    "产品名称": "product_name",
+    "限额占用主体": "entity_name",
+    "资产代码": "asset_code",
+    "资产名称": "asset_name",
+    "统计日期": "stat_date",
+    "持仓日期": "stat_date",
+    "估值日期": "stat_date",
+    "记账日期": "stat_date",
+}
+
+
+def _merge_shared_synonyms(dict_data: dict) -> dict:
+    """将共享同义词合并到字典字段的 physical_candidates（去重、保持原有优先级）。"""
+    synonyms = _load_shared_synonyms()
+    if not synonyms:
+        return dict_data
+
+    for field_def in dict_data.get('fields', []):
+        semantic = field_def.get('semantic', '')
+        group_name = _SEMANTIC_TO_SYNONYM_GROUP.get(semantic)
+        if not group_name:
+            continue
+        group_values = synonyms.get(group_name, [])
+        if not group_values:
+            continue
+        existing = field_def.get('physical_candidates', [])
+        existing_set = set(existing)
+        for val in group_values:
+            if val not in existing_set:
+                existing.append(val)
+                existing_set.add(val)
+        field_def['physical_candidates'] = existing
+
+    return dict_data
+
+
 def load_dictionary(table_type: str) -> dict | None:
-    """加载对应类型的数据字典，文件不存在则返回 None"""
+    """加载对应类型的数据字典，合并共享同义词后返回。文件不存在则返回 None。"""
     filename = DICT_TABLE_MAP.get(table_type)
     if not filename:
         return None
@@ -399,7 +477,10 @@ def load_dictionary(table_type: str) -> dict | None:
     if not path.exists():
         return None
     with open(path, encoding='utf-8') as f:
-        return yaml.safe_load(f)
+        data = yaml.safe_load(f)
+    if data:
+        data = _merge_shared_synonyms(data)
+    return data
 
 
 def apply_dictionary_mapping(df: pd.DataFrame, table_type: str) -> tuple[dict, list, list]:
@@ -508,27 +589,139 @@ def validate_user_profile_products(
 
 
 # ═══════════════════════════════════════════════════════════════
+#  DuckDB 原生 CSV 加载（绕过 Pandas，Python 侧零内存开销）
+# ═══════════════════════════════════════════════════════════════
+
+def _load_csv_native(
+    conn: duckdb.DuckDBPyConnection,
+    file_path: str,
+    table_name: str,
+    encoding: str,
+) -> dict | None:
+    """
+    用 DuckDB read_csv_auto 直接将 CSV 流式写入 DuckDB 页面。
+    成功返回 {'columns': [...], 'row_count': int}，失败返回 None。
+    """
+    escaped_path = file_path.replace("'", "''")
+    try:
+        conn.execute(
+            f"CREATE OR REPLACE TABLE \"{table_name}\" AS "
+            f"SELECT * FROM read_csv_auto('{escaped_path}', "
+            f"header=true, all_varchar=true, encoding='{encoding}')"
+        )
+    except Exception:
+        return None
+
+    cols_info = conn.execute(f'DESCRIBE "{table_name}"').fetchall()
+    columns = [row[0] for row in cols_info]
+    row_count = conn.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
+    return {'columns': columns, 'row_count': row_count}
+
+
+def _native_clean_columns(
+    conn: duckdb.DuckDBPyConnection,
+    table_name: str,
+    columns: list[str],
+) -> list[str]:
+    """在 DuckDB 内用 ALTER TABLE RENAME COLUMN 清洗列名，返回清洗后的列名列表。"""
+    cleaned = []
+    for col in columns:
+        new_name = clean_column_name(col)
+        if new_name != col:
+            safe_old = col.replace('"', '""')
+            safe_new = new_name.replace('"', '""')
+            try:
+                conn.execute(
+                    f'ALTER TABLE "{table_name}" RENAME COLUMN "{safe_old}" TO "{safe_new}"'
+                )
+            except Exception:
+                new_name = col
+        cleaned.append(new_name)
+    return cleaned
+
+
+def _native_clean_thousands(
+    conn: duckdb.DuckDBPyConnection,
+    table_name: str,
+    dict_data: dict | None,
+    columns: list[str],
+) -> None:
+    """在 DuckDB 内用 UPDATE + REPLACE 清洗千分位分隔符。"""
+    if not dict_data:
+        return
+    fields_needing_cleaning = [
+        f for f in dict_data.get('fields', [])
+        if f.get('requires_cleaning') == 'thousands_separator'
+    ]
+    for field_def in fields_needing_cleaning:
+        for candidate in field_def.get('physical_candidates', []):
+            cleaned_candidate = clean_column_name(candidate)
+            if cleaned_candidate in columns:
+                safe_col = cleaned_candidate.replace('"', '""')
+                try:
+                    conn.execute(
+                        f'UPDATE "{table_name}" SET "{safe_col}" = '
+                        f"REPLACE(\"{safe_col}\", ',', '') "
+                        f"WHERE \"{safe_col}\" LIKE '%,%'"
+                    )
+                except Exception:
+                    pass
+                break
+
+
+def _native_cast_floats(
+    conn: duckdb.DuckDBPyConnection,
+    table_name: str,
+    dict_data: dict | None,
+    columns: list[str],
+) -> None:
+    """将字典中标注 dtype=float 的列转为 DOUBLE 类型。"""
+    if not dict_data:
+        return
+    for field_def in dict_data.get('fields', []):
+        if field_def.get('dtype') == 'float':
+            for candidate in field_def.get('physical_candidates', []):
+                cleaned_candidate = clean_column_name(candidate)
+                if cleaned_candidate in columns:
+                    safe_col = cleaned_candidate.replace('"', '""')
+                    try:
+                        conn.execute(
+                            f'ALTER TABLE "{table_name}" ALTER COLUMN '
+                            f'"{safe_col}" TYPE DOUBLE'
+                        )
+                    except Exception:
+                        pass
+                    break
+
+
+# ═══════════════════════════════════════════════════════════════
 #  主加载函数
 # ═══════════════════════════════════════════════════════════════
+
+LARGE_FILE_THRESHOLD = 10 * 1024 * 1024  # 10MB
+
 
 def load_file(
     file_path: str,
     table_name: str,
     date_tag: str | None = None,
     table_type: str | None = None,
+    sheet_select: str | list[int] | None = None,
 ) -> LoadResult:
     """
     加载 CSV/Excel 文件到 DuckDB。
 
     参数:
-      file_path:   文件绝对路径
-      table_name:  注册到 DuckDB 的表名（如 holding_20260515）
-      date_tag:    数据日期（如 20260515），用于时效校验
-      table_type:  表类型（holding/nav/rating_entity/rating_bond），用于字典映射
+      file_path:    文件绝对路径
+      table_name:   注册到 DuckDB 的表名（如 holding_20260515）
+      date_tag:     数据日期（如 20260515），用于时效校验
+      table_type:   表类型（holding/nav/rating_entity/rating_bond），用于字典映射
+      sheet_select: Excel Sheet 选择（"first" / "merge_all" / [0,2]），
+                    None 表示使用默认行为（自动检测同构合并）
 
     处理流程：
       1. chardet 检测编码
-      2. pandas 读取 CSV/Excel
+      2. pandas 读取 CSV/Excel（大文件走 DuckDB 原生或逐Sheet流式）
       3. 列名清洗 + 千分位数值清洗
       4. 数据字典字段映射
       5. 实体归一（如适用）
@@ -541,43 +734,60 @@ def load_file(
     # ── 1. 检测编码 + 读取 ──────────────────────────────────
     ext = Path(file_path).suffix.lower()
     encoding = 'utf-8'
+    safe_table = table_name.replace('-', '_').replace('.', '_')
 
     if ext == '.csv':
         encoding = detect_encoding(file_path)
-        df = None
-        # 轮询候选编码：先用检测最优，再逐一尝试其他
-        candidates = [encoding] + [e for e in ['gb18030', 'utf-8', 'gbk', 'latin-1']
-                                    if e.lower() != encoding.lower()]
-        last_err = None
-        for enc in candidates:
-            try:
-                df = pd.read_csv(file_path, encoding=enc, dtype=str,
-                                 keep_default_na=False, na_values=[''])
-                encoding = enc
-                break
-            except (UnicodeDecodeError, LookupError) as e:
-                last_err = e
-                continue
-        if df is None:
-            # 最终兜底：encoding_errors='replace'（pandas 1.3+），保证不崩溃
-            try:
-                df = pd.read_csv(file_path, encoding='utf-8',
-                                 encoding_errors='replace', dtype=str,
-                                 keep_default_na=False, na_values=[''])
-            except TypeError:
-                # pandas < 1.3 不支持 encoding_errors，用 Python open 包裹
-                with open(file_path, encoding='utf-8', errors='replace') as fh:
-                    df = pd.read_csv(fh, dtype=str,
-                                     keep_default_na=False, na_values=[''])
-            encoding = 'utf-8 (fallback)'
-            warnings.append(f"编码检测失败（{last_err}），已用 utf-8+replace 兜底读取，请确认数据是否正确")
+        dict_data = load_dictionary(table_type) if table_type else None
+
+        # 尝试 DuckDB 原生 CSV 加载（绕过 Pandas，零内存开销）
+        native_result = _load_csv_native(conn, file_path, safe_table, encoding)
+        if native_result is not None:
+            columns = _native_clean_columns(conn, safe_table, native_result['columns'])
+            _native_clean_thousands(conn, safe_table, dict_data, columns)
+            _native_cast_floats(conn, safe_table, dict_data, columns)
+
+            field_map, unmatched_cols, missing_required = (
+                _apply_mapping_on_columns(columns, table_type)
+            )
+            if missing_required:
+                warnings.append(
+                    f"字典中标记为必填的字段在数据中未找到：{'、'.join(missing_required)}"
+                )
+
+            result = LoadResult(
+                table_name=safe_table,
+                file_path=file_path,
+                row_count=native_result['row_count'],
+                col_count=len(columns),
+                encoding=encoding,
+                date_tag=date_tag,
+                field_map=field_map,
+                unmatched_cols=unmatched_cols,
+                missing_required=missing_required,
+                warnings=warnings,
+                table_type=table_type or 'unknown',
+            )
+            _finalize_load(conn, safe_table, result, table_type, dict_data)
+            return result
+
+        # DuckDB 原生失败 → 回退到 Pandas 路径
+        df = _load_csv_pandas(file_path, encoding, warnings)
 
     elif ext in ('.xlsx', '.xls'):
         encoding = 'n/a'
-        from tools.excel_preprocessor import preprocess_excel
-        prep = preprocess_excel(file_path)
-        df = prep.df
-        warnings.extend(prep.warnings)
+        file_size = Path(file_path).stat().st_size
+
+        if file_size > LARGE_FILE_THRESHOLD:
+            return _load_excel_streaming(
+                conn, file_path, safe_table, table_type, date_tag,
+                sheet_select=sheet_select,
+            )
+        else:
+            from tools.excel_preprocessor import preprocess_excel
+            prep = preprocess_excel(file_path, sheet_select=sheet_select)
+            df = prep.df
+            warnings.extend(prep.warnings)
     else:
         raise ValueError(f"不支持的文件格式：{ext}（支持 .csv, .xlsx, .xls）")
 
@@ -599,7 +809,6 @@ def load_file(
                         df[candidate] = df[candidate].apply(clean_thousands_separator)
                         break
 
-            # 将字典中标注 dtype=float 的列转为数值类型
             for field_def in dict_data.get('fields', []):
                 if field_def.get('dtype') == 'float':
                     for candidate in field_def.get('physical_candidates', []):
@@ -618,9 +827,6 @@ def load_file(
             warnings.append(
                 f"字典中标记为必填的字段在数据中未找到：{'、'.join(missing_required)}"
             )
-        if unmatched_cols:
-            # 非错误，仅记录（辅助字段可能未被字典覆盖）
-            pass
 
     # ── 5. 实体归一化 ─────────────────────────────────────
     if table_type:
@@ -630,7 +836,6 @@ def load_file(
 
     # ── 6. 注册到 DuckDB ─────────────────────────────────
     quoted_cols = [f'"{c}"' for c in df.columns]
-    safe_table = table_name.replace('-', '_').replace('.', '_')
     col_defs = ', '.join(quoted_cols)
 
     conn.execute(f'CREATE OR REPLACE TABLE "{safe_table}" AS SELECT {col_defs} FROM df')
@@ -651,7 +856,86 @@ def load_file(
         table_type=table_type or 'unknown',
     )
 
-    # ── 8. 数据质量诊断 ──────────────────────────────────
+    _finalize_load(conn, safe_table, result, table_type, dict_data)
+    return result
+
+
+def _load_csv_pandas(
+    file_path: str, encoding: str, warnings: list[str],
+) -> pd.DataFrame:
+    """Pandas CSV 加载（DuckDB 原生失败时的回退路径）。"""
+    df = None
+    candidates = [encoding] + [
+        e for e in ['gb18030', 'utf-8', 'gbk', 'latin-1']
+        if e.lower() != encoding.lower()
+    ]
+    last_err = None
+    for enc in candidates:
+        try:
+            df = pd.read_csv(file_path, encoding=enc, dtype=str,
+                             keep_default_na=False, na_values=[''])
+            break
+        except (UnicodeDecodeError, LookupError) as e:
+            last_err = e
+            continue
+    if df is None:
+        try:
+            df = pd.read_csv(file_path, encoding='utf-8',
+                             encoding_errors='replace', dtype=str,
+                             keep_default_na=False, na_values=[''])
+        except TypeError:
+            with open(file_path, encoding='utf-8', errors='replace') as fh:
+                df = pd.read_csv(fh, dtype=str,
+                                 keep_default_na=False, na_values=[''])
+        warnings.append(
+            f"编码检测失败（{last_err}），已用 utf-8+replace 兜底读取，请确认数据是否正确"
+        )
+    return df
+
+
+def _apply_mapping_on_columns(
+    columns: list[str], table_type: str | None,
+) -> tuple[dict, list, list]:
+    """对列名列表应用字典映射（用于 DuckDB 原生加载路径，无 DataFrame）。"""
+    if not table_type:
+        return {}, list(columns), []
+
+    dict_data = load_dictionary(table_type)
+    if dict_data is None:
+        return {}, list(columns), []
+
+    field_map: dict[str, str] = {}
+    missing_required: list[str] = []
+    actual_cols = set(columns)
+    fields = dict_data.get('fields', [])
+
+    for field_def in fields:
+        semantic = field_def['semantic']
+        found = False
+        for candidate in field_def.get('physical_candidates', []):
+            if candidate in actual_cols:
+                field_map[semantic] = candidate
+                found = True
+                break
+        if not found and field_def.get('required', False):
+            missing_required.append(semantic)
+
+    all_candidates = set()
+    for field_def in fields:
+        all_candidates.update(field_def.get('physical_candidates', []))
+    unmatched_cols = [c for c in actual_cols if c not in all_candidates]
+
+    return field_map, unmatched_cols, missing_required
+
+
+def _finalize_load(
+    conn: duckdb.DuckDBPyConnection,
+    safe_table: str,
+    result: LoadResult,
+    table_type: str | None,
+    dict_data: dict | None,
+) -> None:
+    """加载后公共收尾：质量诊断 + 注册 + 持久化 + Hook。"""
     if table_type and dict_data:
         try:
             from tools.quality import compute_quality_report
@@ -660,7 +944,7 @@ def load_file(
                 if f.get('required') or f.get('is_key')
             ]
             result.quality_report = compute_quality_report(
-                conn, safe_table, table_type, field_map,
+                conn, safe_table, table_type, result.field_map,
                 key_fields=key_fields if key_fields else None,
             )
         except Exception as e:
@@ -669,7 +953,6 @@ def load_file(
     _loaded_tables[safe_table] = result
     _save_table_metadata()
 
-    # Emit on_data_load hook (I-5b)
     try:
         from agent.hooks import get_hook_manager
         get_hook_manager().emit("on_data_load", {
@@ -681,6 +964,115 @@ def load_file(
     except Exception:
         pass
 
+
+def _load_excel_streaming(
+    conn: duckdb.DuckDBPyConnection,
+    file_path: str,
+    safe_table: str,
+    table_type: str | None,
+    date_tag: str | None,
+    sheet_select: str | list[int] | None = None,
+) -> LoadResult:
+    """大 Excel 文件逐 Sheet 流式加载：每个 Sheet 处理后立即写入 DuckDB 并释放内存。"""
+    import gc
+    from tools.excel_preprocessor import preprocess_excel_streaming
+
+    warnings: list[str] = []
+    total_rows = 0
+    col_count = 0
+    field_map: dict[str, str] = {}
+    unmatched_cols: list[str] = []
+    missing_required: list[str] = []
+    dict_data = load_dictionary(table_type) if table_type else None
+    sheet_count = 0
+
+    for df, info, is_compatible in preprocess_excel_streaming(
+        file_path, sheet_select=sheet_select
+    ):
+        df.columns = [clean_column_name(c) for c in df.columns]
+
+        if dict_data:
+            fields_needing_cleaning = [
+                f for f in dict_data.get('fields', [])
+                if f.get('requires_cleaning') == 'thousands_separator'
+            ]
+            for field_def in fields_needing_cleaning:
+                for candidate in field_def.get('physical_candidates', []):
+                    if candidate in df.columns:
+                        df[candidate] = df[candidate].apply(clean_thousands_separator)
+                        break
+            for field_def in dict_data.get('fields', []):
+                if field_def.get('dtype') == 'float':
+                    for candidate in field_def.get('physical_candidates', []):
+                        if candidate in df.columns:
+                            df[candidate] = pd.to_numeric(df[candidate], errors='coerce')
+                            break
+
+        if sheet_count == 0:
+            if table_type:
+                field_map, unmatched_cols, missing_required = (
+                    apply_dictionary_mapping(df, table_type)
+                )
+                normalized_col = normalize_entity_column(df, field_map, table_type)
+                if normalized_col:
+                    field_map['限额占用主体_标准'] = normalized_col
+
+            quoted_cols = [f'"{c}"' for c in df.columns]
+            col_defs = ', '.join(quoted_cols)
+            conn.execute(
+                f'CREATE OR REPLACE TABLE "{safe_table}" AS SELECT {col_defs} FROM df'
+            )
+            col_count = len(df.columns)
+        elif is_compatible:
+            if table_type and table_type in ('holding', 'rating_entity', 'rating_bond'):
+                normalize_entity_column(df, field_map, table_type)
+            quoted_cols = [f'"{c}"' for c in df.columns]
+            col_defs = ', '.join(quoted_cols)
+            conn.execute(
+                f'INSERT INTO "{safe_table}" SELECT {col_defs} FROM df'
+            )
+        else:
+            warnings.append(
+                f"Sheet「{info.name}」列结构不同，已跳过"
+            )
+            del df
+            gc.collect()
+            sheet_count += 1
+            continue
+
+        total_rows += info.row_count
+        del df
+        gc.collect()
+        sheet_count += 1
+
+    if sheet_count == 0:
+        raise ValueError(f"Excel 文件无有效数据：{file_path}")
+
+    if sheet_count > 1:
+        warnings.append(f"已流式加载 {sheet_count} 个 Sheet（共 {total_rows} 行）")
+
+    if missing_required:
+        warnings.append(
+            f"字典中标记为必填的字段在数据中未找到：{'、'.join(missing_required)}"
+        )
+
+    row_count = conn.execute(f'SELECT COUNT(*) FROM "{safe_table}"').fetchone()[0]
+
+    result = LoadResult(
+        table_name=safe_table,
+        file_path=file_path,
+        row_count=row_count,
+        col_count=col_count,
+        encoding='n/a',
+        date_tag=date_tag,
+        field_map=field_map,
+        unmatched_cols=unmatched_cols,
+        missing_required=missing_required,
+        warnings=warnings,
+        table_type=table_type or 'unknown',
+    )
+
+    _finalize_load(conn, safe_table, result, table_type, dict_data)
     return result
 
 
@@ -697,3 +1089,18 @@ def drop_table(table_name: str) -> bool:
     del _loaded_tables[table_name]
     _save_table_metadata()
     return True
+
+
+def evict_old_versions(table_type: str, max_versions: int) -> list[str]:
+    """按 date_tag 降序保留最新 max_versions 个同类型表，淘汰多余版本。返回被淘汰的表名。"""
+    same_type = [
+        (name, r) for name, r in _loaded_tables.items()
+        if r.table_type == table_type and r.date_tag
+    ]
+    same_type.sort(key=lambda x: x[1].date_tag or '', reverse=True)
+
+    evicted = []
+    for name, _ in same_type[max_versions:]:
+        drop_table(name)
+        evicted.append(name)
+    return evicted

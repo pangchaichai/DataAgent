@@ -1,0 +1,28 @@
+description: 账户流水表
+table_type: account_flow
+fields:
+  - semantic: 记账日期
+    dtype: date
+    required: true
+    physical_candidates: [记账日期, 交易日期, 统计日期, 数据日期]
+  - semantic: 产品名称
+    dtype: str
+    required: true
+    physical_candidates: [产品名称, 产品简称, 组合名称]
+  - semantic: 摘要
+    dtype: str
+    physical_candidates: [摘要, 交易摘要, 业务摘要]
+  - semantic: 金额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [金额, 发生金额, 交易金额]
+  - semantic: 余额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [余额, 账户余额]
+  - semantic: 币种
+    dtype: str
+    physical_candidates: [币种, 货币]
+  - semantic: 对手方
+    dtype: str
+    physical_candidates: [对手方, 交易对手, 对方户名]

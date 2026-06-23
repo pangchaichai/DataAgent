@@ -33,13 +33,30 @@ class PreprocessResult:
     sheets_concatenated: bool = False
 
 
-def preprocess_excel(file_path: str) -> PreprocessResult:
-    """主入口：自动检测标题行、多层表头、多Sheet，返回干净 DataFrame。"""
+def preprocess_excel(
+    file_path: str,
+    sheet_select: str | list[int] | None = None,
+) -> PreprocessResult:
+    """主入口：自动检测标题行、多层表头、多Sheet，返回干净 DataFrame。
+
+    sheet_select:
+      None / "merge_all" → 默认行为（同构合并，不同构取首Sheet）
+      "first"            → 只处理第一个非空 Sheet
+      [0, 2]             → 只处理指定索引的 Sheet
+    """
     ext = os.path.splitext(file_path)[1].lower()
     if ext not in ('.xlsx', '.xls'):
         raise ValueError(f"不支持的文件格式：{ext}")
 
     raw_sheets = _read_raw_sheets(file_path, ext)
+
+    if sheet_select == "first" and raw_sheets:
+        raw_sheets = raw_sheets[:1]
+    elif isinstance(sheet_select, list) and raw_sheets:
+        raw_sheets = [
+            raw_sheets[i] for i in sheet_select
+            if 0 <= i < len(raw_sheets)
+        ]
 
     if not raw_sheets:
         return PreprocessResult(df=pd.DataFrame(), sheet_info=[],
@@ -251,3 +268,44 @@ def _check_column_compatibility(sheet_infos):
         return True
     first = sheet_infos[0].columns
     return all(info.columns == first for info in sheet_infos[1:])
+
+
+def preprocess_excel_streaming(
+    file_path: str,
+    sheet_select: str | list[int] | None = None,
+):
+    """逐Sheet产出处理结果，降低大文件内存峰值。
+
+    yield (df, sheet_info, is_compatible_with_first)
+
+    调用方将每个 Sheet 注册到 DuckDB 后释放 DataFrame。
+    同构 Sheet 合并通过 DuckDB INSERT INTO 实现（非 pandas concat）。
+    """
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext not in ('.xlsx', '.xls'):
+        raise ValueError(f"不支持的文件格式：{ext}")
+
+    raw_sheets = _read_raw_sheets(file_path, ext)
+    if not raw_sheets:
+        return
+
+    if sheet_select == "first":
+        raw_sheets = raw_sheets[:1]
+    elif isinstance(sheet_select, list):
+        raw_sheets = [
+            raw_sheets[i] for i in sheet_select
+            if 0 <= i < len(raw_sheets)
+        ]
+
+    first_columns = None
+    for name, rows, merged in raw_sheets:
+        result = _process_single_sheet(name, rows, merged)
+        if result is None:
+            continue
+        df, info = result
+        is_compatible = True
+        if first_columns is None:
+            first_columns = info.columns
+        else:
+            is_compatible = (info.columns == first_columns)
+        yield df, info, is_compatible

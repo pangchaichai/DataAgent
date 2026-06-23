@@ -4,7 +4,34 @@
 
 ---
 
-## 当前阶段：数据上传增强完成 → 待 UAT 验收
+## 当前阶段：大数据量适配完成 → 待 Windows 实机验证
+
+## 大数据量适配（Phase 0/1/2）✅ 完成（2026-06-23）
+✅ 已测（684 tests 通过，L4 待 Windows 实机 UAT）
+
+### 改动范围
+- [x] `config.example.yaml`（修改）— 新增 duckdb.db_path + app.auto_load 配置段
+- [x] `.gitignore`（修改）— 新增 data/*.duckdb.wal
+- [x] `main.py`（修改）— DuckDB 文件模式早期初始化 + 自动加载入口
+- [x] `tools/data_loader.py`（修改）— 原生CSV加载 + 流式Excel + 日期增强 + 版本淘汰 + 共享同义词 + DICT_TABLE_MAP扩展
+- [x] `tools/excel_preprocessor.py`（修改）— preprocess_excel_streaming() + sheet_select
+- [x] `tools/workdir_loader.py`（修改）— auto_load_workdir()
+- [x] `data_dictionary/shared_synonyms.yaml`（**新建**）— 跨表共享同义词库
+- [x] `data_dictionary/holding_detail_dict.yaml`（**新建**）
+- [x] `data_dictionary/valuation_dict.yaml`（**新建**）
+- [x] `data_dictionary/subscription_dict.yaml`（**新建**）
+- [x] `data_dictionary/asset_position_dict.yaml`（**新建**）
+- [x] `data_dictionary/cashflow_gap_dict.yaml`（**新建**）
+- [x] `data_dictionary/bond_pledge_dict.yaml`（**新建**）
+- [x] `data_dictionary/account_flow_dict.yaml`（**新建**）
+- [x] `data_dictionary/repo_trade_dict.yaml`（**新建**）
+- [x] `data_dictionary/fund_position_dict.yaml`（**新建**）
+- [x] `tests/test_large_data.py`（**新建**）— 45 个测试覆盖全部 3 个 Phase
+
+### 测试结果
+- 684 passed, 5 skipped, 0 failed（+45 新测试，零回归）
+
+---
 
 ## 数据上传增强（Excel 预处理 + 分组管理）✅ 完成（2026-06-22）
 ✅ 已测（642 tests 通过，前端待 UAT 验收）

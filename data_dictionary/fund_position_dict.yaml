@@ -1,0 +1,24 @@
+description: 组合资金账户头寸表
+table_type: fund_position
+fields:
+  - semantic: 统计日期
+    dtype: date
+    required: true
+    physical_candidates: [统计日期, 数据日期, 查询日]
+  - semantic: 产品名称
+    dtype: str
+    required: true
+    physical_candidates: [产品名称, 产品简称, 组合名称]
+  - semantic: 账户名称
+    dtype: str
+    physical_candidates: [账户名称, 资金账户, 账户]
+  - semantic: 余额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [余额, 可用余额, 资金余额, 账户余额]
+  - semantic: 币种
+    dtype: str
+    physical_candidates: [币种, 货币]
+  - semantic: 账户类型
+    dtype: str
+    physical_candidates: [账户类型, 类型]

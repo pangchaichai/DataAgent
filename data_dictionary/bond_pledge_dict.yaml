@@ -1,0 +1,31 @@
+description: 债券质押查询表
+table_type: bond_pledge
+fields:
+  - semantic: 统计日期
+    dtype: date
+    required: true
+    physical_candidates: [统计日期, 数据日期, 查询日期]
+  - semantic: 产品名称
+    dtype: str
+    required: true
+    physical_candidates: [产品名称, 产品简称, 组合名称]
+  - semantic: 债券代码
+    dtype: str
+    physical_candidates: [债券代码, 资产代码, 证券代码]
+  - semantic: 债券名称
+    dtype: str
+    physical_candidates: [债券名称, 债券简称, 资产名称]
+  - semantic: 质押面值
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [质押面值, 质押券面值, 面值]
+  - semantic: 质押市值
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [质押市值, 质押券市值]
+  - semantic: 质押率
+    dtype: float
+    physical_candidates: [质押率, 折算率]
+  - semantic: 交易对手
+    dtype: str
+    physical_candidates: [交易对手, 对手方, 质押方]

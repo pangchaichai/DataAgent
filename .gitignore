@@ -16,6 +16,7 @@ data/compliance_audit/*
 config.yaml
 .env
 data/*.duckdb
+data/*.duckdb.wal
 data/memory.db
 .pytest_cache/
 *.tmp

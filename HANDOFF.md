@@ -8,9 +8,48 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-22
+- **日期**：2026-06-23
 - **提交**：（待提交）
-- **分支**：`claude/happy-euler-awvv3j`
+- **分支**：`claude/magical-cray-m7gu8w`
+
+---
+
+## 上次会话完成的工作（2026-06-23，第二十三轮）
+
+### 大数据量适配方案 — Phase 0/1/2 全部完成
+
+**背景**：用户实际使用场景为每日 14 个 Excel/CSV 文件，总计 ~490MB / 115万行，超出原始内存模式设计预期。
+
+**Phase 0：DuckDB 文件持久化 + 内存优化加载**
+- `config.example.yaml`：新增 `duckdb.db_path` 配置项，`max_memory` 提升到 300MB
+- `main.py`：DuckDB 文件模式早期初始化（在 Flask/API 之前），读取 config 配置
+- `tools/data_loader.py`：
+  - DuckDB 原生 CSV 加载 `_load_csv_native()` — 绕过 Pandas，零内存开销
+  - Excel 逐Sheet流式加载 `_load_excel_streaming()` — 降低大文件内存峰值
+  - 日期提取增强：支持 `YYYY-MM-DD` 和 ISO timestamp 格式
+  - 版本淘汰 `evict_old_versions()` — 按 date_tag 降序保留最新 N 个
+- `tools/excel_preprocessor.py`：新增 `preprocess_excel_streaming()` + `sheet_select` 参数
+- `.gitignore`：新增 `data/*.duckdb.wal`
+
+**Phase 1：工作目录自动加载**
+- `config.example.yaml`：新增 `app.auto_load` 配置段（14 种文件规则）
+- `tools/workdir_loader.py`：新增 `auto_load_workdir()` — 启动时自动/增量加载
+- `main.py`：自动加载入口集成
+
+**Phase 2：字段映射扩展**
+- 9 个新数据字典 YAML（data_dictionary/）：holding_detail, valuation, subscription, asset_position, cashflow_gap, bond_pledge, account_flow, repo_trade, fund_position
+- `data_dictionary/shared_synonyms.yaml`（**新建**）：跨表共享同义词库
+- `tools/data_loader.py`：`DICT_TABLE_MAP` 扩展 + `_merge_shared_synonyms()` + 冲突检测
+
+**测试结果**：684 passed, 5 skipped, 0 failed（+45 新测试，零回归）
+
+---
+
+## 立即可执行的下一步
+1. **Windows UAT 验证**：在实际 Windows 环境 + 14 个真实数据文件上测试自动加载
+2. **内存实测**：285MB 持仓 .xls 流式加载内存峰值确认
+3. **config.yaml 配置**：用户配置 `work_dir` + `auto_load.enabled: true`
+4. **data_loader.py 拆分**（可选）：文件已达 1106 行，可拆分为 csv_loader/excel_loader 子模块
 
 ---
 

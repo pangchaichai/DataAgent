@@ -1,0 +1,31 @@
+description: 质押式回购投资交易查询表
+table_type: repo_trade
+fields:
+  - semantic: 统计日期
+    dtype: date
+    required: true
+    physical_candidates: [统计日期, 数据日期, 交易日期, 成交日期]
+  - semantic: 产品名称
+    dtype: str
+    required: true
+    physical_candidates: [产品名称, 产品简称, 组合名称]
+  - semantic: 交易对手
+    dtype: str
+    physical_candidates: [交易对手, 对手方, 融资方]
+  - semantic: 成交金额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [成交金额, 交易金额, 首期结算金额]
+  - semantic: 利率
+    dtype: float
+    physical_candidates: [利率, 回购利率, 成交利率, 年化利率]
+  - semantic: 期限
+    dtype: str
+    physical_candidates: [期限, 回购期限, 天数]
+  - semantic: 到期日
+    dtype: date
+    physical_candidates: [到期日, 到期日期, 到期结算日]
+  - semantic: 到期金额
+    dtype: float
+    requires_cleaning: thousands_separator
+    physical_candidates: [到期金额, 到期结算金额]
