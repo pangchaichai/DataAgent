@@ -8,44 +8,37 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-23
+- **日期**：2026-06-24
 - **提交**：（待提交）
 - **分支**：`claude/magical-cray-m7gu8w`
 
 ---
 
-## 上次会话完成的工作（2026-06-23，第二十四轮）
+## 上次会话完成的工作（2026-06-24，第二十五轮）
 
-### 测试数据生成器 + UAT/性能集成测试
+### Phase A：data_loader.py 拆分（数据源管理智能化升级的前置步骤）
 
-**背景**：基于用户提供的 14 个真实 Excel 样例文件（zip包），生成 UAT 和性能测试数据，验证大数据量适配方案的功能正确性和性能容量。
+**背景**：`data_loader.py` 达 1106 行（规范上限 300 行的 3.7 倍），作为后续智能识别、远程数据库、资讯 API 三大功能的前置条件，先完成模块拆分。
 
-**测试数据生成器 `scripts/generate_test_data.py`**
-- 14 种文件类型的数据生成函数，列名和数据格式完全匹配真实样本
-- UAT 数据（`data/test_data/uat/`）：14 个小文件（40-200 行），验证加载+映射正确性
-- 性能数据（`data/test_data/perf/`）：含 12.1MB 多Sheet XLS（3 sheets × 5K rows）、30K 行 XLSX、多个千行级文件
-- 性能 CSV 数据（`data/test_data/perf/csv/`）：50K 行 UTF-8 CSV（24.3MB）、GB18030 编码 CSV（19.7MB）
-- 支持 `--uat` / `--perf` / `--perf-csv` 独立生成
+**拆分结果**（1106 行 → 4 个模块）：
+- `tools/data_loader.py`（**门面模块，~230 行**）— LoadResult、DuckDB 连接管理、表注册表查询、表类型检测、日期提取 + 子模块 re-export
+- `tools/encoding.py`（**新建，~135 行**）— 多编码竞争评分、列名清洗、千分位清洗
+- `tools/dict_mapper.py`（**新建，~215 行**）— DICT_TABLE_MAP、字典加载/映射、共享同义词、实体归一、用户档案校验
+- `tools/file_ingest.py`（**新建，~570 行**）— CSV/Excel 加载引擎全部函数（原生/Pandas/流式）、表卸载与版本淘汰
 
-**集成测试 `tests/test_large_data_integration.py`**（38 个测试，全部通过）
-- `TestUATFileLoading`：14 种文件加载 + 10 种日期提取
-- `TestUATTableTypes`：DICT_TABLE_MAP 覆盖验证
-- `TestUATFieldMapping`：持仓/底层持仓/净值/监控 4 种表字段映射
-- `TestUATAutoLoad`：auto_load_workdir 14 文件全匹配（patch get_work_dir）
-- `TestPerfLargeExcel`：>10MB XLS 流式加载、30K 行 XLSX、多Sheet 合并
-- `TestPerfNativeCSV`：50K 行 UTF-8/GB18030 原生加载、3 CSV 串行基准
-- `TestPerfVersionEviction`：版本淘汰保留最新
-- `TestPerfMemory`：Python 内存峰值 <500MB 验证
+**向后兼容**：所有 20+ 处外部 `from tools.data_loader import ...` 无需修改，通过门面 re-export 保持兼容。
 
-**测试结果**：722 passed, 5 skipped, 0 failed（+38 新集成测试，零回归）
+**测试修正**：`test_large_data.py` 中 4 个直接引用私有函数的测试更新为从新模块导入。
+
+**测试结果**：722 passed, 5 skipped, 0 failed（零回归）
 
 ---
 
 ## 立即可执行的下一步
-1. **Windows UAT 验证**：在实际 Windows 环境 + 14 个真实数据文件上测试自动加载
-2. **内存实测**：285MB 持仓 .xls 流式加载内存峰值确认
-3. **config.yaml 配置**：用户配置 `work_dir` + `auto_load.enabled: true`
-4. **data_loader.py 拆分**（可选）：文件已达 1106 行，可拆分为 csv_loader/excel_loader 子模块
+1. **Phase B：智能数据识别**（`tools/smart_recognizer.py`）— LLM function-calling 增强表类型识别和字段映射
+2. **Phase C：远程数据库支持**（`tools/remote_db.py`）— 企业内部数据库连接管理 + API + UI
+3. **Phase D：金融资讯 API**（`tools/vendor_api.py`）— Choice + iFind 实现，Wind 预留
+4. **综合计划详见**：`.claude/plans/replicated-sprouting-biscuit.md`
 
 ---
 

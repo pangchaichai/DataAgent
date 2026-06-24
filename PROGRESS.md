@@ -4,7 +4,22 @@
 
 ---
 
-## 当前阶段：大数据量适配完成 + 测试数据生成器 → 待 Windows 实机验证
+## 当前阶段：数据源管理智能化升级 Phase A 完成 → Phase B/C/D 待实施
+
+## Phase A：data_loader.py 拆分 ✅ 完成（2026-06-24）
+✅ 已测（722 tests 通过，零回归）
+
+### 改动范围
+- [x] `tools/data_loader.py`（重写为门面模块，1106→230 行）— LoadResult + DuckDB 连接 + 表注册 + re-export
+- [x] `tools/encoding.py`（**新建**）— 编码检测 + 列名清洗 + 千分位清洗
+- [x] `tools/dict_mapper.py`（**新建**）— 字典映射 + 共享同义词 + 实体归一 + 用户档案校验
+- [x] `tools/file_ingest.py`（**新建**）— 文件加载引擎（CSV/Excel → DuckDB）
+- [x] `tests/test_large_data.py`（修改）— 私有函数引用更新为从新模块导入
+
+### 测试结果
+- 722 passed, 5 skipped, 0 failed（零回归）
+
+---
 
 ## 测试数据生成器 + 集成测试 ✅ 完成（2026-06-23）
 ✅ 已测（722 tests 通过，L4 待 Windows 实机 UAT）

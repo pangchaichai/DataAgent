@@ -22,6 +22,12 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import tools.data_loader as dl
+from tools.file_ingest import (
+    _load_csv_native,
+    _load_excel_streaming,
+    _native_clean_columns,
+)
+from tools.dict_mapper import _load_shared_synonyms
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -212,7 +218,7 @@ class TestNativeCSVLoad:
     def test_native_utf8(self, utf8_csv):
         """UTF-8 CSV 走原生路径成功。"""
         conn = dl.init_duckdb_connection()
-        result = dl._load_csv_native(conn, utf8_csv, "native_utf8", "utf-8")
+        result = _load_csv_native(conn, utf8_csv, "native_utf8", "utf-8")
         assert result is not None
         assert result['row_count'] == 2
         assert '产品名称' in result['columns']
@@ -220,7 +226,7 @@ class TestNativeCSVLoad:
     def test_native_gb18030(self, gb18030_csv):
         """GB18030 CSV 走原生路径（DuckDB 可能不支持 → 回退 None）。"""
         conn = dl.init_duckdb_connection()
-        result = dl._load_csv_native(conn, gb18030_csv, "native_gb", "gb18030")
+        result = _load_csv_native(conn, gb18030_csv, "native_gb", "gb18030")
         # DuckDB 原生可能不支持 gb18030，此时返回 None 是正确行为
         # 如果返回结果，验证数据正确性
         if result is not None:
@@ -238,9 +244,9 @@ class TestNativeCSVLoad:
         p = tmp_path / "space_cols.csv"
         p.write_text("  产品名称 ,金额\nA,100\n", encoding="utf-8")
         conn = dl.init_duckdb_connection()
-        result = dl._load_csv_native(conn, str(p), "clean_test", "utf-8")
+        result = _load_csv_native(conn, str(p), "clean_test", "utf-8")
         assert result is not None
-        cols_out = dl._native_clean_columns(conn, "clean_test", result['columns'])
+        cols_out = _native_clean_columns(conn, "clean_test", result['columns'])
         assert "产品名称" in cols_out
 
     def test_pandas_fallback_on_native_failure(self, gb18030_csv):
@@ -304,7 +310,7 @@ class TestExcelStreaming:
 
         dl.init_duckdb_connection()
         conn = dl.get_connection()
-        result = dl._load_excel_streaming(
+        result = _load_excel_streaming(
             conn, str(p), "stream_test", None, None,
         )
         assert result.row_count == 30
@@ -544,7 +550,7 @@ class TestDictTableMapExtension:
 class TestSharedSynonyms:
     def test_synonyms_file_loads(self):
         """shared_synonyms.yaml 可正常加载。"""
-        syns = dl._load_shared_synonyms()
+        syns = _load_shared_synonyms()
         assert "product_name" in syns
         assert "entity_name" in syns
         assert "stat_date" in syns
