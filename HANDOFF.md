@@ -14,34 +14,33 @@
 
 ---
 
-## 上次会话完成的工作（2026-06-24，第二十八轮）
+## 上次会话完成的工作（2026-06-24，第二十九轮）
 
-### v3.4 Windows UAT 修复 Round 2 — 4 个 Bug
+### v3.4 Windows UAT 修复 Round 3 — 4 个 Bug
 
-#### Bug 1: 输入框展开/收起无视觉反馈 ✅
-- `ui/js/dom.js`：展开高度 200→280px，按钮添加 `.active` 类切换
-- `ui/css/main.css`：`textarea.expanded` 增加 `min-height:200px`，新增 `.input-expand-btn.active` 蓝色高亮样式
+#### Bug 1: CSV 上传乱码（UTF-8 BOM 处理） ✅
+- **根因**：chardet 返回 `UTF-8-SIG` 编码名，DuckDB 不支持该名称导致 native 加载失败；BOM 字节 (EF BB BF) 解码为 U+FEFF 残留在首列名中
+- `tools/encoding.py`：`_normalize_encoding()` 将 UTF-8-SIG/UTF-8-BOM 归一化为 `utf-8`；`clean_column_name()` 新增 U+FEFF BOM 字符剥离；`detect_encoding()` 新增 BOM 检测优先 UTF-8
 
-#### Bug 2: XLS 合并标题行未识别（xlrd 统一值填充） ✅
-- `tools/excel_preprocessor.py`：`_detect_title_rows()` 新增第三种启发式——当 ≥3 列且 ≥80% 非空单元格值完全相同时，判定为标题行
-- `tests/test_excel_preprocessor.py`：新增 3 个测试（统一值标题/正常表头不误判/多行场景）
+#### Bug 2: 固化计算误触发（Skill 匹配逻辑优化） ✅
+- **根因**：`concentration_monitor` 触发词含泛化词"监控"+ 匹配阈值 >=1 过低 + fast path 直接执行，导致任何含"监控"的查询都触发固化计算
+- `skills/concentration_monitor/SKILL.md`：移除"监控"触发词，保留领域特异性词（集中度/超标/超限等）
+- `agent/skill_loader.py`：匹配阈值从 1 提升至 4（无 @mention）/ 6（有 @mention），@mention 时需更强匹配信号防止误触发
 
-#### Bug 3: Agent 不发现新上传的表 ✅
-- `agent/context.py`：非相关表的 schema 上下文新增列名预览（前 15 列）
-- `prompts/system_prompt.txt`：规则 1 下新增强制指令——找不到字段时必须检查所有其他表
-- `tests/test_context.py`：更新断言匹配新输出格式
+#### Bug 3: 移除集团系配置 UI ✅
+- 用户判断正确：实际使用中会上传集团关系数据文件，手动配置无实用价值
+- `ui/js/pages/rules_page.js`：移除 `_renderGroups()` 方法和 `onEnter()` 中的调用
+- `ui/index.html`：移除集团系关系 HTML 区块，更新页面副标题
 
-#### Bug 4: 脱敏 UX 优化 ✅
-- `ui/css/main.css`：`.sp-col` 布局修复（`align-items:stretch;gap:4px`），消除标签与输入框间大块空白
-- `api/data.py`：上传确认响应新增 `masking_info`（已脱敏字段列表 + 脱敏值总数）
-- `ui/js/upload.js`：单文件/批量上传均展示脱敏反馈信息（橙色锁图标 + 字段名 + 数量）
+#### Bug 4: 剖析页面布局优化 ✅
+- `ui/js/data_tables.js`：字段映射移至列信息上方（最顶部）；新增脱敏字段信息展示（读取 config masking 配置，橙色提示条）
 
-**测试结果**：826 passed, 5 skipped, 1 pre-existing failure（test_skill_api 隔离问题，已确认在 clean HEAD 同样失败）
+**测试结果**：810 passed, 5 skipped, 1 pre-existing failure（test_skill_api 隔离问题）
 
 ---
 
 ## 立即可执行的下一步
-1. **Windows UAT 验收**：在 Windows 环境验收本轮 4 个修复项
+1. **Windows UAT 验收**：在 Windows 环境验收本轮 4 个修复项（特别是 CSV 上传乱码和 Skill 匹配）
 2. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 全量运行时因全局 `_loaded_tables` 泄漏而失败（pre-existing）
 3. **Wind 实现**（Phase E，P3）：目前仅预留接口，后续按需补充具体逻辑
 4. **继续 Phase 5（Windows 打包测试）**：PyInstaller + WebView2 + 完整功能验收

@@ -85,13 +85,22 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
     try:
         with open(file_path, 'rb') as f:
             raw = f.read(sample_bytes)
+
+        has_bom = raw[:3] == b'\xef\xbb\xbf'
+
         chardet_result = chardet.detect(raw)
         chardet_enc = chardet_result.get('encoding', 'utf-8')
+        if chardet_enc:
+            chardet_enc = _normalize_encoding(chardet_enc)
         if chardet_enc and chardet_enc not in candidates:
             candidates.insert(0, chardet_enc)
         elif chardet_enc in candidates:
             candidates.remove(chardet_enc)
             candidates.insert(0, chardet_enc)
+
+        if has_bom and 'utf-8' in candidates:
+            candidates.remove('utf-8')
+            candidates.insert(0, 'utf-8')
     except Exception:
         pass
 
@@ -117,11 +126,20 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
     return best_enc
 
 
+def _normalize_encoding(enc: str) -> str:
+    """将编码名称归一化为 DuckDB/Pandas 通用名。"""
+    upper = enc.upper().replace('-', '').replace('_', '')
+    if upper in ('UTF8SIG', 'UTF8BOM'):
+        return 'utf-8'
+    return enc
+
+
 def clean_column_name(name: str) -> str:
     """
-    清洗列名：去首尾空格、去不可见字符。
+    清洗列名：去首尾空格、去不可见字符、去 BOM。
     """
     name = name.strip()
+    name = name.lstrip('﻿')
     name = re.sub(r'[​‌‍⁠﻿]', '', name)
     return name
 

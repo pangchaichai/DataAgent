@@ -152,6 +152,20 @@ async function openProfile(tableName){
     if(d.error){$('pmBody').innerHTML='<div style="color:var(--red)">'+esc(d.error)+'</div>';return;}
     let html='<div style="margin-bottom:10px;font-size:13px;color:var(--text-2)">'
       +d.row_count+'行 × '+d.columns.length+'列</div>';
+    if(d.field_map&&Object.keys(d.field_map).length){
+      html+='<div style="margin-bottom:10px;padding:8px 10px;background:var(--bg-2);border-radius:6px;font-size:12px;color:var(--text-2)">'
+        +'<b>字段映射：</b>'+Object.entries(d.field_map).map(([k,v])=>esc(k)+' → '+esc(v)).join('、')
+        +'</div>';
+    }
+    try{
+      const mc=await api('GET','/api/config');
+      const masking=mc.config&&mc.config.masking;
+      if(masking&&masking.enabled&&masking.fields){
+        html+='<div style="margin-bottom:10px;padding:8px 10px;background:var(--orange-bg,#fff3e0);border-radius:6px;font-size:12px;color:var(--orange,#e67e22)">'
+          +'<b>脱敏字段：</b>'+esc(masking.fields)
+          +'</div>';
+      }
+    }catch(e){}
     html+='<div class="pm-col">';
     html+='<div class="pm-hdr">列名</div><div class="pm-hdr">类型</div>'
       +'<div class="pm-hdr">空值率</div><div class="pm-hdr">去重</div><div class="pm-hdr">样本值</div>';
@@ -166,11 +180,6 @@ async function openProfile(tableName){
       html+='<div class="pm-samples" title="'+esc(samples)+'">'+esc(samples)+'</div>';
     });
     html+='</div>';
-    if(d.field_map&&Object.keys(d.field_map).length){
-      html+='<div style="margin-top:14px;font-size:12px;color:var(--text-2)">'
-        +'<b>字段映射：</b>'+Object.entries(d.field_map).map(([k,v])=>esc(k)+'→'+esc(v)).join('、')
-        +'</div>';
-    }
     $('pmBody').innerHTML=html;
   }catch(e){$('pmBody').innerHTML='<div style="color:var(--red)">加载失败：'+esc(e.message)+'</div>';}
 }

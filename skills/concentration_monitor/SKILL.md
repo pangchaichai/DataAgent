@@ -3,7 +3,7 @@ name: concentration_monitor
 description: |
   监控理财产品的集中度超标情况（主体集中度或单券集中度）。
   找出超过监管阈值的产品，生成超标提示清单，标注负责投资经理。
-  触发词：集中度、超标、超限、监控、合规检查、主体集中度、单券集中度
+  触发词：集中度、超标、超限、合规检查、主体集中度、单券集中度
 calc_type: fixed
 fixed_calculator: calculators.concentration.calc_entity_concentration
 required_table_types:

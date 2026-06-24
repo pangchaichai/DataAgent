@@ -4,7 +4,21 @@
 
 ---
 
-## 当前阶段：v3.4 Windows UAT 修复 Round 2 完成
+## 当前阶段：v3.4 Windows UAT 修复 Round 3 完成
+
+## v3.4 UAT 修复 Round 3：4 Bug ✅ 完成（2026-06-24）
+✅ 已测（810 tests 通过，1 pre-existing 失败）
+
+### 改动范围
+- [x] Bug 1: `tools/encoding.py` — CSV 乱码修复（UTF-8 BOM 归一化 + U+FEFF 列名剥离）
+- [x] Bug 2: `skills/concentration_monitor/SKILL.md` + `agent/skill_loader.py` — 固化计算误触发修复（移除泛化触发词+提升匹配阈值+@mention感知）
+- [x] Bug 3: `ui/js/pages/rules_page.js` + `ui/index.html` — 移除集团系配置 UI
+- [x] Bug 4: `ui/js/data_tables.js` — 剖析页面字段映射置顶+脱敏字段展示
+
+### 测试结果
+- 810 passed, 5 skipped, 1 failed（pre-existing test_skill_api 隔离问题）
+
+---
 
 ## v3.4 UAT 修复 Round 2：4 Bug ✅ 完成（2026-06-24）
 ✅ 已测（826 tests 通过，1 pre-existing 失败）

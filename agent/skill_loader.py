@@ -180,6 +180,9 @@ class SkillLoader:
 
         返回: Skill name 或 None（表示探索式查询）
         """
+        has_mention = bool(re.search(r'@\S+', user_message))
+        threshold = 6 if has_mention else 4
+
         best_skill = None
         best_score = 0
 
@@ -189,8 +192,7 @@ class SkillLoader:
                 best_score = score
                 best_skill = skill.name
 
-        # 阈值：至少需要有一些匹配
-        if best_score >= 1:
+        if best_score >= threshold:
             return best_skill
         return None
 
