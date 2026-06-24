@@ -1,0 +1,20 @@
+table_type: holding
+description: 持仓数据（产品持仓明细，含市值、资产代码、穿透后市值等）
+_draft: true
+_source_file: test.csv
+fields:
+- semantic: col1
+  physical_candidates:
+  - col1
+  required: false
+  _draft_note: 未经 LLM 推断，直接使用列名作为语义名
+- semantic: col2
+  physical_candidates:
+  - col2
+  required: false
+  _draft_note: 未经 LLM 推断，直接使用列名作为语义名
+- semantic: col3
+  physical_candidates:
+  - col3
+  required: false
+  _draft_note: 未经 LLM 推断，直接使用列名作为语义名
