@@ -511,3 +511,104 @@ def api_datasource_import():
         )
 
     return jsonify(result)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  金融资讯 API（Choice / iFind / Wind）
+# ═══════════════════════════════════════════════════════════════
+
+@data_bp.route('/api/vendor/status')
+def api_vendor_status():
+    from tools.vendor_api import get_vendor_adapter
+    adapter = get_vendor_adapter()
+    return jsonify({'ok': True, 'vendors': adapter.get_available_vendors()})
+
+
+@data_bp.route('/api/vendor/connect', methods=['POST'])
+def api_vendor_connect():
+    data = request.get_json(force=True) or {}
+    vendor = data.get('vendor', '')
+    if not vendor:
+        return jsonify({'ok': False, 'error': '缺少供应商名称'}), 400
+    from tools.vendor_api import get_vendor_adapter
+    adapter = get_vendor_adapter()
+    return jsonify(adapter.connect(vendor))
+
+
+@data_bp.route('/api/vendor/disconnect', methods=['POST'])
+def api_vendor_disconnect():
+    data = request.get_json(force=True) or {}
+    vendor = data.get('vendor', '')
+    if not vendor:
+        return jsonify({'ok': False, 'error': '缺少供应商名称'}), 400
+    from tools.vendor_api import get_vendor_adapter
+    adapter = get_vendor_adapter()
+    return jsonify(adapter.disconnect(vendor))
+
+
+@data_bp.route('/api/vendor/fetch', methods=['POST'])
+def api_vendor_fetch():
+    data = request.get_json(force=True) or {}
+    vendor = data.get('vendor', '')
+    codes = data.get('codes', [])
+    fields = data.get('fields', [])
+    if not vendor or not codes or not fields:
+        return jsonify({'ok': False, 'error': '缺少必要参数（vendor/codes/fields）'}), 400
+
+    from tools.vendor_api import get_vendor_adapter
+    adapter = get_vendor_adapter()
+    result = adapter.fetch_data(
+        vendor, codes, fields,
+        start_date=data.get('start_date', ''),
+        end_date=data.get('end_date', ''),
+        query_type=data.get('query_type', 'snapshot'),
+    )
+    if not result['ok']:
+        return jsonify(result)
+
+    rqr = result['result']
+    return jsonify({
+        'ok': True,
+        'columns': list(rqr.df.columns),
+        'preview_rows': rqr.df.head(100).values.tolist(),
+        'row_count': rqr.row_count,
+        'col_count': rqr.col_count,
+        'query_time_ms': rqr.query_time_ms,
+    })
+
+
+@data_bp.route('/api/vendor/import', methods=['POST'])
+def api_vendor_import():
+    data = request.get_json(force=True) or {}
+    vendor = data.get('vendor', '')
+    codes = data.get('codes', [])
+    fields = data.get('fields', [])
+    local_table_name = data.get('table_name', '')
+    if not vendor or not codes or not fields:
+        return jsonify({'ok': False, 'error': '缺少必要参数（vendor/codes/fields）'}), 400
+    if not local_table_name:
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', '_'.join(codes[:3]))
+        local_table_name = f'vendor_{vendor}_{safe}'
+
+    from tools.vendor_api import get_vendor_adapter
+    adapter = get_vendor_adapter()
+    result = adapter.import_vendor_data(
+        vendor, codes, fields,
+        local_table_name=local_table_name,
+        table_type=data.get('table_type', 'unknown'),
+        date_tag=data.get('date_tag', ''),
+        start_date=data.get('start_date', ''),
+        end_date=data.get('end_date', ''),
+        query_type=data.get('query_type', 'snapshot'),
+    )
+
+    if result.get('ok'):
+        from tools.runtime_logger import get_logger as _get_log
+        _get_log().log_file_upload(
+            f'vendor:{vendor}/{",".join(codes[:3])}',
+            result['table_name'],
+            result['row_count'],
+            result['col_count'],
+        )
+
+    return jsonify(result)

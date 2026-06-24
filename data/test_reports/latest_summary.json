@@ -1,11 +1,16 @@
 {
-  "timestamp": "2026-06-24T02:00:17.501684",
-  "total": 727,
-  "passed": 722,
-  "failed": 0,
+  "timestamp": "2026-06-24T05:41:10.907718",
+  "total": 806,
+  "passed": 800,
+  "failed": 1,
   "skipped": 0,
   "errors": 0,
-  "exit_status": 0,
-  "duration_seconds": 75.16,
-  "failed_tests": []
+  "exit_status": 1,
+  "duration_seconds": 59.21,
+  "failed_tests": [
+    {
+      "nodeid": "tests/test_skill_api.py::TestSkillsStatusEndpoint::test_L2_02_missing_data_skill_shows_not_ready",
+      "message": "<ExceptionInfo AssertionError('assert True is False') tblen=24>"
+    }
+  ]
 }

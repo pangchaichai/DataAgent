@@ -14,31 +14,48 @@
 
 ---
 
-## 上次会话完成的工作（2026-06-24，第二十五轮）
+## 上次会话完成的工作（2026-06-24，第二十六轮）
 
-### Phase A：data_loader.py 拆分（数据源管理智能化升级的前置步骤）
+### 数据源管理智能化升级 — Phase A/B/C/D 全部完成
 
-**背景**：`data_loader.py` 达 1106 行（规范上限 300 行的 3.7 倍），作为后续智能识别、远程数据库、资讯 API 三大功能的前置条件，先完成模块拆分。
+**总体背景**：数据源管理面临代码膨胀、智能化不足、数据源单一三个层面的改进需求。按"先拆分 → 再智能识别 → 最后扩展远程数据源"的依赖顺序，四个阶段全部完成。
 
-**拆分结果**（1106 行 → 4 个模块）：
-- `tools/data_loader.py`（**门面模块，~230 行**）— LoadResult、DuckDB 连接管理、表注册表查询、表类型检测、日期提取 + 子模块 re-export
-- `tools/encoding.py`（**新建，~135 行**）— 多编码竞争评分、列名清洗、千分位清洗
-- `tools/dict_mapper.py`（**新建，~215 行**）— DICT_TABLE_MAP、字典加载/映射、共享同义词、实体归一、用户档案校验
-- `tools/file_ingest.py`（**新建，~570 行**）— CSV/Excel 加载引擎全部函数（原生/Pandas/流式）、表卸载与版本淘汰
+#### Phase A：data_loader.py 拆分 ✅
+1106 行 → 4 个模块（data_loader 门面 + encoding + dict_mapper + file_ingest），20+ 外部 import 零修改。
 
-**向后兼容**：所有 20+ 处外部 `from tools.data_loader import ...` 无需修改，通过门面 re-export 保持兼容。
+#### Phase B：智能数据识别 ✅
+- **新建 `tools/smart_recognizer.py`**（~250 行）— `enhanced_detect_table_type()` 主入口，程序化检测优先，低置信度时调 LLM function-calling 增强识别
+- LLM 仅接收列名+文件名+脱敏样本，不发数据值
+- 超时 10s + 降级，不阻塞上传
+- `api/data.py` Stage 1 调用增强检测，返回 `detection_meta`（source/confidence/reason/llm_suggestion）
 
-**测试修正**：`test_large_data.py` 中 4 个直接引用私有函数的测试更新为从新模块导入。
+#### Phase C：远程数据库支持 ✅
+- **新建 `tools/remote_db.py`**（~510 行）— RemoteDBManager 管理 5 种数据库（MySQL/PostgreSQL/SQLite/SQL Server/Oracle），连接 CRUD + 浏览表 + 预览 + 导入
+- **新增 `tools/file_ingest.py: load_dataframe()`** — DataFrame → DuckDB 统一入口，远程数据和本地文件共享同一管线
+- **新增 7 个 API 端点**：`/api/datasource/connections|test|save|connection/<name>|tables|preview|import`
+- **UI**：`ui/index.html` 新增远程数据源区块 + 连接配置弹窗 + 表浏览弹窗；`data_page.js` 新增远程数据源列表渲染
+- 安全：强制 read_only、base64 密码编码、SELECT-only SQL 校验、凭据不发给 LLM
+- **新建 `tests/test_remote_db.py`**（36 个测试）
 
-**测试结果**：722 passed, 5 skipped, 0 failed（零回归）
+#### Phase D：金融资讯 API 适配器 ✅
+- **新建 `tools/vendor_api.py`**（~350 行）— VendorAPIAdapter 统一适配 Choice(EmQuantAPI)/iFind(iFinDPy)/Wind(预留)
+  - 可用性检测：未安装对应 Python 包时优雅降级
+  - 连接管理：connect/disconnect 按供应商分发
+  - 数据获取：snapshot（css/THS_Snapshot）+ timeseries（csd/THS_DateSerial）
+  - 统一导入：fetch → load_dataframe → DuckDB
+- **新增 5 个 API 端点**：`/api/vendor/status|connect|disconnect|fetch|import`
+- **新建 `tests/test_vendor_api.py`**（26 个 Mock 测试）— Choice/iFind/Wind 均为 Windows-only，Linux 环境用 Mock 覆盖
+- `config.example.yaml` 已包含 `vendor_apis` 配置段
+
+**测试结果**：800 passed, 5 skipped, 1 failed（pre-existing test_skill_api 隔离问题，非本次变更引起）
 
 ---
 
 ## 立即可执行的下一步
-1. **Phase B：智能数据识别**（`tools/smart_recognizer.py`）— LLM function-calling 增强表类型识别和字段映射
-2. **Phase C：远程数据库支持**（`tools/remote_db.py`）— 企业内部数据库连接管理 + API + UI
-3. **Phase D：金融资讯 API**（`tools/vendor_api.py`）— Choice + iFind 实现，Wind 预留
-4. **综合计划详见**：`.claude/plans/replicated-sprouting-biscuit.md`
+1. **UAT 验收**：在 Windows 环境测试远程数据库连接和金融 API 适配器的实际功能
+2. **Wind 实现**（Phase E，P3）：目前仅预留接口，后续按需补充具体逻辑
+3. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 在全量运行时因全局 `_loaded_tables` 泄漏而失败，需修复测试隔离
+4. **继续 Phase 5（Windows 打包测试）**：PyInstaller + WebView2 + 完整功能验收
 
 ---
 

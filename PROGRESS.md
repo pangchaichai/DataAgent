@@ -4,7 +4,44 @@
 
 ---
 
-## 当前阶段：数据源管理智能化升级 Phase A 完成 → Phase B/C/D 待实施
+## 当前阶段：数据源管理智能化升级 Phase A/B/C/D 全部完成
+
+## Phase D：金融资讯 API 适配器 ✅ 完成（2026-06-24）
+✅ 已测（800 tests 通过，1 pre-existing 失败）
+
+### 改动范围
+- [x] `tools/vendor_api.py`（**新建**）— VendorAPIAdapter 统一适配 Choice/iFind/Wind（预留）
+- [x] `tests/test_vendor_api.py`（**新建**）— 26 个 Mock 测试覆盖全部适配器逻辑
+- [x] `api/data.py`（修改）— 新增 5 个 vendor API 端点（status/connect/disconnect/fetch/import）
+
+### 测试结果
+- 800 passed, 5 skipped, 1 failed（pre-existing test_skill_api 隔离问题）
+
+---
+
+## Phase C：远程数据库支持 ✅ 完成（2026-06-24）
+✅ 已测（800 tests 通过）
+
+### 改动范围
+- [x] `tools/remote_db.py`（**新建**）— RemoteDBManager（5 种数据库）+ 连接 CRUD + 浏览/预览/导入
+- [x] `tools/file_ingest.py`（修改）— 新增 load_dataframe() 统一 DataFrame 入口
+- [x] `tools/data_loader.py`（修改）— re-export load_dataframe
+- [x] `api/data.py`（修改）— 新增 7 个远程数据源 API 端点
+- [x] `ui/index.html`（修改）— 远程数据源 UI 区块 + 连接配置弹窗 + 表浏览弹窗
+- [x] `ui/js/pages/data_page.js`（修改）— 远程数据源列表渲染
+- [x] `config.example.yaml`（修改）— 新增 data_sources 配置段
+- [x] `tests/test_remote_db.py`（**新建**）— 36 个测试覆盖全部功能
+
+---
+
+## Phase B：智能数据识别 ✅ 完成（2026-06-24）
+✅ 已测（800 tests 通过）
+
+### 改动范围
+- [x] `tools/smart_recognizer.py`（**新建**）— enhanced_detect_table_type() + LLM function-calling 增强
+- [x] `api/data.py`（修改）— Stage 1 调用增强检测，返回 detection_meta
+
+---
 
 ## Phase A：data_loader.py 拆分 ✅ 完成（2026-06-24）
 ✅ 已测（722 tests 通过，零回归）
