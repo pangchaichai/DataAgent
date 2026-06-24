@@ -134,6 +134,28 @@ memory:
   enabled: false                      # 默认关闭；用户在 UI 开启
   max_db_mb: 5                        # 体积告警阈值
 
+# ── 远程数据源 ─────────────────────────────────────────────
+data_sources:
+  remote_databases:                      # 远程数据库连接配置
+    # - name: "投研数据库"
+    #   db_type: postgresql               # mysql / postgresql / sqlite / sqlserver / oracle
+    #   host: 192.168.1.100
+    #   port: 5432
+    #   database: research_db
+    #   username: readonly_user
+    #   password: "base64:xxxxx"          # base64 编码存储
+    #   default_schema: public
+    #   read_only: true                   # 强制只读
+  vendor_apis:                           # 金融资讯 API（P2 阶段）
+    choice:
+      enabled: false                     # Choice (EmQuantAPI)
+    ifind:
+      enabled: false                     # iFinD (iFinDPy)
+      username: ""
+      password: ""
+    wind:
+      enabled: false                     # Wind (WindPy) — 预留
+
 # ── 运行日志 ───────────────────────────────────────────────
 logging:
   mode: basic                         # basic=仅错误和关键事件 | detailed=全量记录

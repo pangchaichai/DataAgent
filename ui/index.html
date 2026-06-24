@@ -119,6 +119,64 @@
           </div>
           <div id="dataPageWorkdirList"><div class="s-item" style="color:var(--text-3)">未配置</div></div>
         </div>
+        <!-- Remote data sources -->
+        <div class="dp-section">
+          <div class="dp-section-title">
+            远程数据源
+            <span class="dp-refresh" onclick="dpRefreshRemoteDB()" title="刷新">↻</span>
+            <span class="dp-add-conn" onclick="dpShowAddConnection()" title="添加连接" style="cursor:pointer;margin-left:8px;font-size:13px;color:var(--primary)">+ 添加</span>
+          </div>
+          <div id="dataPageRemoteDBList"><div class="s-item" style="color:var(--text-3)">未配置</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remote DB Connection Dialog -->
+  <div id="remoteDBOverlay" class="upload-overlay" style="display:none" onclick="if(event.target===this)dpCloseRemoteDBDialog()">
+    <div class="upload-confirm" style="max-width:500px">
+      <h3 id="remoteDBDialogTitle">添加远程数据库连接</h3>
+      <div class="uc-fields" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1"><label>连接名称</label><br><input type="text" id="rdbName" placeholder="如：投研数据库" style="width:100%"></div>
+          <div><label>类型</label><br>
+            <select id="rdbType" onchange="dpOnDBTypeChange()">
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+              <option value="sqlite">SQLite</option>
+              <option value="sqlserver">SQL Server</option>
+              <option value="oracle">Oracle</option>
+            </select>
+          </div>
+        </div>
+        <div id="rdbHostRow" style="display:flex;gap:8px">
+          <div style="flex:2"><label>主机</label><br><input type="text" id="rdbHost" placeholder="192.168.1.100" style="width:100%"></div>
+          <div style="flex:1"><label>端口</label><br><input type="number" id="rdbPort" placeholder="3306" style="width:100%"></div>
+        </div>
+        <div><label>数据库名</label><br><input type="text" id="rdbDatabase" placeholder="database_name" style="width:100%"></div>
+        <div id="rdbAuthRow" style="display:flex;gap:8px">
+          <div style="flex:1"><label>用户名</label><br><input type="text" id="rdbUsername" style="width:100%"></div>
+          <div style="flex:1"><label>密码</label><br><input type="password" id="rdbPassword" style="width:100%"></div>
+        </div>
+        <div><label>默认 Schema（可选）</label><br><input type="text" id="rdbSchema" placeholder="public" style="width:100%"></div>
+        <div id="rdbTestResult" style="font-size:12px;min-height:20px"></div>
+      </div>
+      <div class="uc-actions">
+        <button class="btn" onclick="dpCloseRemoteDBDialog()">取消</button>
+        <button class="btn" onclick="dpTestRemoteDB()">测试连接</button>
+        <button class="btn primary" onclick="dpSaveRemoteDB()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remote DB Tables Browser -->
+  <div id="remoteDBTablesOverlay" class="upload-overlay" style="display:none" onclick="if(event.target===this)dpCloseTablesBrowser()">
+    <div class="upload-confirm" style="max-width:600px;max-height:80vh;overflow-y:auto">
+      <h3 id="remoteDBTablesTitle">浏览远程表</h3>
+      <div id="remoteDBTablesList" style="max-height:50vh;overflow-y:auto"></div>
+      <div id="remoteDBPreview" style="display:none;margin-top:12px"></div>
+      <div class="uc-actions">
+        <button class="btn" onclick="dpCloseTablesBrowser()">关闭</button>
       </div>
     </div>
   </div>

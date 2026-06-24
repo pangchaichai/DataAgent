@@ -1,12 +1,13 @@
 """
-tools/file_ingest.py — 文件加载引擎（CSV / Excel → DuckDB）
+tools/file_ingest.py — 文件加载引擎（CSV / Excel / DataFrame → DuckDB）
 
 从 data_loader.py 拆分而来。职责：
   1. load_file()：主加载入口（CSV/Excel → DuckDB 表）
-  2. DuckDB 原生 CSV 加载（零 Python 内存开销）
-  3. Pandas 回退加载
-  4. 大 Excel 逐 Sheet 流式加载
-  5. 表卸载与版本淘汰
+  2. load_dataframe()：从 DataFrame 直接加载（远程数据库/API 统一入口）
+  3. DuckDB 原生 CSV 加载（零 Python 内存开销）
+  4. Pandas 回退加载
+  5. 大 Excel 逐 Sheet 流式加载
+  6. 表卸载与版本淘汰
 """
 
 from pathlib import Path
@@ -526,6 +527,94 @@ def _load_excel_streaming(
         missing_required=missing_required,
         warnings=warnings,
         table_type=table_type or 'unknown',
+    )
+
+    _finalize_load(conn, safe_table, result, table_type, dict_data)
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════
+#  从 DataFrame 直接加载（远程数据源统一入口）
+# ═══════════════════════════════════════════════════════════════
+
+def load_dataframe(
+    df: pd.DataFrame,
+    table_name: str,
+    table_type: str = 'unknown',
+    date_tag: str | None = None,
+    source_info: str = "",
+):
+    """
+    从 DataFrame 直接加载到 DuckDB，复用字典映射 + 实体归一 + 质量诊断管线。
+    用于远程数据库导入和 API 数据导入，与文件上传共享同一套后处理流程。
+    """
+    from tools.data_loader import LoadResult, get_connection
+    from tools.dict_mapper import (
+        apply_dictionary_mapping,
+        load_dictionary,
+        normalize_entity_column,
+    )
+    from tools.encoding import clean_column_name
+
+    conn = get_connection()
+    warnings: list[str] = []
+    safe_table = table_name.replace('-', '_').replace('.', '_')
+
+    df.columns = [clean_column_name(c) for c in df.columns]
+
+    dict_data = None
+    field_map: dict[str, str] = {}
+    unmatched_cols: list[str] = []
+    missing_required: list[str] = []
+
+    if table_type and table_type != 'unknown':
+        dict_data = load_dictionary(table_type)
+        if dict_data:
+            for field_def in dict_data.get('fields', []):
+                if field_def.get('dtype') == 'float':
+                    for candidate in field_def.get('physical_candidates', []):
+                        if candidate in df.columns:
+                            df[candidate] = pd.to_numeric(
+                                df[candidate], errors='coerce',
+                            )
+                            break
+
+        field_map, unmatched_cols, missing_required = (
+            apply_dictionary_mapping(df, table_type)
+        )
+        if missing_required:
+            warnings.append(
+                f"字典中标记为必填的字段在数据中未找到：{'、'.join(missing_required)}"
+            )
+
+        normalized_col = normalize_entity_column(df, field_map, table_type)
+        if normalized_col:
+            field_map['限额占用主体_标准'] = normalized_col
+
+    if source_info:
+        warnings.append(f"数据来源：{source_info}")
+
+    quoted_cols = [f'"{c}"' for c in df.columns]
+    col_defs = ', '.join(quoted_cols)
+    conn.execute(
+        f'CREATE OR REPLACE TABLE "{safe_table}" AS SELECT {col_defs} FROM df'
+    )
+    row_count = conn.execute(
+        f'SELECT COUNT(*) FROM "{safe_table}"'
+    ).fetchone()[0]
+
+    result = LoadResult(
+        table_name=safe_table,
+        file_path=source_info or f'dataframe://{table_name}',
+        row_count=row_count,
+        col_count=len(df.columns),
+        encoding='n/a',
+        date_tag=date_tag,
+        field_map=field_map,
+        unmatched_cols=unmatched_cols,
+        missing_required=missing_required,
+        warnings=warnings,
+        table_type=table_type,
     )
 
     _finalize_load(conn, safe_table, result, table_type, dict_data)

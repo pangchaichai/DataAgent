@@ -41,6 +41,7 @@ from tools.file_ingest import (  # noqa: F401
     LARGE_FILE_THRESHOLD,
     drop_table,
     evict_old_versions,
+    load_dataframe,
     load_file,
 )
 

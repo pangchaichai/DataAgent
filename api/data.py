@@ -1,5 +1,5 @@
 """
-api/data.py — 文件上传、数据表管理路由
+api/data.py — 文件上传、数据表管理、远程数据源路由
 """
 import re
 from pathlib import Path
@@ -384,3 +384,130 @@ def api_table_quality(table_name):
         return jsonify({"ok": True, "report": asdict(report)})
     except Exception as e:
         return jsonify({"error": f"诊断失败：{str(e)[:200]}"}), 500
+
+
+# ═══════════════════════════════════════════════════════════════
+#  远程数据源 API
+# ═══════════════════════════════════════════════════════════════
+
+@data_bp.route('/api/datasource/connections')
+def api_datasource_connections():
+    from tools.remote_db import get_remote_db_manager
+    mgr = get_remote_db_manager()
+    return jsonify({'ok': True, 'connections': mgr.list_connections()})
+
+
+@data_bp.route('/api/datasource/test', methods=['POST'])
+def api_datasource_test():
+    from tools.remote_db import DBConnection, get_remote_db_manager
+    data = request.get_json(force=True) or {}
+    conn = DBConnection(
+        name=data.get('name', ''),
+        db_type=data.get('db_type', ''),
+        host=data.get('host', ''),
+        port=int(data.get('port', 0)),
+        database=data.get('database', ''),
+        username=data.get('username', ''),
+        password=data.get('password', ''),
+        default_schema=data.get('default_schema', ''),
+    )
+    mgr = get_remote_db_manager()
+    return jsonify(mgr.test_connection(conn))
+
+
+@data_bp.route('/api/datasource/save', methods=['POST'])
+def api_datasource_save():
+    from tools.remote_db import DBConnection, get_remote_db_manager
+    data = request.get_json(force=True) or {}
+    conn = DBConnection(
+        name=data.get('name', '').strip(),
+        db_type=data.get('db_type', ''),
+        host=data.get('host', ''),
+        port=int(data.get('port', 0)),
+        database=data.get('database', ''),
+        username=data.get('username', ''),
+        password=data.get('password', ''),
+        default_schema=data.get('default_schema', ''),
+    )
+    mgr = get_remote_db_manager()
+    return jsonify(mgr.save_connection(conn))
+
+
+@data_bp.route('/api/datasource/connection/<name>', methods=['DELETE'])
+def api_datasource_delete(name):
+    from tools.remote_db import get_remote_db_manager
+    mgr = get_remote_db_manager()
+    return jsonify(mgr.delete_connection(name))
+
+
+@data_bp.route('/api/datasource/tables')
+def api_datasource_tables():
+    conn_name = request.args.get('conn', '')
+    if not conn_name:
+        return jsonify({'ok': False, 'error': '缺少连接名称'}), 400
+    from tools.remote_db import get_remote_db_manager
+    mgr = get_remote_db_manager()
+    return jsonify(mgr.list_tables(conn_name))
+
+
+@data_bp.route('/api/datasource/preview', methods=['POST'])
+def api_datasource_preview():
+    data = request.get_json(force=True) or {}
+    conn_name = data.get('conn', '')
+    table = data.get('table', '')
+    limit = int(data.get('limit', 100))
+    if not conn_name or not table:
+        return jsonify({'ok': False, 'error': '缺少连接名称或表名'}), 400
+
+    from tools.remote_db import get_remote_db_manager
+    mgr = get_remote_db_manager()
+    result = mgr.preview_table(conn_name, table, limit)
+    if not result['ok']:
+        return jsonify(result)
+
+    rqr = result['result']
+    preview_rows = rqr.df.head(100).values.tolist()
+    columns = list(rqr.df.columns)
+    return jsonify({
+        'ok': True,
+        'columns': columns,
+        'preview_rows': preview_rows,
+        'row_count': result['row_count'],
+        'col_count': result['col_count'],
+        'query_time_ms': result['query_time_ms'],
+    })
+
+
+@data_bp.route('/api/datasource/import', methods=['POST'])
+def api_datasource_import():
+    data = request.get_json(force=True) or {}
+    conn_name = data.get('conn', '')
+    table_or_sql = data.get('table', '') or data.get('sql', '')
+    local_table_name = data.get('table_name', '')
+    table_type = data.get('table_type', 'unknown')
+    date_tag = data.get('date_tag', '')
+
+    if not conn_name or not table_or_sql:
+        return jsonify({'ok': False, 'error': '缺少连接名称或数据源'}), 400
+    if not local_table_name:
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', table_or_sql[:50])
+        local_table_name = f'{table_type}_{safe}'
+
+    from tools.remote_db import get_remote_db_manager
+    mgr = get_remote_db_manager()
+    result = mgr.import_to_local(
+        conn_name, table_or_sql, local_table_name,
+        table_type=table_type,
+        date_tag=date_tag or None,
+    )
+
+    if result.get('ok'):
+        from tools.runtime_logger import get_logger as _get_log
+        _get_log().log_file_upload(
+            f'remote:{conn_name}/{table_or_sql}',
+            result['table_name'],
+            result['row_count'],
+            result['col_count'],
+        )
+
+    return jsonify(result)
