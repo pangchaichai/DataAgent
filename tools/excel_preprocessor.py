@@ -109,7 +109,12 @@ def _read_raw_sheets(file_path, ext):
                 sheets.append((ws.title, rows, merged))
         wb.close()
     else:
-        import xlrd
+        try:
+            import xlrd
+        except ImportError:
+            raise ValueError(
+                "读取 .xls 格式需要 xlrd 库，请执行 pip install xlrd 后重试"
+            )
         wb = xlrd.open_workbook(file_path, formatting_info=False)
         for i in range(wb.nsheets):
             ws = wb.sheet_by_index(i)

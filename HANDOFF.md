@@ -14,47 +14,47 @@
 
 ---
 
-## 上次会话完成的工作（2026-06-24，第二十六轮）
+## 上次会话完成的工作（2026-06-24，第二十七轮）
 
-### 数据源管理智能化升级 — Phase A/B/C/D 全部完成
+### v3.4 Windows UAT 修复 — 4 个 Bug + 1 个新功能
 
-**总体背景**：数据源管理面临代码膨胀、智能化不足、数据源单一三个层面的改进需求。按"先拆分 → 再智能识别 → 最后扩展远程数据源"的依赖顺序，四个阶段全部完成。
+#### Bug 1: xlrd 依赖错误提示优化 ✅
+- `tools/excel_preprocessor.py`：xlrd import 增加 try/except 守卫，未安装时返回友好提示（"请执行 pip install xlrd 后重试"）
+- xlrd 已在 requirements-dev.txt 中，Windows 环境需确认已安装
 
-#### Phase A：data_loader.py 拆分 ✅
-1106 行 → 4 个模块（data_loader 门面 + encoding + dict_mapper + file_ingest），20+ 外部 import 零修改。
+#### Bug 2: 远程数据库弹窗定位修复 ✅
+- `ui/css/main.css`：补充 `.upload-overlay` 和 `.upload-confirm` CSS 定义（此前缺失导致弹窗无居中样式）
+- 新增 fixed+inset+flex 居中定位 + 圆角阴影 + 表单元素样式 + `.preview-tbl` 表格样式
 
-#### Phase B：智能数据识别 ✅
-- **新建 `tools/smart_recognizer.py`**（~250 行）— `enhanced_detect_table_type()` 主入口，程序化检测优先，低置信度时调 LLM function-calling 增强识别
-- LLM 仅接收列名+文件名+脱敏样本，不发数据值
-- 超时 10s + 降级，不阻塞上传
-- `api/data.py` Stage 1 调用增强检测，返回 `detection_meta`（source/confidence/reason/llm_suggestion）
+#### Bug 3: 金融资讯 API 配置 UI ✅
+- `ui/index.html`：数据源管理页新增「金融资讯 API」区块（Choice/iFinD/Wind 状态列表）+ 数据获取弹窗
+- `ui/js/pages/data_page.js`：新增 `_loadVendorAPI()` 方法 + 连接/获取/导入交互函数（dpConnectVendor/dpFetchVendor/dpImportVendorData）
 
-#### Phase C：远程数据库支持 ✅
-- **新建 `tools/remote_db.py`**（~510 行）— RemoteDBManager 管理 5 种数据库（MySQL/PostgreSQL/SQLite/SQL Server/Oracle），连接 CRUD + 浏览表 + 预览 + 导入
-- **新增 `tools/file_ingest.py: load_dataframe()`** — DataFrame → DuckDB 统一入口，远程数据和本地文件共享同一管线
-- **新增 7 个 API 端点**：`/api/datasource/connections|test|save|connection/<name>|tables|preview|import`
-- **UI**：`ui/index.html` 新增远程数据源区块 + 连接配置弹窗 + 表浏览弹窗；`data_page.js` 新增远程数据源列表渲染
-- 安全：强制 read_only、base64 密码编码、SELECT-only SQL 校验、凭据不发给 LLM
-- **新建 `tests/test_remote_db.py`**（36 个测试）
+#### Bug 4: 输入框发送按钮内嵌重设计 ✅
+- `ui/index.html`：textarea + 发送按钮包裹在 `.input-wrap` 容器中，发送按钮移到输入框内部右下角
+- `ui/css/main.css`：`.input-wrap` 统一边框/圆角，textarea 无独立边框，`.input-toolbar` 底部工具栏，发送按钮 32x32 方形 + SVG 图标
+- `ui/js/dom.js`：`setSendMode()` 改用 innerHTML + SVG 图标（发送箭头/停止方块）
 
-#### Phase D：金融资讯 API 适配器 ✅
-- **新建 `tools/vendor_api.py`**（~350 行）— VendorAPIAdapter 统一适配 Choice(EmQuantAPI)/iFind(iFinDPy)/Wind(预留)
-  - 可用性检测：未安装对应 Python 包时优雅降级
-  - 连接管理：connect/disconnect 按供应商分发
-  - 数据获取：snapshot（css/THS_Snapshot）+ timeseries（csd/THS_DateSerial）
-  - 统一导入：fetch → load_dataframe → DuckDB
-- **新增 5 个 API 端点**：`/api/vendor/status|connect|disconnect|fetch|import`
-- **新建 `tests/test_vendor_api.py`**（26 个 Mock 测试）— Choice/iFind/Wind 均为 Windows-only，Linux 环境用 Mock 覆盖
-- `config.example.yaml` 已包含 `vendor_apis` 配置段
+#### 新功能: 内测脱敏防控 ✅
+- **新建 `tools/data_masker.py`**（~105 行）— 确定性脱敏模块
+  - `mask_dataframe(df, fields)` — 对指定字段进行确定性脱敏（同值→同脱敏值），保持数据关联性
+  - `parse_mask_fields(raw)` — 解析逗号分隔字段名（支持中英文逗号）
+  - `validate_masking_ready()` — 校验脱敏配置就绪（仅当 config.yaml 有 masking 段且 enabled 时才生效）
+- **api/config_api.py**：GET/POST `/api/config` 新增 masking 字段（enabled + fields）
+- **api/data.py**：上传 Stage 1 增加脱敏配置校验（未配置字段时拦截），Stage 2 (confirm) 加载前自动对配置字段脱敏
+- **ui/index.html**：设置页新增「内测脱敏防控」区块（开关 + 字段配置输入框）
+- **ui/js/settings.js**：加载/保存脱敏配置 + 即时切换开关
+- **config.example.yaml**：新增 masking 配置段
+- **新建 `tests/test_data_masker.py`**（23 个测试）— 全部通过
 
-**测试结果**：800 passed, 5 skipped, 1 failed（pre-existing test_skill_api 隔离问题，非本次变更引起）
+**测试结果**：823 passed, 5 skipped, 1 pre-existing failure（test_skill_api 隔离问题）
 
 ---
 
 ## 立即可执行的下一步
-1. **UAT 验收**：在 Windows 环境测试远程数据库连接和金融 API 适配器的实际功能
+1. **Windows UAT 验收**：在 Windows 环境逐一验收 5 个修复项
 2. **Wind 实现**（Phase E，P3）：目前仅预留接口，后续按需补充具体逻辑
-3. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 在全量运行时因全局 `_loaded_tables` 泄漏而失败，需修复测试隔离
+3. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 在全量运行时因全局 `_loaded_tables` 泄漏而失败
 4. **继续 Phase 5（Windows 打包测试）**：PyInstaller + WebView2 + 完整功能验收
 
 ---

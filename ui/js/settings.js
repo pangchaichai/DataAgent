@@ -25,6 +25,9 @@ async function loadSettings(){
     $('cfg-memory').checked=!!(d.memory||{}).enabled;
     $('cfg-scheduler').checked=!!(d.scheduler||{}).enabled;
     $('cfg-work-dir').value=d.work_dir||'';
+    const masking=d.masking||{};
+    $('cfg-masking').checked=masking.enabled!==false;
+    $('cfg-mask-fields').value=masking.fields||'';
     const keySet=d.api_key_set;
     $('apikeyStatus').textContent=keySet?'✓ API Key 已配置':'未配置';
     $('apikeyStatus').style.color=keySet?'var(--green)':'var(--text-3)';
@@ -141,6 +144,10 @@ async function saveSettings(){
     memory:{enabled:$('cfg-memory').checked},
     scheduler:{enabled:$('cfg-scheduler').checked},
     work_dir:$('cfg-work-dir').value.trim(),
+    masking:{
+      enabled:$('cfg-masking').checked,
+      fields:$('cfg-mask-fields').value.trim(),
+    },
   };
   const apikey=$('cfg-apikey').value.trim();
   if(apikey)body.api_key=apikey;
@@ -175,6 +182,15 @@ async function clearMemory(){
   const r=await api('POST','/api/memory/clear');
   if(r.ok){toast('记忆库已清空','success');loadSettings();}
   else toast('清空失败：'+(r.error||''),'error');
+}
+
+// Masking toggle
+async function saveMaskingToggle(){
+  try{
+    const r=await api('POST','/api/config',{masking:{enabled:$('cfg-masking').checked}});
+    if(r.ok)toast('脱敏功能已'+($('cfg-masking').checked?'开启':'关闭'),'success');
+    else toast('切换失败：'+(r.error||''),'error');
+  }catch(e){toast('切换失败','error');}
 }
 
 // Log settings

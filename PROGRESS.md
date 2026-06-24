@@ -4,7 +4,27 @@
 
 ---
 
-## 当前阶段：数据源管理智能化升级 Phase A/B/C/D 全部完成
+## 当前阶段：v3.4 Windows UAT 修复完成
+
+## v3.4 UAT 修复：4 Bug + 1 新功能 ✅ 完成（2026-06-24）
+✅ 已测（823 tests 通过，1 pre-existing 失败）
+
+### 改动范围
+- [x] Bug 1: `tools/excel_preprocessor.py` — xlrd 依赖错误提示优化（try/except import guard）
+- [x] Bug 2: `ui/css/main.css` — 补充 `.upload-overlay` / `.upload-confirm` CSS（修复弹窗定位）
+- [x] Bug 3: `ui/index.html` + `ui/js/pages/data_page.js` — 金融资讯 API 配置 UI + 数据获取弹窗
+- [x] Bug 4: `ui/index.html` + `ui/css/main.css` + `ui/js/dom.js` — 输入框重设计（发送按钮内嵌+SVG图标）
+- [x] 新功能: `tools/data_masker.py`（**新建**）— 内测脱敏防控模块（确定性脱敏+字段配置）
+- [x] `api/config_api.py` — masking 配置读写
+- [x] `api/data.py` — 上传时脱敏校验+自动脱敏
+- [x] `ui/js/settings.js` — 脱敏开关+字段配置 UI
+- [x] `config.example.yaml` — masking 配置段
+- [x] `tests/test_data_masker.py`（**新建**）— 23 个测试
+
+### 测试结果
+- 823 passed, 5 skipped, 1 failed（pre-existing test_skill_api 隔离问题）
+
+---
 
 ## Phase D：金融资讯 API 适配器 ✅ 完成（2026-06-24）
 ✅ 已测（800 tests 通过，1 pre-existing 失败）

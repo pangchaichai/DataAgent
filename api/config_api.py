@@ -25,6 +25,7 @@ def api_config_read():
     api_key_set = bool(raw_key and raw_key not in (
         '', '你的DeepSeek_API_Key', '${DEEPSEEK_API_KEY}'
     ))
+    masking = cfg.get('masking', {})
     return jsonify({
         "user_profile": cfg.get('user_profile', {}),
         "calculation_config": cfg.get('calculation_config', {}),
@@ -37,6 +38,10 @@ def api_config_read():
         "llm_model": provider_cfg.get('model', 'deepseek-chat'),
         "llm_provider": primary,
         "logging": cfg.get('logging', {"mode": "basic", "max_days": 30}),
+        "masking": {
+            "enabled": masking.get('enabled', True),
+            "fields": masking.get('fields', ''),
+        },
     })
 
 
@@ -84,6 +89,12 @@ def api_config_write():
                 provider_block['model'] = data['llm_model']
         if 'work_dir' in data:
             cfg.setdefault('app', {})['work_dir'] = (data['work_dir'] or '').strip()
+        if 'masking' in data:
+            cfg.setdefault('masking', {})
+            if 'enabled' in data['masking']:
+                cfg['masking']['enabled'] = bool(data['masking']['enabled'])
+            if 'fields' in data['masking']:
+                cfg['masking']['fields'] = str(data['masking']['fields'] or '')
         try:
             tmp_path = cfg_path.with_suffix('.yaml.tmp')
             with open(tmp_path, 'w', encoding='utf-8') as f:

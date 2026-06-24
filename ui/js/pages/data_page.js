@@ -5,6 +5,7 @@ const DataPage = {
     loadTables().then(() => this._renderTableList());
     this._loadWorkdir();
     this._loadRemoteDB();
+    this._loadVendorAPI();
     this._initDragDrop();
   },
 
@@ -71,6 +72,39 @@ const DataPage = {
           + '<span class="act" style="font-size:11px;margin-left:auto" onclick="dpBrowseRemoteTables(\'' + esc(c.name) + '\')">浏览</span>'
           + '<span class="act" style="font-size:11px;margin-left:4px" onclick="dpEditConnection(\'' + esc(c.name) + '\')">编辑</span>'
           + '<span class="act" style="font-size:11px;margin-left:4px;color:var(--red,#e74c3c)" onclick="dpDeleteConnection(\'' + esc(c.name) + '\')">删除</span>'
+          + '</div>';
+      }).join('');
+    } catch (e) {
+      list.innerHTML = '<div class="s-item" style="color:var(--text-3)">加载失败</div>';
+    }
+  },
+
+  async _loadVendorAPI() {
+    const list = $('dataPageVendorList');
+    if (!list) return;
+    try {
+      const d = await api('GET', '/api/vendor/status');
+      const vendors = d.vendors || [];
+      if (!vendors.length) {
+        list.innerHTML = '<div class="s-item" style="color:var(--text-3)">无可用资讯 API</div>';
+        return;
+      }
+      const nameLabels = {choice:'东方财富 Choice',ifind:'同花顺 iFinD',wind:'万得 Wind'};
+      list.innerHTML = vendors.map(v => {
+        const label = nameLabels[v.name] || v.name;
+        const avail = v.available;
+        const dot = avail
+          ? '<span style="color:var(--green)">●</span>'
+          : '<span style="color:var(--text-3)">○</span>';
+        const reason = v.reason ? ' <span style="font-size:11px;color:var(--text-3)">(' + esc(v.reason) + ')</span>' : '';
+        const actions = avail
+          ? '<span class="act" style="font-size:11px;margin-left:auto" onclick="dpConnectVendor(\'' + esc(v.name) + '\')">连接</span>'
+            + '<span class="act" style="font-size:11px;margin-left:4px;color:var(--primary)" onclick="dpFetchVendor(\'' + esc(v.name) + '\')">获取数据</span>'
+          : '';
+        return '<div class="s-item">'
+          + dot + ' '
+          + '<span class="s-text">' + label + reason + '</span>'
+          + actions
           + '</div>';
       }).join('');
     } catch (e) {
@@ -339,4 +373,80 @@ async function dpImportRemoteTable(conn, table) {
 
 function dpCloseTablesBrowser() {
   $('remoteDBTablesOverlay').style.display = 'none';
+}
+
+// --- Vendor API functions ---
+
+function dpRefreshVendorAPI() {
+  DataPage._loadVendorAPI();
+}
+
+async function dpConnectVendor(vendor) {
+  toast('正在连接 ' + vendor + '…', '');
+  try {
+    const d = await api('POST', '/api/vendor/connect', {vendor});
+    if (d.ok) {
+      toast('已连接 ' + vendor, 'success');
+      DataPage._loadVendorAPI();
+    } else {
+      toast('连接失败：' + (d.error || ''), 'error');
+    }
+  } catch (e) {
+    toast('连接异常：' + e.message, 'error');
+  }
+}
+
+let _vfVendor = '';
+
+function dpFetchVendor(vendor) {
+  _vfVendor = vendor;
+  const nameLabels = {choice:'Choice',ifind:'iFinD',wind:'Wind'};
+  $('vendorFetchTitle').textContent = '获取数据 — ' + (nameLabels[vendor] || vendor);
+  $('vfCodes').value = '';
+  $('vfFields').value = '';
+  $('vfStart').value = '';
+  $('vfEnd').value = '';
+  $('vfTableName').value = 'vendor_' + vendor;
+  $('vfResult').textContent = '';
+  $('vendorFetchOverlay').style.display = 'flex';
+}
+
+function dpCloseVendorFetch() {
+  $('vendorFetchOverlay').style.display = 'none';
+}
+
+async function dpImportVendorData() {
+  const codes = $('vfCodes').value.trim();
+  const fields = $('vfFields').value.trim();
+  const startDate = $('vfStart').value.trim();
+  const endDate = $('vfEnd').value.trim();
+  const tableName = $('vfTableName').value.trim();
+  if (!codes) { toast('请输入证券代码', 'error'); return; }
+  if (!fields) { toast('请输入字段名', 'error'); return; }
+  const el = $('vfResult');
+  el.textContent = '获取中…';
+  el.style.color = 'var(--text-2)';
+  try {
+    const d = await api('POST', '/api/vendor/import', {
+      vendor: _vfVendor,
+      codes: codes.split(/[,，]/).map(s => s.trim()).filter(Boolean),
+      fields: fields.split(/[,，]/).map(s => s.trim()).filter(Boolean),
+      start_date: startDate,
+      end_date: endDate,
+      table_name: tableName || 'vendor_' + _vfVendor
+    });
+    if (d.ok) {
+      el.textContent = '导入成功：' + d.table_name + '（' + d.row_count + '行）';
+      el.style.color = 'var(--green)';
+      toast('已导入：' + d.table_name, 'success');
+      dpCloseVendorFetch();
+      dpRefreshTableList();
+    } else {
+      el.textContent = '失败：' + (d.error || '未知错误');
+      el.style.color = 'var(--red,#e74c3c)';
+    }
+  } catch (e) {
+    el.textContent = '异常：' + e.message;
+    el.style.color = 'var(--red,#e74c3c)';
+  }
 }

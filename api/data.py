@@ -62,6 +62,11 @@ def api_upload():
             "table_count": len(doc_result.tables),
         })
 
+    from tools.data_masker import validate_masking_ready
+    mask_ok, mask_msg = validate_masking_ready()
+    if not mask_ok:
+        return jsonify({"ok": False, "error": mask_msg}), 400
+
     import pandas as pd
 
     from tools.data_loader import detect_encoding, extract_date_from_filename
@@ -155,6 +160,29 @@ def api_upload_confirm():
         stem = Path(filename).stem
         safe_stem = re.sub(r'[^a-zA-Z0-9一-鿿_\-]', '_', stem)
         table_name = f"{table_type}_{safe_stem}"
+
+    from tools.data_masker import get_masking_config, mask_dataframe, parse_mask_fields
+    mc = get_masking_config()
+    if mc['enabled'] and mc['fields']:
+        mask_fields = parse_mask_fields(mc['fields'])
+        if mask_fields:
+            try:
+                import pandas as pd
+                from tools.data_loader import detect_encoding
+                ext_confirm = Path(dest_path).suffix.lower()
+                if ext_confirm == '.csv':
+                    enc = detect_encoding(dest_path)
+                    df_raw = pd.read_csv(dest_path, encoding=enc, dtype=str,
+                                         keep_default_na=False)
+                else:
+                    df_raw = pd.read_excel(dest_path, dtype=str)
+                df_masked, _mapping = mask_dataframe(df_raw, mask_fields)
+                if ext_confirm == '.csv':
+                    df_masked.to_csv(dest_path, index=False, encoding='utf-8-sig')
+                else:
+                    df_masked.to_excel(dest_path, index=False)
+            except Exception:
+                pass
 
     from tools.data_loader import load_file
     try:

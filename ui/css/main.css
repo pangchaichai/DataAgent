@@ -394,33 +394,45 @@ code,pre{font-family:"JetBrains Mono","Cascadia Code","Consolas",monospace;font-
 .q-btn{font-size:12px;padding:4px 11px;border-radius:14px;border:1px solid var(--border);
   background:var(--bg-s);color:var(--text-2);cursor:pointer;transition:all .15s;}
 .q-btn:hover{border-color:var(--blue);color:var(--blue);}
-.inrow{display:flex;gap:8px;align-items:flex-end;position:relative;}
-.input-expand-btn{
-  position:absolute;top:4px;right:80px;z-index:2;
-  background:none;border:none;cursor:pointer;
-  color:var(--text-3);font-size:14px;padding:2px 4px;
-  border-radius:4px;transition:color .12s,background .12s;
-  line-height:1;
+.inrow{display:flex;gap:0;align-items:flex-end;position:relative;}
+.input-wrap{
+  flex:1;position:relative;display:flex;flex-direction:column;
+  border:1px solid var(--border);border-radius:12px;
+  background:var(--bg);transition:border-color .15s,box-shadow .15s;
+  overflow:hidden;
 }
-.input-expand-btn:hover{color:var(--blue);background:var(--bg-hover);}
-textarea{flex:1;resize:none;border:1px solid var(--border);border-radius:10px;
-  padding:9px 14px;font-size:13.5px;background:var(--bg);color:var(--text);
+.input-wrap:focus-within{border-color:var(--blue);
+  box-shadow:0 0 0 2px rgba(37,99,235,.12);}
+textarea{flex:1;resize:none;border:none;border-radius:0;
+  padding:10px 14px 4px;font-size:13.5px;background:transparent;color:var(--text);
   font-family:inherit;-webkit-user-select:text;user-select:text;line-height:1.5;
   min-height:40px;max-height:120px;overflow-y:auto;transition:opacity .15s,max-height .2s;}
 textarea.expanded{max-height:400px;resize:vertical;}
-textarea:focus{outline:none;border-color:var(--blue);
-  box-shadow:0 0 0 2px rgba(37,99,235,.12);}
+textarea:focus{outline:none;box-shadow:none;}
 textarea[readonly]{opacity:.6;}
-.send{flex-shrink:0;height:40px;padding:0 18px;border:none;border-radius:10px;
-  background:var(--blue);color:#fff;font-weight:600;cursor:pointer;
-  font-size:13px;white-space:nowrap;transition:background .15s;}
-.send:hover{opacity:.9;}
+.input-toolbar{
+  display:flex;align-items:center;justify-content:flex-end;
+  padding:2px 6px 6px;gap:4px;
+}
+.input-expand-btn{
+  background:none;border:none;cursor:pointer;
+  color:var(--text-3);font-size:14px;padding:4px 6px;
+  border-radius:6px;transition:color .12s,background .12s;
+  line-height:1;
+}
+.input-expand-btn:hover{color:var(--blue);background:var(--bg-hover);}
+.send{flex-shrink:0;width:32px;height:32px;padding:0;border:none;border-radius:8px;
+  background:var(--blue);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s,opacity .15s;}
+.send:hover{opacity:.85;}
 .send.stop{background:var(--text-2);}
 .send.stop:hover{opacity:.85;}
+.send svg{display:block;}
 .disabled{opacity:.5;pointer-events:none;}
 .hintbar{font-size:12px;color:var(--orange);margin-bottom:6px;display:none;}
 .hintbar.show{display:block;}
-.dragover textarea{border-color:var(--blue);border-style:dashed;}
+.dragover .input-wrap{border-color:var(--blue);border-style:dashed;}
 
 /* ── Settings panel ── */
 .settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:100;
@@ -642,6 +654,26 @@ select.sp-input{cursor:pointer;}
 @keyframes owlPulseGlow{
   0%,100%{filter:drop-shadow(0 0 0px var(--blue));}
   50%{filter:drop-shadow(0 0 6px var(--blue));}}
+
+/* ── Remote DB / browse overlay (legacy class) ── */
+.upload-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;
+  display:none;align-items:center;justify-content:center;}
+.upload-confirm{background:var(--bg-s);border-radius:12px;padding:20px 24px;
+  box-shadow:0 8px 32px rgba(0,0,0,.25);width:auto;max-width:92vw;}
+.upload-confirm h3{font-size:16px;font-weight:600;margin-bottom:14px;}
+.upload-confirm .uc-fields label{font-size:13px;color:var(--text-2);font-weight:500;}
+.upload-confirm .uc-fields input,
+.upload-confirm .uc-fields select{
+  padding:7px 10px;border:1px solid var(--border);border-radius:6px;
+  background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;
+  box-sizing:border-box;}
+.upload-confirm .uc-fields input:focus,
+.upload-confirm .uc-fields select:focus{outline:none;border-color:var(--blue);}
+.upload-confirm .uc-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.preview-tbl{border-collapse:collapse;width:100%;font-size:12px;}
+.preview-tbl th{text-align:left;padding:4px 8px;border-bottom:2px solid var(--border);
+  font-weight:600;font-size:11px;color:var(--text-2);background:var(--bg-hover);}
+.preview-tbl td{padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text);}
 
 /* ── Upload confirm panels (global, not page-scoped) ── */
 .uc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;}

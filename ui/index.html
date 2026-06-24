@@ -128,6 +128,14 @@
           </div>
           <div id="dataPageRemoteDBList"><div class="s-item" style="color:var(--text-3)">未配置</div></div>
         </div>
+        <!-- Vendor API data sources -->
+        <div class="dp-section">
+          <div class="dp-section-title">
+            金融资讯 API
+            <span class="dp-refresh" onclick="dpRefreshVendorAPI()" title="刷新">↻</span>
+          </div>
+          <div id="dataPageVendorList"><div class="s-item" style="color:var(--text-3)">检测中…</div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -177,6 +185,32 @@
       <div id="remoteDBPreview" style="display:none;margin-top:12px"></div>
       <div class="uc-actions">
         <button class="btn" onclick="dpCloseTablesBrowser()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor API Fetch Dialog -->
+  <div id="vendorFetchOverlay" class="upload-overlay" style="display:none" onclick="if(event.target===this)dpCloseVendorFetch()">
+    <div class="upload-confirm" style="max-width:520px">
+      <h3 id="vendorFetchTitle">获取资讯数据</h3>
+      <div class="uc-fields" style="display:flex;flex-direction:column;gap:10px">
+        <div><label>证券代码（逗号分隔）</label><br>
+          <input type="text" id="vfCodes" placeholder="如：000001.SZ,600000.SH" style="width:100%"></div>
+        <div><label>字段（逗号分隔）</label><br>
+          <input type="text" id="vfFields" placeholder="如：close,open,high,low,volume" style="width:100%"></div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1"><label>开始日期</label><br>
+            <input type="text" id="vfStart" placeholder="2026-01-01" style="width:100%"></div>
+          <div style="flex:1"><label>结束日期</label><br>
+            <input type="text" id="vfEnd" placeholder="2026-06-24" style="width:100%"></div>
+        </div>
+        <div><label>本地表名</label><br>
+          <input type="text" id="vfTableName" placeholder="vendor_data" style="width:100%"></div>
+        <div id="vfResult" style="font-size:12px;min-height:20px"></div>
+      </div>
+      <div class="uc-actions">
+        <button class="btn" onclick="dpCloseVendorFetch()">取消</button>
+        <button class="btn primary" onclick="dpImportVendorData()">获取并导入</button>
       </div>
     </div>
   </div>
@@ -267,12 +301,18 @@
           <button class="q-btn" onclick="sendQuick('查询持仓情况，按市值降序排列')" title="查询持仓">📊 持仓</button>
         </div>
         <div class="inrow" id="inrow">
-          <button class="input-expand-btn" id="inputExpandBtn" onclick="toggleInputExpand()" title="展开/收起输入框">⤢</button>
-          <textarea id="input" rows="2"
-            placeholder="输入分析需求，如「检查集中度」「持仓前10」… Enter 发送，Shift+Enter 换行"
-            oninput="autoResize(this);checkMention(this)"
-            onkeydown="onKey(event)"></textarea>
-          <button class="send" id="sendBtn" onclick="sendMessage()">发送</button>
+          <div class="input-wrap">
+            <textarea id="input" rows="2"
+              placeholder="输入分析需求，如「检查集中度」「持仓前10」… Enter 发送，Shift+Enter 换行"
+              oninput="autoResize(this);checkMention(this)"
+              onkeydown="onKey(event)"></textarea>
+            <div class="input-toolbar">
+              <button class="input-expand-btn" id="inputExpandBtn" onclick="toggleInputExpand()" title="展开/收起输入框">⤢</button>
+              <button class="send" id="sendBtn" onclick="sendMessage()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </main>
@@ -427,6 +467,25 @@
           placeholder="例如：D:\工作数据 或 /home/user/data"/>
       </div>
       <div class="sp-hint">配置后，侧边栏「工作目录」将列出该目录下的所有 CSV/Excel 文件，可按需加载为数据表。技能执行时若缺少所需数据，系统将自动在此目录中搜索候选文件。</div>
+    </div>
+
+    <!-- 内测脱敏防控 -->
+    <div class="sp-section">
+      <div class="sp-title">内测脱敏防控</div>
+      <div class="sp-row">
+        <label>启用脱敏</label>
+        <label class="toggle-sw">
+          <input type="checkbox" id="cfg-masking" checked onchange="saveMaskingToggle()"/>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div class="sp-hint" style="margin-bottom:8px">开启后，上传数据文件时将自动对指定字段进行脱敏处理，防止内测阶段泄露敏感数据。</div>
+      <div class="sp-row sp-col" id="maskingFieldsRow">
+        <label>脱敏字段（逗号分隔）</label>
+        <input type="text" id="cfg-mask-fields" class="sp-input"
+          placeholder="如：限额占用方主体,发行人名称,产品名称"/>
+      </div>
+      <div class="sp-hint">填写需要脱敏的列名，支持中文逗号和英文逗号。上传文件时，系统将自动将这些字段的值替换为脱敏数据。</div>
     </div>
 
     <!-- 运行日志 -->

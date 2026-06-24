@@ -1151,3 +1151,4 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v3.4 DataSrc-B | 智能数据识别：smart_recognizer.py，程序化优先 + LLM function-calling 增强，低置信时调 LLM 推断表类型，脱敏样本不出内网 | 智能化 |
 | v3.4 DataSrc-C | 远程数据库支持：remote_db.py（5 种 DB）+ load_dataframe() 统一入口 + 7 个 API 端点 + UI 连接配置弹窗 + 表浏览/预览/导入 | 数据源扩展 |
 | v3.4 DataSrc-D | 金融资讯 API：vendor_api.py（Choice/iFind 实现，Wind 预留）+ 5 个 API 端点 + 26 个 Mock 测试，graceful degradation | 数据源扩展 |
+| v3.4 UAT | Windows UAT 修复：xlrd 错误提示优化 / 远程DB弹窗CSS修复 / 金融资讯API配置UI / 输入框发送按钮内嵌重设计 / 内测脱敏防控模块（data_masker.py + 23 测试） | UAT 修复 |
