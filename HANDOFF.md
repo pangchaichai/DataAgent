@@ -14,48 +14,47 @@
 
 ---
 
-## 上次会话完成的工作（2026-06-24，第二十七轮）
+## 上次会话完成的工作（2026-06-24，第二十八轮）
 
-### v3.4 Windows UAT 修复 — 4 个 Bug + 1 个新功能
+### v3.4 Windows UAT 修复 Round 2 — 4 个 Bug
 
-#### Bug 1: xlrd 依赖错误提示优化 ✅
-- `tools/excel_preprocessor.py`：xlrd import 增加 try/except 守卫，未安装时返回友好提示（"请执行 pip install xlrd 后重试"）
-- xlrd 已在 requirements-dev.txt 中，Windows 环境需确认已安装
+#### Bug 1: 输入框展开/收起无视觉反馈 ✅
+- `ui/js/dom.js`：展开高度 200→280px，按钮添加 `.active` 类切换
+- `ui/css/main.css`：`textarea.expanded` 增加 `min-height:200px`，新增 `.input-expand-btn.active` 蓝色高亮样式
 
-#### Bug 2: 远程数据库弹窗定位修复 ✅
-- `ui/css/main.css`：补充 `.upload-overlay` 和 `.upload-confirm` CSS 定义（此前缺失导致弹窗无居中样式）
-- 新增 fixed+inset+flex 居中定位 + 圆角阴影 + 表单元素样式 + `.preview-tbl` 表格样式
+#### Bug 2: XLS 合并标题行未识别（xlrd 统一值填充） ✅
+- `tools/excel_preprocessor.py`：`_detect_title_rows()` 新增第三种启发式——当 ≥3 列且 ≥80% 非空单元格值完全相同时，判定为标题行
+- `tests/test_excel_preprocessor.py`：新增 3 个测试（统一值标题/正常表头不误判/多行场景）
 
-#### Bug 3: 金融资讯 API 配置 UI ✅
-- `ui/index.html`：数据源管理页新增「金融资讯 API」区块（Choice/iFinD/Wind 状态列表）+ 数据获取弹窗
-- `ui/js/pages/data_page.js`：新增 `_loadVendorAPI()` 方法 + 连接/获取/导入交互函数（dpConnectVendor/dpFetchVendor/dpImportVendorData）
+#### Bug 3: Agent 不发现新上传的表 ✅
+- `agent/context.py`：非相关表的 schema 上下文新增列名预览（前 15 列）
+- `prompts/system_prompt.txt`：规则 1 下新增强制指令——找不到字段时必须检查所有其他表
+- `tests/test_context.py`：更新断言匹配新输出格式
 
-#### Bug 4: 输入框发送按钮内嵌重设计 ✅
-- `ui/index.html`：textarea + 发送按钮包裹在 `.input-wrap` 容器中，发送按钮移到输入框内部右下角
-- `ui/css/main.css`：`.input-wrap` 统一边框/圆角，textarea 无独立边框，`.input-toolbar` 底部工具栏，发送按钮 32x32 方形 + SVG 图标
-- `ui/js/dom.js`：`setSendMode()` 改用 innerHTML + SVG 图标（发送箭头/停止方块）
+#### Bug 4: 脱敏 UX 优化 ✅
+- `ui/css/main.css`：`.sp-col` 布局修复（`align-items:stretch;gap:4px`），消除标签与输入框间大块空白
+- `api/data.py`：上传确认响应新增 `masking_info`（已脱敏字段列表 + 脱敏值总数）
+- `ui/js/upload.js`：单文件/批量上传均展示脱敏反馈信息（橙色锁图标 + 字段名 + 数量）
 
-#### 新功能: 内测脱敏防控 ✅
-- **新建 `tools/data_masker.py`**（~105 行）— 确定性脱敏模块
-  - `mask_dataframe(df, fields)` — 对指定字段进行确定性脱敏（同值→同脱敏值），保持数据关联性
-  - `parse_mask_fields(raw)` — 解析逗号分隔字段名（支持中英文逗号）
-  - `validate_masking_ready()` — 校验脱敏配置就绪（仅当 config.yaml 有 masking 段且 enabled 时才生效）
-- **api/config_api.py**：GET/POST `/api/config` 新增 masking 字段（enabled + fields）
-- **api/data.py**：上传 Stage 1 增加脱敏配置校验（未配置字段时拦截），Stage 2 (confirm) 加载前自动对配置字段脱敏
-- **ui/index.html**：设置页新增「内测脱敏防控」区块（开关 + 字段配置输入框）
-- **ui/js/settings.js**：加载/保存脱敏配置 + 即时切换开关
-- **config.example.yaml**：新增 masking 配置段
-- **新建 `tests/test_data_masker.py`**（23 个测试）— 全部通过
-
-**测试结果**：823 passed, 5 skipped, 1 pre-existing failure（test_skill_api 隔离问题）
+**测试结果**：826 passed, 5 skipped, 1 pre-existing failure（test_skill_api 隔离问题，已确认在 clean HEAD 同样失败）
 
 ---
 
 ## 立即可执行的下一步
-1. **Windows UAT 验收**：在 Windows 环境逐一验收 5 个修复项
-2. **Wind 实现**（Phase E，P3）：目前仅预留接口，后续按需补充具体逻辑
-3. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 在全量运行时因全局 `_loaded_tables` 泄漏而失败
+1. **Windows UAT 验收**：在 Windows 环境验收本轮 4 个修复项
+2. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 全量运行时因全局 `_loaded_tables` 泄漏而失败（pre-existing）
+3. **Wind 实现**（Phase E，P3）：目前仅预留接口，后续按需补充具体逻辑
 4. **继续 Phase 5（Windows 打包测试）**：PyInstaller + WebView2 + 完整功能验收
+
+---
+
+## 上次会话完成的工作（2026-06-24，第二十七轮）
+
+### v3.4 Windows UAT 修复 — 4 个 Bug + 1 个新功能
+
+#### Bug 1~4 + 脱敏新功能 ✅
+- xlrd 错误提示 / 远程DB弹窗CSS / 金融API配置UI / 发送按钮内嵌 / data_masker.py 脱敏模块
+- 823 passed, 5 skipped, 1 pre-existing failure
 
 ---
 

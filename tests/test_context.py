@@ -58,13 +58,12 @@ class TestBuildSchemaContext:
         ctx = build_schema_context(relevant_tables=["tbl_holding"])
         assert "■ tbl_holding" in ctx
 
-    def test_non_relevant_table_gets_summary_only(self):
-        """未指定的表应只显示一行摘要（□ 标记）"""
+    def test_non_relevant_table_gets_summary_with_columns(self):
+        """未指定的表应显示摘要 + 关键列名（□ 标记）"""
         from agent.context import build_schema_context
         ctx = build_schema_context(relevant_tables=["tbl_holding"])
         assert "□ tbl_nav" in ctx
-        # 非相关表不应出现完整列名
-        assert "profile_table" in ctx  # 引导用 profile_table
+        assert "列名:" in ctx
 
     def test_empty_relevant_tables_shows_summary_only(self):
         """传空列表 → 所有表都是摘要（没有表被指定为相关）"""

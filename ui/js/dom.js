@@ -89,12 +89,14 @@ function toggleInputExpand(){
   const ta=$('input'),btn=$('inputExpandBtn');
   _inputExpanded=!_inputExpanded;
   if(_inputExpanded){
-    ta.style.height='200px';ta.classList.add('expanded');
+    ta.style.height='280px';ta.classList.add('expanded');
     btn.textContent='⤡';btn.title='收起输入框';
+    btn.classList.add('active');
   }else{
     ta.classList.remove('expanded');
     ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';
     btn.textContent='⤢';btn.title='展开输入框';
+    btn.classList.remove('active');
   }
   ta.focus();
 }

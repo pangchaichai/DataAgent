@@ -92,6 +92,45 @@ class TestTitleRowDetection:
         assert result.sheet_info[0].title_rows_skipped == 2
         assert result.df.columns.tolist() == ["A", "B", "C", "D"]
 
+    def test_uniform_value_title_row(self, tmp_dir):
+        """所有单元格值相同的行应被识别为标题行。"""
+        path = os.path.join(tmp_dir, "uniform_title.xlsx")
+        _create_xlsx(path, [("Sheet1", [
+            ["持仓数据_数据平台", "持仓数据_数据平台", "持仓数据_数据平台",
+             "持仓数据_数据平台", "持仓数据_数据平台"],
+            ["持仓日期", "资产代码", "资产名称", "产品名称", "市值"],
+            ["2026-06-15", "001", "债券A", "产品1", "1000"],
+        ], [])])
+        result = preprocess_excel(path)
+        assert result.sheet_info[0].title_rows_skipped == 1
+        assert "持仓日期" in result.df.columns.tolist()
+        assert len(result.df) == 1
+
+    def test_uniform_value_with_data_header(self, tmp_dir):
+        """第二行各值不同，不应被误判。"""
+        path = os.path.join(tmp_dir, "uniform_title2.xlsx")
+        _create_xlsx(path, [("Sheet1", [
+            ["报表标题", "报表标题", "报表标题", "报表标题"],
+            ["A", "B", "C", "D"],
+            ["1", "2", "3", "4"],
+            ["5", "6", "7", "8"],
+        ], [])])
+        result = preprocess_excel(path)
+        assert result.sheet_info[0].title_rows_skipped == 1
+        assert result.df.columns.tolist() == ["A", "B", "C", "D"]
+        assert len(result.df) == 2
+
+    def test_normal_header_not_falsely_skipped(self, tmp_dir):
+        """正常表头不应被统一值启发式误判。"""
+        path = os.path.join(tmp_dir, "normal_header.xlsx")
+        _create_xlsx(path, [("Sheet1", [
+            ["持仓日期", "资产代码", "资产名称", "产品名称", "市值"],
+            ["2026-06-15", "001", "债券A", "产品1", "1000"],
+        ], [])])
+        result = preprocess_excel(path)
+        assert result.sheet_info[0].title_rows_skipped == 0
+        assert "持仓日期" in result.df.columns.tolist()
+
 
 # ── 场景 B：双层表头 ──────────────────────────────────────
 

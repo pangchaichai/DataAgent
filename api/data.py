@@ -161,6 +161,7 @@ def api_upload_confirm():
         safe_stem = re.sub(r'[^a-zA-Z0-9一-鿿_\-]', '_', stem)
         table_name = f"{table_type}_{safe_stem}"
 
+    masking_info = None
     from tools.data_masker import get_masking_config, mask_dataframe, parse_mask_fields
     mc = get_masking_config()
     if mc['enabled'] and mc['fields']:
@@ -181,6 +182,14 @@ def api_upload_confirm():
                     df_masked.to_csv(dest_path, index=False, encoding='utf-8-sig')
                 else:
                     df_masked.to_excel(dest_path, index=False)
+                masked_cols = [c for c in _mapping if _mapping[c]]
+                if masked_cols:
+                    masking_info = {
+                        "masked_fields": masked_cols,
+                        "total_values_masked": sum(
+                            len(_mapping[c]) for c in masked_cols
+                        ),
+                    }
             except Exception:
                 pass
 
@@ -207,6 +216,8 @@ def api_upload_confirm():
         "row_count": result.row_count,
         "col_count": result.col_count,
     }
+    if masking_info:
+        response_data["masking_info"] = masking_info
     if result.quality_report:
         from dataclasses import asdict
         response_data["quality_report"] = asdict(result.quality_report)

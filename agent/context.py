@@ -87,11 +87,28 @@ def build_schema_context(relevant_tables: list[str] | None = None) -> str:
                     for w in warnings_list[:3]:
                         lines.append(f"  - ⚠️ {w}")
         else:
-            # Level 2: 仅摘要（一行）
+            # Level 2: 摘要 + 关键列名（帮助 Agent 发现目标表）
+            col_hint = ""
+            _conn = __import__(
+                'tools.data_loader', fromlist=['get_connection']
+            ).get_connection()
+            try:
+                _rc = _conn.execute(
+                    f"SELECT column_name FROM information_schema.columns "
+                    f"WHERE table_name = '{name}' ORDER BY ordinal_position"
+                ).fetchall()
+                _cn = [c[0] for c in _rc]
+                _pv = _cn[:15]
+                if len(_cn) > 15:
+                    _pv.append(f'... 共{len(_cn)}列')
+                col_hint = f"  列名: {', '.join(_pv)}"
+            except Exception:
+                pass
             lines.append(
                 f"### □ {name}（{t['type']}，{t['rows']}行）"
-                f" — 如需详情请用 profile_table"
             )
+            if col_hint:
+                lines.append(col_hint)
 
         lines.append("")
 

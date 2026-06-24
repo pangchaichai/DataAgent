@@ -141,9 +141,11 @@ def _fill_merged_cells(rows, merged_ranges):
 def _detect_title_rows(rows, total_cols, merged_ranges):
     """从第1行起连续检测标题行，返回跳过的行数。
 
-    两种判定方式（任一满足即跳过）：
+    三种判定方式（任一满足即跳过）：
     1. 合并格元数据：该行有且仅有1个合并格，且跨度 ≥ 总列数的80%
     2. 启发式：该行仅有 ≤1 个非空单元格（适用于无合并信息的 .xls）
+    3. 统一值启发式：≥3列时，若 ≥80% 的非空单元格值完全相同，视为标题行
+       （xlrd 无 formatting_info 时合并区域被填充为相同值的特征）
     """
     skip = 0
     for r_idx, row in enumerate(rows):
@@ -161,6 +163,15 @@ def _detect_title_rows(rows, total_cols, merged_ranges):
         if non_empty <= 1 and total_cols >= 3:
             skip += 1
             continue
+
+        if total_cols >= 3:
+            ne_vals = [str(v).strip() for v in row
+                       if v is not None and str(v).strip() != '']
+            if (ne_vals
+                    and len(set(ne_vals)) == 1
+                    and len(ne_vals) >= total_cols * TITLE_ROW_THRESHOLD):
+                skip += 1
+                continue
 
         break
     return skip

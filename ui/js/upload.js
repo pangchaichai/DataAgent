@@ -145,7 +145,12 @@ async function confirmUploadFile(){
     });
     const d=await r.json();
     if(d.ok){
-      _uploadMsg('已加载：<b>'+esc(d.table_name)+'</b>（'+d.row_count+'行 × '+d.col_count+'列）','green');
+      let msg='已加载：<b>'+esc(d.table_name)+'</b>（'+d.row_count+'行 × '+d.col_count+'列）';
+      if(d.masking_info){
+        msg+='<br><span style="color:var(--orange)">🔒 已脱敏字段：'+esc(d.masking_info.masked_fields.join('、'))
+          +'（共 '+d.masking_info.total_values_masked+' 个值已脱敏）</span>';
+      }
+      _uploadMsg(msg,'green');
       if(ST.currentPage==='/chat'&&d.quality_report)renderQuality(d.quality_report,d.table_name);
       refreshSidebar();
       if(ST.currentPage==='/data')DataPage._renderTableList();
@@ -291,7 +296,9 @@ async function confirmBatchUpload(){
       const res=await r.json();
       if(res.ok){
         successCount++;
-        if(statusEl){statusEl.textContent='已加载（'+res.row_count+'行）';statusEl.className='bf-card-status done';}
+        let statusText='已加载（'+res.row_count+'行）';
+        if(res.masking_info)statusText+=' 🔒 已脱敏'+res.masking_info.masked_fields.length+'个字段';
+        if(statusEl){statusEl.textContent=statusText;statusEl.className='bf-card-status done';}
       }else{
         failCount++;
         if(statusEl){statusEl.textContent='失败';statusEl.className='bf-card-status error';}

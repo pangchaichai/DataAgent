@@ -4,9 +4,25 @@
 
 ---
 
-## 当前阶段：v3.4 Windows UAT 修复完成
+## 当前阶段：v3.4 Windows UAT 修复 Round 2 完成
 
-## v3.4 UAT 修复：4 Bug + 1 新功能 ✅ 完成（2026-06-24）
+## v3.4 UAT 修复 Round 2：4 Bug ✅ 完成（2026-06-24）
+✅ 已测（826 tests 通过，1 pre-existing 失败）
+
+### 改动范围
+- [x] Bug 1: `ui/js/dom.js` + `ui/css/main.css` — 输入框展开/收起视觉反馈（280px高度+active样式）
+- [x] Bug 2: `tools/excel_preprocessor.py` — XLS 统一值标题行检测（xlrd 合并格填充场景）
+- [x] Bug 3: `agent/context.py` + `prompts/system_prompt.txt` — Agent 跨表字段发现（列名预览+强制指令）
+- [x] Bug 4: `ui/css/main.css` + `api/data.py` + `ui/js/upload.js` — 脱敏 UX 优化（布局+反馈信息）
+- [x] `tests/test_excel_preprocessor.py` — 3 个新测试
+- [x] `tests/test_context.py` — 断言更新
+
+### 测试结果
+- 826 passed, 5 skipped, 1 failed（pre-existing test_skill_api 隔离问题，clean HEAD 同样失败）
+
+---
+
+## v3.4 UAT 修复 Round 1：4 Bug + 1 新功能 ✅ 完成（2026-06-24）
 ✅ 已测（823 tests 通过，1 pre-existing 失败）
 
 ### 改动范围
