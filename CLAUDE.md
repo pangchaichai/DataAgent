@@ -1147,3 +1147,7 @@ logger.log_exception('agent', 'Agent 循环异常', e)
 | v3.1 UAT | Windows UAT 修复 6 项：Chat 侧边栏去冗余 / 导航栏文字标签常驻 / 可展开输入框 / 暗色模式对比度 / SSE 挂起修复（超时检测+错误提示+共享setupSSE）/ Agent 循环+SSE 流生命周期日志增强 | UAT 修复 |
 | v3.2 Upload | 上传体验优化：确认弹窗全局化（移出 page-chat，任何页面可用）/ 批量上传支持（多文件一键导入+逐文件状态反馈）/ 数据页拖拽上传 / 页面感知消息（_uploadMsg） | UX 优化 |
 | v3.3 UI | UI 三项优化：可调宽度会话侧边栏（拖拽+折叠+localStorage 持久化）/ 明暗模式区域色彩分层（4 个区域专属变量）/ 欢迎页清晰分区重设计 | UX 优化 |
+| v3.4 DataSrc-A | 数据源代码拆分：data_loader.py（1106→230行）→ 4 模块（encoding / dict_mapper / file_ingest / 门面），20+ 外部 import 零修改 | 架构改进 |
+| v3.4 DataSrc-B | 智能数据识别：smart_recognizer.py，程序化优先 + LLM function-calling 增强，低置信时调 LLM 推断表类型，脱敏样本不出内网 | 智能化 |
+| v3.4 DataSrc-C | 远程数据库支持：remote_db.py（5 种 DB）+ load_dataframe() 统一入口 + 7 个 API 端点 + UI 连接配置弹窗 + 表浏览/预览/导入 | 数据源扩展 |
+| v3.4 DataSrc-D | 金融资讯 API：vendor_api.py（Choice/iFind 实现，Wind 预留）+ 5 个 API 端点 + 26 个 Mock 测试，graceful degradation | 数据源扩展 |
