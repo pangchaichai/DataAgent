@@ -101,6 +101,19 @@ function showUploadConfirm(d){
     }
   }
 
+  // Detection meta hint (LLM suggestion)
+  const dmEl=$('ucDetectionHint');
+  if(dmEl){
+    const dm=d.detection_meta;
+    if(dm&&dm.source==='llm'&&dm.llm_suggestion){
+      dmEl.innerHTML='<div style="padding:6px 10px;background:var(--bg-s);border-radius:6px;font-size:12px;color:var(--text-2);margin-bottom:8px">'
+        +'AI 识别建议：'+esc(dm.llm_suggestion)+'</div>';
+      dmEl.style.display='';
+    }else{
+      dmEl.style.display='none';dmEl.innerHTML='';
+    }
+  }
+
   const cols=d.columns||[];const rows=d.preview_rows||[];
   let th='<tr>'+cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr>';
   let tbody=rows.map(r=>'<tr>'+r.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>').join('');

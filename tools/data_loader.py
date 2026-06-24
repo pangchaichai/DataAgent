@@ -86,11 +86,8 @@ _RATING_ENTITY_KEYWORDS = {"主体评级", "主体名称", "发行人评级", "�
 _RATING_BOND_KEYWORDS = {"债项评级", "债券代码", "债券评级", "ISIN", "评级日期"}
 
 
-def auto_detect_table_type(df, filename: str = "") -> str:
-    """
-    根据列名关键词自动检测表类型。
-    Returns: 'holding' | 'nav' | 'rating_entity' | 'rating_bond' | 'unknown'
-    """
+def _detect_with_scores(df, filename: str = "") -> tuple[str, dict[str, int]]:
+    """内部：关键词评分，返回 (best_type, scores)。"""
     cols_text = " ".join(df.columns)
     filename_lower = filename.lower()
     scores = {
@@ -109,7 +106,16 @@ def auto_detect_table_type(df, filename: str = "") -> str:
         scores["rating_bond"] += 2
 
     best = max(scores, key=scores.get)
-    return best if scores[best] > 0 else "unknown"
+    return (best if scores[best] > 0 else "unknown"), scores
+
+
+def auto_detect_table_type(df, filename: str = "") -> str:
+    """
+    根据列名关键词自动检测表类型。
+    Returns: 'holding' | 'nav' | 'rating_entity' | 'rating_bond' | 'unknown'
+    """
+    result, _ = _detect_with_scores(df, filename)
+    return result
 
 
 def extract_date_from_filename(filename: str) -> str | None:

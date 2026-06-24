@@ -64,11 +64,8 @@ def api_upload():
 
     import pandas as pd
 
-    from tools.data_loader import (
-        auto_detect_table_type,
-        detect_encoding,
-        extract_date_from_filename,
-    )
+    from tools.data_loader import detect_encoding, extract_date_from_filename
+
     try:
         if ext == '.csv':
             enc = detect_encoding(file_path)
@@ -85,7 +82,10 @@ def api_upload():
     except Exception as e:
         return jsonify({"ok": False, "error": f"文件读取失败：{str(e)[:200]}"}), 400
 
-    auto_type = auto_detect_table_type(df_preview, file.filename)
+    from tools.smart_recognizer import enhanced_detect_table_type
+
+    detection = enhanced_detect_table_type(df_preview, file.filename)
+    auto_type = detection.table_type
     # honour an explicit table_type sent by the client (e.g. from tests or
     # direct API calls); fall back to auto-detection when absent or 'unknown'
     requested_type = request.form.get('table_type', '').strip()
@@ -103,6 +103,12 @@ def api_upload():
         "preview_rows": df_preview.values.tolist(),
         "row_estimate": max(row_estimate, len(df_preview)),
         "col_count": len(df_preview.columns),
+        "detection_meta": {
+            "source": detection.source,
+            "confidence": detection.confidence,
+            "reason": detection.reason,
+            "llm_suggestion": detection.llm_suggestion,
+        },
     }
     if ext in ('.xlsx', '.xls'):
         resp["sheets"] = [{"name": s.name, "rows": s.row_count, "cols": s.col_count}
@@ -214,7 +220,7 @@ def api_workdir_preview():
 
     import pandas as pd
 
-    from tools.data_loader import auto_detect_table_type, detect_encoding, extract_date_from_filename
+    from tools.data_loader import detect_encoding, extract_date_from_filename
     ext = file_path.suffix.lower()
     try:
         if ext == '.csv':
@@ -232,7 +238,10 @@ def api_workdir_preview():
     except Exception as e:
         return jsonify({"ok": False, "error": f"文件读取失败：{str(e)[:200]}"}), 400
 
-    auto_type = auto_detect_table_type(df_preview, filename)
+    from tools.smart_recognizer import enhanced_detect_table_type
+
+    detection_wd = enhanced_detect_table_type(df_preview, filename)
+    auto_type = detection_wd.table_type
     detected_date = extract_date_from_filename(filename)
     stem = file_path.stem
     import re as _re
@@ -251,6 +260,12 @@ def api_workdir_preview():
         "row_estimate": max(row_estimate, len(df_preview)),
         "col_count": len(df_preview.columns),
         "suggested_table_name": f"{auto_type}_{safe_stem}",
+        "detection_meta": {
+            "source": detection_wd.source,
+            "confidence": detection_wd.confidence,
+            "reason": detection_wd.reason,
+            "llm_suggestion": detection_wd.llm_suggestion,
+        },
     }
     if ext in ('.xlsx', '.xls'):
         resp_wd["sheets"] = [{"name": s.name, "rows": s.row_count, "cols": s.col_count}
