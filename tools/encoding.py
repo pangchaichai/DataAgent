@@ -95,7 +95,7 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
 
     # BOM is a definitive signal — short-circuit
     if raw[:3] == b'\xef\xbb\xbf':
-        print("[encoding] UTF-8 BOM detected → utf-8 (short-circuit)")
+        print("[encoding] UTF-8 BOM detected -> utf-8 (short-circuit)")
         return 'utf-8'
 
     candidates = ['utf-8', 'gb18030', 'gbk', 'gb2312', 'latin-1']
@@ -126,11 +126,11 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
 
     results.sort(key=lambda x: x[1], reverse=True)
     for enc, _score, reason in results[:4]:
-        marker = ' ★' if enc == best_enc else ''
+        marker = ' *' if enc == best_enc else ''
         print(f"[encoding]   {enc}: {reason}{marker}")
 
     if best_score < 0:
-        print("[encoding] ⚠️ 所有编码评分均为负，退回 utf-8")
+        print("[encoding] [WARN] all encoding scores negative, fallback to utf-8")
 
     return best_enc
 

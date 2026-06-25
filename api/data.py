@@ -411,6 +411,87 @@ def api_workdir_load():
     return jsonify(response_data)
 
 
+@data_bp.route('/api/workdir/load_all', methods=['POST'])
+def api_workdir_load_all():
+    """批量加载工作目录下所有 CSV/Excel 文件（跳过已加载的表）。"""
+    from tools.workdir_loader import get_work_dir
+    work_dir = get_work_dir()
+    if not work_dir:
+        return jsonify({"ok": False, "error": "工作目录未配置"}), 400
+
+    allowed_exts = {'.csv', '.xlsx', '.xls'}
+    files = [f for f in work_dir.iterdir()
+             if f.is_file() and f.suffix.lower() in allowed_exts]
+    if not files:
+        return jsonify({"ok": True, "results": [], "message": "工作目录无 CSV/Excel 文件"})
+
+    from tools.data_loader import extract_date_from_filename, get_loaded_tables, load_file
+    from tools.smart_recognizer import enhanced_detect_table_type
+    import pandas as pd, re as _re
+    from tools.encoding import clean_column_name, detect_encoding, is_garbled
+
+    already_loaded = {t['file_path'] for t in get_loaded_tables() if t.get('file_path')}
+    results = []
+
+    from session_store import _session, _session_lock
+
+    for file_path in sorted(files, key=lambda f: f.name):
+        if str(file_path) in already_loaded:
+            results.append({"filename": file_path.name, "ok": True, "skipped": True,
+                            "message": "已加载，跳过"})
+            continue
+        try:
+            ext = file_path.suffix.lower()
+            if ext == '.csv':
+                enc = detect_encoding(str(file_path))
+                df_preview = pd.read_csv(str(file_path), encoding=enc, dtype=str,
+                                         keep_default_na=False, nrows=3)
+                if is_garbled(list(df_preview.columns)):
+                    for fb in ['utf-8-sig', 'utf-8', 'gb18030', 'gbk']:
+                        if fb.lower() == enc.lower():
+                            continue
+                        try:
+                            t = pd.read_csv(str(file_path), encoding=fb, dtype=str,
+                                            keep_default_na=False, nrows=3)
+                            if not is_garbled(list(t.columns)):
+                                df_preview = t
+                                break
+                        except Exception:
+                            continue
+                df_preview.columns = [clean_column_name(c) for c in df_preview.columns]
+            else:
+                from tools.excel_preprocessor import preprocess_excel
+                prep = preprocess_excel(str(file_path))
+                df_preview = prep.df.head(3)
+
+            detection = enhanced_detect_table_type(df_preview, file_path.name)
+            table_type = detection.table_type
+            date_tag = extract_date_from_filename(file_path.name) or ''
+            safe_stem = _re.sub(r'[^a-zA-Z0-9一-鿿_\-]', '_', file_path.stem)
+            table_name = f"{table_type}_{safe_stem}"
+
+            result = load_file(str(file_path), table_name,
+                               date_tag=date_tag or None,
+                               table_type=table_type or None)
+            with _session_lock:
+                _session["loaded_files"].append({
+                    "path": str(file_path), "table_name": table_name,
+                    "date_tag": date_tag, "table_type": table_type,
+                    "from_workdir": True,
+                })
+            results.append({"filename": file_path.name, "ok": True, "skipped": False,
+                            "table_name": table_name, "rows": result.row_count})
+        except Exception as e:
+            results.append({"filename": file_path.name, "ok": False, "skipped": False,
+                            "error": str(e)[:200]})
+
+    success = sum(1 for r in results if r.get('ok') and not r.get('skipped'))
+    skipped = sum(1 for r in results if r.get('skipped'))
+    failed = sum(1 for r in results if not r.get('ok'))
+    return jsonify({"ok": True, "results": results,
+                    "success": success, "skipped": skipped, "failed": failed})
+
+
 @data_bp.route('/api/tables/<table_name>/profile')
 def api_table_profile(table_name):
     from tools.data_loader import get_connection, get_loaded_tables

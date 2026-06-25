@@ -66,7 +66,7 @@ function toggleSidebar(){
   }
 })();
 async function refreshSidebar(){
-  if(ST.currentPage==='/chat'){loadSessions();loadSuggestions();}
+  if(ST.currentPage==='/chat'){loadSessions();loadSuggestions();loadChatSkills();}
   loadTables();updateStatus();
   if(ST.currentPage==='/data')DataPage._renderTableList();
   if(ST.currentPage==='/rules'){RulesPage._renderSkills();RulesPage._renderGroups();}
@@ -235,4 +235,33 @@ function renderChatTableList(tables){
       +'<span class="s-meta">'+label+' · '+t.rows+'行</span>'
       +'</div>';
   }).join('');
+}
+
+// Chat sidebar: skills list (collapsed by default, click to execute)
+async function loadChatSkills(){
+  const list=$('chatSkillList');
+  if(!list)return;
+  try{
+    const d=await api('GET','/api/skills/status');
+    const skills=(d.skills||[]);
+    if(!skills.length){
+      list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无技能</div>';
+      return;
+    }
+    list.innerHTML=skills.map(s=>{
+      const ready=s.ready;
+      const dot=ready?'<span class="dot" style="background:var(--green)"></span>'
+                     :'<span class="dot" style="background:var(--text-3)"></span>';
+      const act=ready
+        ?'<span class="act" style="font-size:11px" onclick="executeSkill(\''+esc(s.name)+'\')">执行</span>'
+        :'<span style="font-size:11px;color:var(--text-3)">缺数据</span>';
+      return '<div class="s-item">'
+        +dot
+        +'<span class="s-text" title="'+esc(s.description||s.name)+'">'+esc(s.name)+'</span>'
+        +act
+        +'</div>';
+    }).join('');
+  }catch(e){
+    list.innerHTML='<div class="s-item" style="color:var(--text-3)">加载失败</div>';
+  }
 }

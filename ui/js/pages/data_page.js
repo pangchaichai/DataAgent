@@ -37,7 +37,12 @@ const DataPage = {
         list.innerHTML = '<div class="s-item" style="color:var(--text-3)">目录为空（无 CSV/Excel 文件）</div>';
         return;
       }
-      list.innerHTML = files.map(f =>
+      const batchBtn = '<div style="margin-bottom:8px">'
+        + '<button class="dp-btn" style="font-size:12px;padding:5px 14px" onclick="dpLoadAllWorkdir()">'
+        + '全部加载（' + files.length + '个）</button>'
+        + '<span id="wdBatchStatus" style="font-size:12px;color:var(--text-3);margin-left:10px"></span>'
+        + '</div>';
+      list.innerHTML = batchBtn + files.map(f =>
         '<div class="s-item">'
         + '<span class="s-text" title="' + esc(f.filename) + '">' + esc(f.filename) + '</span>'
         + '<span class="s-meta">' + f.size_kb + 'KB</span>'
@@ -120,41 +125,43 @@ const DataPage = {
       container.innerHTML = '<div class="dp-empty">暂无已加载的数据表。点击上方「上传数据」导入 CSV/Excel 文件。</div>';
       return;
     }
-    const groups = _groupTablesByType(tables);
-    const typeColors = {holding:'var(--green)',nav:'var(--blue)',rating_entity:'var(--orange)',rating_bond:'var(--purple,#9b59b6)',monitoring:'var(--text-3)'};
+    const typeColors = {holding:'var(--green)',nav:'var(--blue)',rating_entity:'var(--orange,#e67e22)',rating_bond:'var(--purple,#9b59b6)',monitoring:'#888',unknown:'var(--text-3)'};
     const typeLabels = {holding:'持仓表',nav:'净值表',rating_entity:'主体评级',rating_bond:'债券评级',monitoring:'监控数据',unknown:'其他'};
+    const types = [...new Set(tables.map(t => t.type || 'unknown'))];
 
-    container.innerHTML = groups.map(g => {
-      const color = typeColors[g.type] || 'var(--text-3)';
-      const label = typeLabels[g.type] || g.type;
-      const sorted = g.tables.slice().sort((a, b) => (b.date_tag || '').localeCompare(a.date_tag || ''));
-      const cards = sorted.map(t => {
-        const dateBadge = t.date_tag
-          ? '<span class="dp-date-badge">' + esc(t.date_tag.replace(/^\d{4}/, '').replace(/^-?/, '')) + '</span>'
-          : '';
-        return '<div class="dp-table-card">'
-          + '<div class="dp-tc-header">'
-          + '<span class="dp-tc-dot" style="background:' + color + '"></span>'
-          + '<span class="dp-tc-name">' + esc(t.name) + '</span>'
-          + dateBadge
-          + '<span class="dp-tc-meta">' + t.rows + '行</span>'
-          + '<div class="dp-tc-actions">'
-          + '<button class="dp-btn" onclick="openProfile(\'' + esc(t.name) + '\')">剖析</button>'
-          + '<button class="dp-btn dp-btn-del" onclick="deleteTable(\'' + esc(t.name) + '\')">移除</button>'
-          + '</div>'
-          + '</div>'
-          + '</div>';
-      }).join('');
-      return '<div class="dp-type-group">'
-        + '<div class="dp-type-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">'
-        + '<span class="dp-type-dot" style="background:' + color + '"></span>'
-        + '<span class="dp-type-label">' + esc(label) + '</span>'
-        + '<span class="dp-type-count">(' + g.tables.length + ')</span>'
-        + '<span class="dp-type-chevron">▾</span>'
-        + '</div>'
-        + '<div class="dp-type-body">' + cards + '</div>'
-        + '</div>';
-    }).join('');
+    // Filter bar
+    const filterHtml = '<div class="dp-filter-bar">'
+      + '<span class="dp-filter-chip dp-fc-active" data-type="" onclick="dpFilterType(this,\'\')">全部 ' + tables.length + '</span>'
+      + types.map(tp => '<span class="dp-filter-chip" data-type="' + tp + '" onclick="dpFilterType(this,\'' + tp + '\')">'
+          + esc(typeLabels[tp] || tp) + ' ' + tables.filter(t => (t.type || 'unknown') === tp).length
+          + '</span>').join('')
+      + '</div>';
+
+    // Compact table rows
+    const rowsHtml = '<div class="dp-compact-table">'
+      + '<div class="dp-ct-head"><span>表名</span><span>类型</span><span>行数</span><span>日期</span><span style="text-align:right">操作</span></div>'
+      + '<div id="dpTableRows">'
+      + tables.map(t => {
+          const tp = t.type || 'unknown';
+          const color = typeColors[tp] || 'var(--text-3)';
+          const label = typeLabels[tp] || tp;
+          const date = t.date_tag ? t.date_tag.replace(/^\d{4}/, '').replace(/^-?/, '') : '—';
+          return '<div class="dp-ct-row" data-type="' + tp + '">'
+            + '<span class="dp-ct-name" title="' + esc(t.name) + '">'
+            + '<span class="dp-tc-dot" style="background:' + color + ';width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0"></span>'
+            + esc(t.name) + '</span>'
+            + '<span><span class="dp-type-tag" style="color:' + color + ';background:' + color + '1a">' + esc(label) + '</span></span>'
+            + '<span style="color:var(--text-3)">' + t.rows.toLocaleString() + '</span>'
+            + '<span style="color:var(--text-3)">' + esc(date) + '</span>'
+            + '<span style="display:flex;gap:4px;justify-content:flex-end">'
+            + '<button class="dp-btn" onclick="openProfile(\'' + esc(t.name) + '\')">剖析</button>'
+            + '<button class="dp-btn dp-btn-del" onclick="deleteTable(\'' + esc(t.name) + '\')">移除</button>'
+            + '</span>'
+            + '</div>';
+        }).join('')
+      + '</div></div>';
+
+    container.innerHTML = filterHtml + rowsHtml;
   }
 };
 
@@ -164,6 +171,38 @@ function dpTriggerUpload() {
 
 function dpRefreshTableList() {
   loadTables().then(() => DataPage._renderTableList());
+}
+
+function dpFilterType(chip, type) {
+  document.querySelectorAll('.dp-filter-chip').forEach(c => c.classList.remove('dp-fc-active'));
+  chip.classList.add('dp-fc-active');
+  document.querySelectorAll('.dp-ct-row').forEach(row => {
+    row.style.display = (!type || row.dataset.type === type) ? '' : 'none';
+  });
+}
+
+async function dpLoadAllWorkdir() {
+  const btn = document.querySelector('button[onclick="dpLoadAllWorkdir()"]');
+  const status = $('wdBatchStatus');
+  if (btn) { btn.disabled = true; btn.textContent = '加载中…'; }
+  if (status) status.textContent = '';
+  try {
+    const d = await api('POST', '/api/workdir/load_all', {});
+    if (!d.ok) {
+      if (status) status.textContent = '失败：' + (d.error || '');
+      if (btn) { btn.disabled = false; btn.textContent = '全部加载'; }
+      return;
+    }
+    const msg = '完成：' + d.success + ' 成功'
+      + (d.skipped ? ' / ' + d.skipped + ' 已跳过' : '')
+      + (d.failed ? ' / ' + d.failed + ' 失败' : '');
+    if (status) status.textContent = msg;
+    if (btn) { btn.disabled = false; btn.textContent = '全部加载'; }
+    loadTables().then(() => { DataPage._renderTableList(); DataPage._loadWorkdir(); });
+  } catch (e) {
+    if (status) status.textContent = '请求失败';
+    if (btn) { btn.disabled = false; btn.textContent = '全部加载'; }
+  }
 }
 
 function dpRefreshWorkdir() {

@@ -269,6 +269,17 @@
         </div>
       </div>
 
+      <!-- Chat context: skills list (collapsed by default) -->
+      <div class="sec" id="sec-chat-skills">
+        <div class="sec-h" onclick="toggleSec('chat-skills')">
+          <span class="sec-arr">▸</span>分析技能
+          <span class="act" onclick="event.stopPropagation();loadChatSkills()" title="刷新">↻</span>
+        </div>
+        <div class="sec-bd">
+          <div id="chatSkillList"><div class="s-item" style="color:var(--text-3)">加载中…</div></div>
+        </div>
+      </div>
+
       <!-- hidden containers for data_tables.js / groups.js compatibility -->
       <div id="tableList" style="display:none"></div>
       <div id="skillList" style="display:none"></div>
