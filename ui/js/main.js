@@ -127,7 +127,11 @@ Router.register('/home', {});
 Router.register('/data', DataPage);
 Router.register('/rules', RulesPage);
 Router.register('/chat', {
-  onEnter() { scrollBottom(); setTimeout(()=>$('input').focus(),100); }
+  onEnter() {
+    scrollBottom();
+    setTimeout(()=>$('input').focus(),100);
+    loadTables(); // Refresh _cachedTables for @mention when navigating to chat
+  }
 });
 Router.register('/audit', {});
 Router.register('/settings', {
@@ -150,6 +154,7 @@ setInterval(()=>pollHealth(),15000);
 function updateWelcomeExamples(tables){
   window._lastLoadedTables=tables;
   updateTableCountHeader(tables.length);
+  if(typeof renderChatTableList==='function')renderChatTableList(tables);
   const panel=$('welcomePanel');
   if(panel){
     const parent=panel.parentNode;

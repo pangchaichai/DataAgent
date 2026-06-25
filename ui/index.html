@@ -258,6 +258,17 @@
         </div>
       </div>
 
+      <!-- Chat context: visible table list for @mention discovery -->
+      <div class="sec open" id="sec-chat-tables">
+        <div class="sec-h" onclick="toggleSec('chat-tables')">
+          <span class="sec-arr">▸</span>数据表
+          <span class="act" onclick="event.stopPropagation();loadTables()" title="刷新">↻</span>
+        </div>
+        <div class="sec-bd">
+          <div id="chatTableList"><div class="s-item" style="color:var(--text-3)">暂无数据</div></div>
+        </div>
+      </div>
+
       <!-- hidden containers for data_tables.js / groups.js compatibility -->
       <div id="tableList" style="display:none"></div>
       <div id="skillList" style="display:none"></div>

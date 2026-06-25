@@ -203,3 +203,36 @@ function triggerSkill(name){
   $('input').value='@skill:'+name+' ';
   $('input').focus();
 }
+
+// Append @tablename at end of chat input (click from sidebar)
+function insertMention(name){
+  const ta=$('input');
+  if(!ta)return;
+  const cur=ta.value;
+  ta.value=(cur&&!cur.endsWith(' ')?cur+' ':cur)+'@'+name+' ';
+  ta.selectionStart=ta.selectionEnd=ta.value.length;
+  if(typeof $!=='undefined')$('mentionPopup').classList.remove('show');
+  ta.focus();
+  if(typeof autoResize==='function')autoResize(ta);
+}
+
+// Render table list in chat sidebar — all types including unknown, click inserts @mention
+function renderChatTableList(tables){
+  const list=$('chatTableList');
+  if(!list)return;
+  if(!tables||!tables.length){
+    list.innerHTML='<div class="s-item" style="color:var(--text-3)">暂无数据 — <span class="s-clickable" onclick="triggerUpload()" style="cursor:pointer">上传文件</span></div>';
+    return;
+  }
+  const _typeLabel={'holding':'持仓','nav':'净值','rating_entity':'主体评级','rating_bond':'债券评级','monitoring':'监控','unknown':'其他'};
+  const _typeColor={'holding':'var(--green)','nav':'var(--blue)','rating_entity':'var(--orange,#e67e22)','rating_bond':'var(--orange,#e67e22)','monitoring':'var(--purple,#9b59b6)'};
+  list.innerHTML=tables.map(t=>{
+    const color=_typeColor[t.type]||'var(--text-3)';
+    const label=_typeLabel[t.type]||'其他';
+    return '<div class="s-item">'
+      +'<span class="dot" style="background:'+color+'"></span>'
+      +'<span class="s-text s-clickable" onclick="insertMention(\''+esc(t.name)+'\')" title="点击插入 @提及">'+esc(t.name)+'</span>'
+      +'<span class="s-meta">'+label+' · '+t.rows+'行</span>'
+      +'</div>';
+  }).join('');
+}
