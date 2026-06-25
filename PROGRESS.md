@@ -4,7 +4,21 @@
 
 ---
 
-## 当前阶段：v3.4 Windows UAT 修复 Round 3 完成
+## 当前阶段：v3.4 Windows UAT 修复 Round 4 完成
+
+## v3.4 UAT 修复 Round 4：4 优化 ✅ 完成（2026-06-25）
+✅ 已测（810 tests 通过，1 pre-existing 失败）
+
+### 改动范围
+- [x] 优化 1: `ui/js/upload.js` — 上传进度提示弹窗（单文件/批量/确认导入三场景覆盖）
+- [x] 优化 2: `ui/js/sidebar.js` — @mention 自动补全增加类型标签和彩色标记
+- [x] 优化 3: `tools/encoding.py` — CSV 编码检测加固（BOM 加分+评分时剥离 BOM 字节）
+- [x] 优化 4: `ui/index.html` + `ui/js/main.js` — 关于弹窗（版本号+署名）
+
+### 测试结果
+- 810 passed, 5 skipped, 1 failed（pre-existing test_skill_api 隔离问题）
+
+---
 
 ## v3.4 UAT 修复 Round 3：4 Bug ✅ 完成（2026-06-24）
 ✅ 已测（810 tests 通过，1 pre-existing 失败）

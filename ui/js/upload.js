@@ -2,6 +2,41 @@
 
 let _pendingUpload=null;
 let _pendingBatch=[];
+let _uploadProgressTimer=null;
+
+function _showUploadProgress(name){
+  let el=$('uploadProgressOverlay');
+  if(!el){
+    el=document.createElement('div');
+    el.id='uploadProgressOverlay';
+    el.className='uc-overlay';
+    el.style.cssText='display:flex;align-items:center;justify-content:center;z-index:10001';
+    el.innerHTML='<div style="background:var(--bg);border-radius:12px;padding:28px 36px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.15);min-width:260px">'
+      +'<div id="uploadProgressSpinner" style="margin:0 auto 14px;width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite"></div>'
+      +'<div id="uploadProgressText" style="font-size:14px;font-weight:600;color:var(--text)"></div>'
+      +'<div id="uploadProgressDetail" style="font-size:12px;color:var(--text-3);margin-top:6px"></div>'
+      +'</div>';
+    document.body.appendChild(el);
+  }
+  $('uploadProgressText').textContent='正在导入：'+name;
+  _uploadProgressSetStep('编码检测与数据解析…');
+  el.style.display='flex';
+  let step=0;
+  const steps=['编码检测与数据解析…','字段映射与数据清洗…','写入数据库…','质量检测…'];
+  _uploadProgressTimer=setInterval(()=>{
+    step++;
+    if(step<steps.length)_uploadProgressSetStep(steps[step]);
+  },2500);
+}
+function _uploadProgressSetStep(text){
+  const el=$('uploadProgressDetail');
+  if(el)el.textContent=text;
+}
+function _hideUploadProgress(){
+  if(_uploadProgressTimer){clearInterval(_uploadProgressTimer);_uploadProgressTimer=null;}
+  const el=$('uploadProgressOverlay');
+  if(el)el.style.display='none';
+}
 
 function _uploadMsg(html,color){
   if(ST.currentPage==='/chat')addSysMsg(html,color);
@@ -26,13 +61,15 @@ async function handleFiles(files){
 
 async function uploadFile(file){
   if(!file)return;
-  _uploadMsg('正在解析：<b>'+esc(file.name)+'</b>…','blue');
+  _showUploadProgress(file.name);
+  _uploadProgressSetStep('上传文件并解析中…');
   const fd=new FormData();fd.append('file',file);
   const ctrl=new AbortController();
   const timer=setTimeout(()=>ctrl.abort(),60000);
   try{
     const r=await fetch('/api/upload',{method:'POST',body:fd,signal:ctrl.signal});
     const d=await r.json();
+    _hideUploadProgress();
     if(d.ok){
       if(d.file_kind==='document'){
         showDocumentResult(d);
@@ -41,6 +78,7 @@ async function uploadFile(file){
       }
     }else{_uploadMsg('上传失败：'+esc(d.error),'red');}
   }catch(e){
+    _hideUploadProgress();
     if(e.name==='AbortError')_uploadMsg('解析超时，请重试','red');
     else _uploadMsg('上传异常：'+esc(e.message),'red');
   }finally{clearTimeout(timer);}
@@ -129,7 +167,7 @@ async function confirmUploadFile(){
   const dateTag=$('ucDate').value.trim();
   $('uploadConfirmOverlay').style.display='none';
   $('uploadConfirmPanel').style.display='none';
-  _uploadMsg('正在加载：<b>'+esc(tableName)+'</b>…','blue');
+  _showUploadProgress(tableName);
 
   const fromWorkdir=!!_pendingUpload.from_workdir;
   const endpoint=fromWorkdir?'/api/workdir/load':'/api/upload/confirm';
@@ -144,6 +182,7 @@ async function confirmUploadFile(){
       body:JSON.stringify(payload)
     });
     const d=await r.json();
+    _hideUploadProgress();
     if(d.ok){
       let msg='已加载：<b>'+esc(d.table_name)+'</b>（'+d.row_count+'行 × '+d.col_count+'列）';
       if(d.masking_info){
@@ -155,7 +194,7 @@ async function confirmUploadFile(){
       refreshSidebar();
       if(ST.currentPage==='/data')DataPage._renderTableList();
     }else{_uploadMsg('加载失败：'+esc(d.error),'red');}
-  }catch(e){_uploadMsg('加载异常：'+esc(e.message),'red');}
+  }catch(e){_hideUploadProgress();_uploadMsg('加载异常：'+esc(e.message),'red');}
   _pendingUpload=null;
 }
 
@@ -174,9 +213,11 @@ async function uploadBatch(files){
   _pendingBatch=[];
   const docFiles=[];
   let parseErrors=0;
-  _uploadMsg('正在解析 '+files.length+' 个文件…','blue');
+  _showUploadProgress(files.length+' 个文件');
 
-  for(const f of files){
+  for(let fi=0;fi<files.length;fi++){
+    const f=files[fi];
+    _uploadProgressSetStep('解析文件 '+(fi+1)+'/'+files.length+'：'+f.name);
     const fd=new FormData();fd.append('file',f);
     const ctrl=new AbortController();
     const timer=setTimeout(()=>ctrl.abort(),60000);
@@ -199,6 +240,7 @@ async function uploadBatch(files){
     }finally{clearTimeout(timer);}
   }
 
+  _hideUploadProgress();
   for(const doc of docFiles)showDocumentResult(doc);
   if(_pendingBatch.length>0){
     showBatchConfirm();

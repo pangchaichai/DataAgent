@@ -170,12 +170,16 @@ function checkMention(ta){
     !query||t.name.toLowerCase().includes(query));
   if(!tables.length){popup.classList.remove('show');return;}
   _mentionIdx=-1;
-  popup.innerHTML=tables.slice(0,8).map(t=>
-    '<div class="mention-item" data-name="'+esc(t.name)+'" onclick="mentionSelect(\''+esc(t.name)+'\')">'
-    +'<span class="dot" style="background:'+(t.type==='holding'?'var(--green)':t.type==='nav'?'var(--blue)':'var(--text-3)')+'"></span>'
+  const _typeLabel={'holding':'持仓','nav':'净值','rating_entity':'主体评级','rating_bond':'债券评级','monitoring':'监控','unknown':'其他'};
+  const _typeColor={'holding':'var(--green)','nav':'var(--blue)','rating_entity':'var(--orange,#e67e22)','rating_bond':'var(--orange,#e67e22)','monitoring':'var(--purple,#9b59b6)'};
+  popup.innerHTML=tables.slice(0,8).map(t=>{
+    const color=_typeColor[t.type]||'var(--text-3)';
+    const label=_typeLabel[t.type]||t.type||'其他';
+    return '<div class="mention-item" data-name="'+esc(t.name)+'" onclick="mentionSelect(\''+esc(t.name)+'\')">'
+    +'<span class="dot" style="background:'+color+'"></span>'
     +'<span class="mi-name">'+esc(t.name)+'</span>'
-    +'<span class="mi-meta">'+t.rows+'行</span></div>'
-  ).join('');
+    +'<span class="mi-meta" style="margin-left:auto">'+label+' · '+t.rows+'行</span></div>';
+  }).join('');
   popup.classList.add('show');
 }
 function mentionNav(dir){

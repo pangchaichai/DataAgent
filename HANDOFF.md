@@ -8,39 +8,38 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-24
+- **日期**：2026-06-25
 - **提交**：（待提交）
 - **分支**：`claude/magical-cray-m7gu8w`
 
 ---
 
-## 上次会话完成的工作（2026-06-24，第二十九轮）
+## 上次会话完成的工作（2026-06-25，第三十轮）
 
-### v3.4 Windows UAT 修复 Round 3 — 4 个 Bug
+### v3.4 Windows UAT 修复 Round 4 — 4 个优化项
 
-#### Bug 1: CSV 上传乱码（UTF-8 BOM 处理） ✅
-- **根因**：chardet 返回 `UTF-8-SIG` 编码名，DuckDB 不支持该名称导致 native 加载失败；BOM 字节 (EF BB BF) 解码为 U+FEFF 残留在首列名中
-- `tools/encoding.py`：`_normalize_encoding()` 将 UTF-8-SIG/UTF-8-BOM 归一化为 `utf-8`；`clean_column_name()` 新增 U+FEFF BOM 字符剥离；`detect_encoding()` 新增 BOM 检测优先 UTF-8
+#### 优化 1: 上传进度提示 ✅
+- `ui/js/upload.js`：新增 `_showUploadProgress()` / `_hideUploadProgress()` 全局加载进度弹窗
+- 覆盖三个场景：单文件上传解析、批量上传逐文件解析（显示 N/M 进度）、确认导入（分步提示：编码检测→字段映射→写入数据库→质量检测）
 
-#### Bug 2: 固化计算误触发（Skill 匹配逻辑优化） ✅
-- **根因**：`concentration_monitor` 触发词含泛化词"监控"+ 匹配阈值 >=1 过低 + fast path 直接执行，导致任何含"监控"的查询都触发固化计算
-- `skills/concentration_monitor/SKILL.md`：移除"监控"触发词，保留领域特异性词（集中度/超标/超限等）
-- `agent/skill_loader.py`：匹配阈值从 1 提升至 4（无 @mention）/ 6（有 @mention），@mention 时需更强匹配信号防止误触发
+#### 优化 2: @mention 显示优化 + 数据源分类机制说明 ✅
+- `ui/js/sidebar.js`：@mention 自动补全新增表类型标签（持仓/净值/评级/监控/其他）和彩色圆点
+- 结论：所有类型表（含 unknown/其他）在 @mention 和 Agent context 中均可被检索，无差异化处理
 
-#### Bug 3: 移除集团系配置 UI ✅
-- 用户判断正确：实际使用中会上传集团关系数据文件，手动配置无实用价值
-- `ui/js/pages/rules_page.js`：移除 `_renderGroups()` 方法和 `onEnter()` 中的调用
-- `ui/index.html`：移除集团系关系 HTML 区块，更新页面副标题
+#### 优化 3: CSV 编码检测加固 ✅
+- **根因**：UTF-8 BOM 文件中 BOM 字节被 GB18030 解码为 CJK 字符，导致 GB18030 评分更高于 UTF-8
+- `tools/encoding.py`：BOM 文件 UTF-8 评分加 20 分强制优先；`_score_encoding` 对 UTF-8 评分时先剥离 BOM 字节避免干扰
 
-#### Bug 4: 剖析页面布局优化 ✅
-- `ui/js/data_tables.js`：字段映射移至列信息上方（最顶部）；新增脱敏字段信息展示（读取 config masking 配置，橙色提示条）
+#### 优化 4: 关于弹窗 ✅
+- `ui/index.html`：导航栏底部新增「关于」按钮（info 图标）+ About 弹窗（DataAgent v3.4 Beta / FM_Li@Jeff / CC&DS）
+- `ui/js/main.js`：`showAbout()` / `closeAbout()` + Escape 关闭支持
 
 **测试结果**：810 passed, 5 skipped, 1 pre-existing failure（test_skill_api 隔离问题）
 
 ---
 
 ## 立即可执行的下一步
-1. **Windows UAT 验收**：在 Windows 环境验收本轮 4 个修复项（特别是 CSV 上传乱码和 Skill 匹配）
+1. **Windows UAT 验收**：验收本轮 4 个优化项（特别是 CSV 编码和上传进度提示）
 2. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 全量运行时因全局 `_loaded_tables` 泄漏而失败（pre-existing）
 3. **Wind 实现**（Phase E，P3）：目前仅预留接口，后续按需补充具体逻辑
 4. **继续 Phase 5（Windows 打包测试）**：PyInstaller + WebView2 + 完整功能验收

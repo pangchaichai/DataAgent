@@ -4,6 +4,7 @@
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(ST._es)stopStream();
+    else if($('aboutPanel').style.display==='block')closeAbout();
     else if($('sbPanel').classList.contains('show'))closeSkillBuilder();
     else if($('settingsPanel').classList.contains('show'))closeSettings();
     else if(ST.currentPage && ST.currentPage !== '/chat')Router.navigateTo('/chat');
@@ -80,6 +81,15 @@ async function resetChat(){
 function toggleTheme(){
   const h=document.documentElement;
   h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';
+}
+
+function showAbout(){
+  $('aboutOverlay').style.display='flex';
+  $('aboutPanel').style.display='block';
+}
+function closeAbout(){
+  $('aboutOverlay').style.display='none';
+  $('aboutPanel').style.display='none';
 }
 
 // Drag & drop onto input bar

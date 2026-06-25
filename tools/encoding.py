@@ -35,6 +35,8 @@ def _score_encoding(file_path: str, encoding: str) -> tuple[int, str]:
     try:
         with open(file_path, 'rb') as f:
             raw = f.read(200000)
+        if raw[:3] == b'\xef\xbb\xbf' and encoding.lower().replace('-', '') in ('utf8', 'utf8sig'):
+            raw = raw[3:]
         text = raw.decode(encoding)
         lines = text.split('\n')
         if len(lines) < 2:
@@ -110,6 +112,9 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
 
     for enc in candidates:
         score, reason = _score_encoding(file_path, enc)
+        if has_bom and enc == 'utf-8':
+            score += 20
+            reason += " +20(BOM)"
         results.append((enc, score, reason))
         if score > best_score:
             best_score = score
