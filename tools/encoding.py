@@ -5,6 +5,7 @@ tools/encoding.py — 编码检测 + 列名清洗
   1. 多编码竞争评分，自动选最优编码
   2. 列名清洗（去首尾空格、去不可见字符）
   3. 千分位数值分隔符清洗
+  4. 乱码检测（加载后验证）
 """
 
 import re
@@ -13,15 +14,15 @@ import chardet
 import pandas as pd
 
 
+_DUCKDB_SUPPORTED_ENCODINGS = {'utf-8', 'utf8', 'latin-1', 'latin1'}
+
+
 def _is_cjk_char(cp: int) -> bool:
-    """判断码点是否为 CJK 统一表意文字（含扩展区）"""
     return (0x4E00 <= cp <= 0x9FFF) or (0x3400 <= cp <= 0x4DBF) or \
            (0x20000 <= cp <= 0x2FFFF) or (0xF900 <= cp <= 0xFAFF)
 
 
 def _is_suspicious_char(cp: int) -> bool:
-    """判断码点是否为可疑的乱码特征字符（box-drawing、Cyrillic、Latin-Ext等）
-    这些字符出现在假定为中文的列名中通常意味着编码错误。"""
     return (0x2500 <= cp <= 0x257F) or (0x0400 <= cp <= 0x04FF) or \
            (0x0100 <= cp <= 0x024F)
 
@@ -47,7 +48,7 @@ def _score_encoding(file_path: str, encoding: str) -> tuple[int, str]:
             return (-1, "空表头")
 
         score = 0
-        cjk = suspicious = ascii_chars = 0
+        cjk = suspicious = ascii_chars = high_byte = 0
 
         for ch in header:
             cp = ord(ch)
@@ -57,12 +58,16 @@ def _score_encoding(file_path: str, encoding: str) -> tuple[int, str]:
                 suspicious += 1
             elif cp < 128:
                 ascii_chars += 1
+            elif cp > 127:
+                high_byte += 1
 
         score += cjk * 2
         score += ascii_chars * 0.1
         score -= suspicious * 3
+        # High-byte chars that aren't CJK or suspicious = likely wrong encoding
+        score -= high_byte * 1.5
 
-        if cjk == 0 and suspicious == 0:
+        if cjk == 0 and suspicious == 0 and high_byte == 0:
             score = 10
 
         try:
@@ -73,7 +78,7 @@ def _score_encoding(file_path: str, encoding: str) -> tuple[int, str]:
             score -= 10
 
         reason = (f"CJK={cjk} suspect={suspicious} ascii={ascii_chars} "
-                  f"→ score={score}")
+                  f"hi={high_byte} → score={score}")
         return (score, reason)
 
     except (UnicodeDecodeError, LookupError):
@@ -82,14 +87,20 @@ def _score_encoding(file_path: str, encoding: str) -> tuple[int, str]:
 
 def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
     """★ 自适应编码检测：多编码竞争评分，自动选最优 ★"""
-    candidates = ['utf-8', 'gb18030', 'gbk', 'gb2312', 'latin-1']
-
     try:
         with open(file_path, 'rb') as f:
             raw = f.read(sample_bytes)
+    except Exception:
+        return 'utf-8'
 
-        has_bom = raw[:3] == b'\xef\xbb\xbf'
+    # BOM is a definitive signal — short-circuit
+    if raw[:3] == b'\xef\xbb\xbf':
+        print("[encoding] UTF-8 BOM detected → utf-8 (short-circuit)")
+        return 'utf-8'
 
+    candidates = ['utf-8', 'gb18030', 'gbk', 'gb2312', 'latin-1']
+
+    try:
         chardet_result = chardet.detect(raw)
         chardet_enc = chardet_result.get('encoding', 'utf-8')
         if chardet_enc:
@@ -99,10 +110,6 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
         elif chardet_enc in candidates:
             candidates.remove(chardet_enc)
             candidates.insert(0, chardet_enc)
-
-        if has_bom and 'utf-8' in candidates:
-            candidates.remove('utf-8')
-            candidates.insert(0, 'utf-8')
     except Exception:
         pass
 
@@ -112,9 +119,6 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
 
     for enc in candidates:
         score, reason = _score_encoding(file_path, enc)
-        if has_bom and enc == 'utf-8':
-            score += 20
-            reason += " +20(BOM)"
         results.append((enc, score, reason))
         if score > best_score:
             best_score = score
@@ -131,20 +135,48 @@ def detect_encoding(file_path: str, sample_bytes: int = 50000) -> str:
     return best_enc
 
 
+def normalize_for_duckdb(encoding: str) -> str | None:
+    """归一化编码名到 DuckDB 支持的名称，不支持则返回 None。"""
+    lower = encoding.lower().replace('_', '-')
+    if lower in ('utf-8', 'utf8', 'utf-8-sig', 'ascii'):
+        return 'utf-8'
+    if lower in ('latin-1', 'latin1', 'iso-8859-1', 'iso88591', 'cp1252', 'windows-1252'):
+        return 'latin-1'
+    return None
+
+
 def _normalize_encoding(enc: str) -> str:
-    """将编码名称归一化为 DuckDB/Pandas 通用名。"""
+    """将编码名称归一化为 Python/Pandas 通用名。"""
     upper = enc.upper().replace('-', '').replace('_', '')
     if upper in ('UTF8SIG', 'UTF8BOM'):
+        return 'utf-8'
+    if upper == 'ASCII':
         return 'utf-8'
     return enc
 
 
+def is_garbled(columns: list[str]) -> bool:
+    """检测列名是否有乱码特征（加载后验证用）。"""
+    for col in columns:
+        if not col:
+            continue
+        # BOM decoded as Latin-1
+        if 'ï»¿' in col or col.startswith('\xef\xbb\xbf'):
+            return True
+        high_byte = sum(1 for ch in col if 0x80 <= ord(ch) <= 0xFF)
+        if high_byte > 0 and high_byte / max(len(col), 1) > 0.3:
+            return True
+    return False
+
+
 def clean_column_name(name: str) -> str:
-    """
-    清洗列名：去首尾空格、去不可见字符、去 BOM。
-    """
+    """清洗列名：去首尾空格、去不可见字符、去 BOM。"""
     name = name.strip()
+    # U+FEFF BOM (correct decode)
     name = name.lstrip('﻿')
+    # BOM bytes decoded as Latin-1: ï(EF) »(BB) ¿(BF)
+    if name.startswith('ï»¿'):
+        name = name[3:]
     name = re.sub(r'[​‌‍⁠﻿]', '', name)
     return name
 

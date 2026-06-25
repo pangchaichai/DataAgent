@@ -32,18 +32,32 @@ def _load_csv_native(
     用 DuckDB read_csv_auto 直接将 CSV 流式写入 DuckDB 页面。
     成功返回 {'columns': [...], 'row_count': int}，失败返回 None。
     """
+    from tools.encoding import is_garbled, normalize_for_duckdb
+
+    duckdb_enc = normalize_for_duckdb(encoding)
+    if duckdb_enc is None:
+        return None
+
     escaped_path = file_path.replace("'", "''")
     try:
         conn.execute(
             f"CREATE OR REPLACE TABLE \"{table_name}\" AS "
             f"SELECT * FROM read_csv_auto('{escaped_path}', "
-            f"header=true, all_varchar=true, encoding='{encoding}')"
+            f"header=true, all_varchar=true, encoding='{duckdb_enc}')"
         )
     except Exception:
         return None
 
     cols_info = conn.execute(f'DESCRIBE "{table_name}"').fetchall()
     columns = [row[0] for row in cols_info]
+
+    if is_garbled(columns):
+        try:
+            conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+        except Exception:
+            pass
+        return None
+
     row_count = conn.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
     return {'columns': columns, 'row_count': row_count}
 
@@ -138,16 +152,21 @@ def _load_csv_pandas(
     file_path: str, encoding: str, warnings: list[str],
 ) -> pd.DataFrame:
     """Pandas CSV 加载（DuckDB 原生失败时的回退路径）。"""
+    from tools.encoding import is_garbled
+
     df = None
     candidates = [encoding] + [
-        e for e in ['gb18030', 'utf-8', 'gbk', 'latin-1']
+        e for e in ['utf-8-sig', 'utf-8', 'gb18030', 'gbk', 'latin-1']
         if e.lower() != encoding.lower()
     ]
     last_err = None
     for enc in candidates:
         try:
-            df = pd.read_csv(file_path, encoding=enc, dtype=str,
-                             keep_default_na=False, na_values=[''])
+            trial = pd.read_csv(file_path, encoding=enc, dtype=str,
+                                keep_default_na=False, na_values=[''])
+            if is_garbled(list(trial.columns)):
+                continue
+            df = trial
             break
         except (UnicodeDecodeError, LookupError) as e:
             last_err = e

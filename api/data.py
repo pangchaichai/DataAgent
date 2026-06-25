@@ -71,11 +71,26 @@ def api_upload():
 
     from tools.data_loader import detect_encoding, extract_date_from_filename
 
+    from tools.encoding import clean_column_name, is_garbled
+
     try:
         if ext == '.csv':
             enc = detect_encoding(file_path)
             df_preview = pd.read_csv(file_path, encoding=enc, dtype=str,
                                      keep_default_na=False, nrows=3)
+            if is_garbled(list(df_preview.columns)):
+                for fallback_enc in ['utf-8-sig', 'utf-8', 'gb18030', 'gbk']:
+                    if fallback_enc.lower() == enc.lower():
+                        continue
+                    try:
+                        df_try = pd.read_csv(file_path, encoding=fallback_enc,
+                                             dtype=str, keep_default_na=False, nrows=3)
+                        if not is_garbled(list(df_try.columns)):
+                            df_preview = df_try
+                            break
+                    except Exception:
+                        continue
+            df_preview.columns = [clean_column_name(c) for c in df_preview.columns]
             with open(file_path, 'rb') as _f:
                 row_estimate = sum(1 for _ in _f) - 1
         else:
@@ -260,12 +275,27 @@ def api_workdir_preview():
     import pandas as pd
 
     from tools.data_loader import detect_encoding, extract_date_from_filename
+    from tools.encoding import clean_column_name, is_garbled
+
     ext = file_path.suffix.lower()
     try:
         if ext == '.csv':
             enc = detect_encoding(str(file_path))
             df_preview = pd.read_csv(str(file_path), encoding=enc, dtype=str,
                                      keep_default_na=False, nrows=3)
+            if is_garbled(list(df_preview.columns)):
+                for fallback_enc in ['utf-8-sig', 'utf-8', 'gb18030', 'gbk']:
+                    if fallback_enc.lower() == enc.lower():
+                        continue
+                    try:
+                        df_try = pd.read_csv(str(file_path), encoding=fallback_enc,
+                                             dtype=str, keep_default_na=False, nrows=3)
+                        if not is_garbled(list(df_try.columns)):
+                            df_preview = df_try
+                            break
+                    except Exception:
+                        continue
+            df_preview.columns = [clean_column_name(c) for c in df_preview.columns]
             with open(str(file_path), 'rb') as _f:
                 row_estimate = sum(1 for _ in _f) - 1
         else:

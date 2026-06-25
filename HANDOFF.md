@@ -14,32 +14,39 @@
 
 ---
 
-## 上次会话完成的工作（2026-06-25，第三十轮）
+## 上次会话完成的工作（2026-06-25，第三十一轮）
 
-### v3.4 Windows UAT 修复 Round 4 — 4 个优化项
+### CSV 编码乱码彻底修复 — 根因定位 + 3 层防护
 
-#### 优化 1: 上传进度提示 ✅
-- `ui/js/upload.js`：新增 `_showUploadProgress()` / `_hideUploadProgress()` 全局加载进度弹窗
-- 覆盖三个场景：单文件上传解析、批量上传逐文件解析（显示 N/M 进度）、确认导入（分步提示：编码检测→字段映射→写入数据库→质量检测）
+#### 根因
+`_score_encoding()` 中，当 Latin-1 解码中文 UTF-8 内容时，产生的 0x80-0xFF 字节既不是 CJK 也不是 suspicious，落入"无计分"区。加上 `cjk==0 and suspicious==0 → score=10` 的特殊逻辑，导致 Latin-1 对短 CJK 文件评分(15)反而高于 UTF-8(13.1)。
 
-#### 优化 2: @mention 显示优化 + 数据源分类机制说明 ✅
-- `ui/js/sidebar.js`：@mention 自动补全新增表类型标签（持仓/净值/评级/监控/其他）和彩色圆点
-- 结论：所有类型表（含 unknown/其他）在 @mention 和 Agent context 中均可被检索，无差异化处理
+#### 修复（3 层防护）
+1. **评分修复** (`tools/encoding.py`)：
+   - 新增 `high_byte` 计数器，对 0x80-0xFF 非 CJK/非 suspicious 字符施加 -1.5 惩罚
+   - Latin-1 解码中文现在得 -57.7（原来 15），UTF-8 得 13.1 → 正确胜出
+   - BOM 检测短路：文件头有 `EF BB BF` 直接返回 `utf-8`，不再走评分
+   - `score=10` 特殊逻辑仅在 `high_byte==0` 时触发（真正纯 ASCII 文件）
 
-#### 优化 3: CSV 编码检测加固 ✅
-- **根因**：UTF-8 BOM 文件中 BOM 字节被 GB18030 解码为 CJK 字符，导致 GB18030 评分更高于 UTF-8
-- `tools/encoding.py`：BOM 文件 UTF-8 评分加 20 分强制优先；`_score_encoding` 对 UTF-8 评分时先剥离 BOM 字节避免干扰
+2. **DuckDB 原生路径加固** (`tools/file_ingest.py`)：
+   - `normalize_for_duckdb()`: 统一编码名到 DuckDB 仅支持的 `utf-8`/`latin-1`，不支持则跳过原生路径
+   - 原生加载后 `is_garbled()` 验证列名，乱码则 DROP TABLE 并回退 Pandas
 
-#### 优化 4: 关于弹窗 ✅
-- `ui/index.html`：导航栏底部新增「关于」按钮（info 图标）+ About 弹窗（DataAgent v3.4 Beta / FM_Li@Jeff / CC&DS）
-- `ui/js/main.js`：`showAbout()` / `closeAbout()` + Escape 关闭支持
+3. **预览 + Pandas 乱码防护** (`api/data.py` + `file_ingest.py`)：
+   - 预览端点加载后对列名做 `is_garbled()` 检测，乱码自动尝试 `utf-8-sig/utf-8/gb18030/gbk`
+   - 预览端点增加 `clean_column_name()` 清洗
+   - Pandas 回退路径同样对每个候选编码做 `is_garbled()` 跳过，避免返回乱码 DataFrame
+   - `clean_column_name()` 新增 Latin-1 编码 BOM 模式 `ï»¿` 剥离
 
-**测试结果**：810 passed, 5 skipped, 1 pre-existing failure（test_skill_api 隔离问题）
+#### 新增测试 (`tests/test_encoding.py`)
+32 个测试覆盖：BOM/非 BOM/GB18030/GBK 检测、短文件边界、乱码检测、DuckDB 编码归一化、列名清洗、Pandas 回退防护、DuckDB 原生防护
+
+**测试结果**：858 passed, 5 skipped, 1 pre-existing failure（test_skill_api 隔离问题）
 
 ---
 
 ## 立即可执行的下一步
-1. **Windows UAT 验收**：验收本轮 4 个优化项（特别是 CSV 编码和上传进度提示）
+1. **Windows UAT 验收**：验收 CSV 编码修复（重点测试：短列名文件、BOM 文件、GBK 文件）
 2. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 全量运行时因全局 `_loaded_tables` 泄漏而失败（pre-existing）
 3. **Wind 实现**（Phase E，P3）：目前仅预留接口，后续按需补充具体逻辑
 4. **继续 Phase 5（Windows 打包测试）**：PyInstaller + WebView2 + 完整功能验收
