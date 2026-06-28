@@ -12,6 +12,7 @@ import time
 from collections.abc import Generator
 
 from tools.error_translator import translate as translate_error
+from tools.runtime_logger import get_logger as _get_logger
 
 # fixed_calculator 路径 → run_calculator 的 calculator 参数名
 _CALC_NAME_MAP: dict[str, str] = {
@@ -36,13 +37,17 @@ _CALC_LABELS: dict[str, str] = {
 
 
 def can_fast_path(skill_info) -> bool:
-    """判断该 Skill 是否满足快速路径条件。"""
+    """判断该 Skill 是否满足快速路径条件。
+
+    ★ 复合报告类 Skill（fund_nav_report）需要用户指定产品名称等参数，
+    快速路径无法自动推断，应走普通 Agent 循环让 LLM 与用户交互确认。
+    """
     if skill_info.calc_type != "fixed":
         return False
-    # 多计算器路径（fund_nav_report 等复合报告）
+    # ★ 复合报告：需要用户交互选产品，不适用快速路径
     if skill_info.fixed_calculators:
-        return all(c in _CALC_NAME_MAP for c in skill_info.fixed_calculators)
-    # 单计算器路径（现有路径）
+        return False
+    # 单计算器路径（concentration_monitor 等）
     return bool(skill_info.fixed_calculator) and skill_info.fixed_calculator in _CALC_NAME_MAP
 
 
@@ -60,9 +65,16 @@ def run_fast_path(
     """
     from agent.tools_spec import dispatch_tool
 
+    _logger = _get_logger()
     calc_paths = skill_info.fixed_calculators if skill_info.fixed_calculators \
         else [skill_info.fixed_calculator]
     calc_names = [_CALC_NAME_MAP[p] for p in calc_paths]
+
+    _logger.info('agent', '快速路径启动', {
+        'skill': skill_info.name,
+        'calculators': calc_names,
+        'table_count': len(tables),
+    })
 
     t0_total = time.perf_counter()
     all_results: dict[str, dict] = {}
@@ -79,10 +91,15 @@ def run_fast_path(
 
         t0 = time.perf_counter()
         args = _build_calc_args(calc_name, tables, skill_info)
+        _logger.debug('fast_path', f'调用计算器 {calc_name}', {
+            'args_keys': list(args.keys()),
+            'holding_table': args.get('holding_table', ''),
+        })
         result = dispatch_tool("run_calculator", args, tool_ctx)
         elapsed_ms = (time.perf_counter() - t0) * 1000
 
         success = result.get("ok", False)
+        _logger.log_tool_call(f'fast_{calc_name}', args, ok=success, duration_ms=elapsed_ms)
         yield {"type": "tool_end", "data": {
             "success": success,
             "summary": _brief_summary(calc_name, result) if success else "",
@@ -92,8 +109,17 @@ def run_fast_path(
 
         if not success:
             raw_err = result.get("error", "计算失败")
+            friendly_msg = translate_error(raw_err)
+            _logger.error('fast_path', f'计算器 {calc_name} 执行失败', {
+                'skill': skill_info.name,
+                'error': raw_err[:200],
+                'holding_table': args.get('holding_table', ''),
+                'elapsed_ms': elapsed_ms,
+            })
+            # 提供可操作的提示
+            hint = _error_hint(calc_name, raw_err)
             yield {"type": "error", "data": {
-                "message": translate_error(raw_err),
+                "message": f"{friendly_msg}\n\n{hint}",
                 "detail": raw_err,
             }}
             _log_trace(skill_info.name, calc_name, user_message, False, elapsed_ms,
@@ -104,6 +130,12 @@ def run_fast_path(
         all_results[calc_name] = result
 
     total_ms = (time.perf_counter() - t0_total) * 1000
+
+    _logger.info('agent', '快速路径完成', {
+        'skill': skill_info.name,
+        'calculators': calc_names,
+        'duration_ms': total_ms,
+    })
 
     if len(calc_names) == 1:
         text = _format_result(calc_names[0], all_results[calc_names[0]], tables)
@@ -261,6 +293,25 @@ def _fmt_credit_distribution(result: dict) -> str:
             f" | {d['ratio_pct']:.2f}% | {d['security_count']} |"
         )
     return "\n".join(lines)
+
+
+def _error_hint(calc_name: str, error: str) -> str:
+    """根据计算器类型和错误信息提供可操作的提示。"""
+    if "column" in error.lower() or "referenced column" in error.lower():
+        return (
+            "💡 建议：当前数据表的列名与计算器预期不匹配。"
+            "请在「数据源管理」页面检查已上传表的列名是否正确，"
+            "或在对话中直接描述需求（如「查询集中度」），让 AI 自动适配列名。"
+        )
+    if "not found" in error.lower() or "does not exist" in error.lower():
+        return (
+            "💡 建议：缺失所需的数据表或字段。"
+            "请确认已上传对应类型的数据文件（持仓表/净值表），"
+            "上传后可在「数据源管理」页面查看已加载表。"
+        )
+    return (
+        "💡 建议：可在对话中直接描述需求，AI 将根据实际数据表结构调整查询方式。"
+    )
 
 
 # ── 追踪日志 ─────────────────────────────────────────────────────

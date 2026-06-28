@@ -11,6 +11,8 @@
 ## 当前已加载数据表
 {loaded_tables_summary}
 
+{documents_section}
+
 ## 可用业务技能（Skills）
 {skills_registry}
 

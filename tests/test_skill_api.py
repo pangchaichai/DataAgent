@@ -48,8 +48,8 @@ class TestFastPathCanFastPath:
             fixed_calculators=fixed_calculators or [],
         )
 
-    def test_L1_01_fixed_calculators_list_returns_true(self):
-        """L1-01: fixed_calculators 全部在映射表中 → can_fast_path 返回 True"""
+    def test_L1_01_fixed_calculators_list_returns_false(self):
+        """L1-01: fixed_calculators 复合报告需要用户交互 → can_fast_path 返回 False（走 Agent 循环）"""
         from agent.fast_path import can_fast_path
         skill = self._make_skill_info(
             fixed_calculators=[
@@ -58,7 +58,7 @@ class TestFastPathCanFastPath:
                 "calculators.credit_distribution.calc_credit_distribution",
             ]
         )
-        assert can_fast_path(skill) is True
+        assert can_fast_path(skill) is False
 
     def test_L1_02_exploratory_calc_type_returns_false(self):
         """L1-02: calc_type=exploratory → can_fast_path 返回 False"""

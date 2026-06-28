@@ -130,6 +130,7 @@ class PyWebViewDriver(UIDriver):
             return False
 
     def start(self, flask_app, port: int, title: str, width: int, height: int):
+        import os as _os
         import webview
 
         # 安全默认值

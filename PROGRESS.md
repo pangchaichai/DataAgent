@@ -4,19 +4,32 @@
 
 ---
 
-## 当前阶段：v3.4 Windows UAT 修复 Round 4 完成
+## 当前阶段：v3.4 Windows UAT 修复 Round 5 完成 + v3.4-beta 分支发布
 
-## v3.4 UAT 修复 Round 4：4 优化 ✅ 完成（2026-06-25）
-✅ 已测（810 tests 通过，1 pre-existing 失败）
+## v3.4 UAT 修复 Round 5：6 Bug + 3 优化 + 文档规范化 ✅ 完成（2026-06-26）
+✅ 已测（758 tests 通过，1 pre-existing 失败）
 
-### 改动范围
-- [x] 优化 1: `ui/js/upload.js` — 上传进度提示弹窗（单文件/批量/确认导入三场景覆盖）
-- [x] 优化 2: `ui/js/sidebar.js` — @mention 自动补全增加类型标签和彩色标记
-- [x] 优化 3: `tools/encoding.py` — CSV 编码检测加固（BOM 加分+评分时剥离 BOM 字节）
-- [x] 优化 4: `ui/index.html` + `ui/js/main.js` — 关于弹窗（版本号+署名）
+### Bug 修复
+- [x] Bug 1: `agent/fast_path.py` — Agent 卡死修复（复合报告不走 fast_path + 日志 + 错误提示）
+- [x] Bug 2: `ui/index.html` — 快捷按钮 SQL 报错修复（移除 3 个重复按钮）
+- [x] Bug 3: `api/data.py` + `agent/loop.py` + `prompts/system_prompt.txt` — 文档上传持久化 + Agent 感知
+
+### UI 优化
+- [x] 优化 1: `ui/index.html` — 隐藏菜单栏审计功能（注释保留便于恢复）
+- [x] 优化 2: `ui/img/` — 应用图标更换为 Flash 闪电形象（.ico 多尺寸 + .png + favicon）
+- [x] 优化 3: `ui/index.html` — 输入提示语更新
+
+### 构建脚本修复
+- [x] 修复 1: `scripts/package_windows.py` — 日志乱码修复（UTF-8 编码 + `_run()` 封装）
+- [x] 修复 2: `scripts/package_windows.py` — PyInstaller spec PROJECT_ROOT → SPECPATH
+- [x] 修复 3: `scripts/package_windows.py` — xlrd 依赖补全 + build_exe.bat UTF-8 写入
+
+### 文档
+- [x] `docs/quick-start-guide.md` — 业务用户快速上手指南（新增）
+- [x] `HANDOFF.md` / `PROGRESS.md` / `CLAUDE.md` — 项目文档同步更新
 
 ### 测试结果
-- 810 passed, 5 skipped, 1 failed（pre-existing test_skill_api 隔离问题）
+- 758 passed, 43 skipped, 1 failed（pre-existing test_skill_api 隔离问题）
 
 ---
 

@@ -8,48 +8,72 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-25
+- **日期**：2026-06-26
 - **提交**：（待提交）
 - **分支**：`claude/magical-cray-m7gu8w`
 
 ---
 
-## 上次会话完成的工作（2026-06-25，第三十一轮）
+## 上次会话完成的工作（2026-06-26，第三十二轮）
 
-### CSV 编码乱码彻底修复 — 根因定位 + 3 层防护
+### v3.4 Windows 内测 UAT 修复 — 6 项 Bug + 3 项优化 + 文档规范化
 
-#### 根因
-`_score_encoding()` 中，当 Latin-1 解码中文 UTF-8 内容时，产生的 0x80-0xFF 字节既不是 CJK 也不是 suspicious，落入"无计分"区。加上 `cjk==0 and suspicious==0 → score=10` 的特殊逻辑，导致 Latin-1 对短 CJK 文件评分(15)反而高于 UTF-8(13.1)。
+#### 问题诊断（基于 Windows 内测日志 + UI 截图）
 
-#### 修复（3 层防护）
-1. **评分修复** (`tools/encoding.py`)：
-   - 新增 `high_byte` 计数器，对 0x80-0xFF 非 CJK/非 suspicious 字符施加 -1.5 惩罚
-   - Latin-1 解码中文现在得 -57.7（原来 15），UTF-8 得 13.1 → 正确胜出
-   - BOM 检测短路：文件头有 `EF BB BF` 直接返回 `utf-8`，不再走评分
-   - `score=10` 特殊逻辑仅在 `high_byte==0` 时触发（真正纯 ASCII 文件）
+从 `/home/testCC/DataAgent/v3.4test/` 目录的运行时日志、会话记录、UI 截图和问题记录中，
+定位并修复了 6 个核心问题：
 
-2. **DuckDB 原生路径加固** (`tools/file_ingest.py`)：
-   - `normalize_for_duckdb()`: 统一编码名到 DuckDB 仅支持的 `utf-8`/`latin-1`，不支持则跳过原生路径
-   - 原生加载后 `is_garbled()` 验证列名，乱码则 DROP TABLE 并回退 Pandas
+**🐛 Bug 修复：**
 
-3. **预览 + Pandas 乱码防护** (`api/data.py` + `file_ingest.py`)：
-   - 预览端点加载后对列名做 `is_garbled()` 检测，乱码自动尝试 `utf-8-sig/utf-8/gb18030/gbk`
-   - 预览端点增加 `clean_column_name()` 清洗
-   - Pandas 回退路径同样对每个候选编码做 `is_garbled()` 跳过，避免返回乱码 DataFrame
-   - `clean_column_name()` 新增 Latin-1 编码 BOM 模式 `ï»¿` 剥离
+1. **Agent 运行中途卡死** — 根因：`fund_nav_report` Skill 的 `calc_type: fixed` + `fixed_calculators` 触发快速路径，
+   但复合报告需用户指定产品名称，fast_path 无参数直接运行导致计算器失败后静默退出。
+   - 修复：`agent/fast_path.py` — `can_fast_path()` 对复合报告返回 `False`，走 Agent 循环让 LLM 交互确认；
+     新增 `_get_logger` 运行时日志；新增 `_error_hint()` 失败友好提示。
+   - 测试：`tests/test_skill_api.py` — 更新 `test_L1_01` 预期
 
-#### 新增测试 (`tests/test_encoding.py`)
-32 个测试覆盖：BOM/非 BOM/GB18030/GBK 检测、短文件边界、乱码检测、DuckDB 编码归一化、列名清洗、Pandas 回退防护、DuckDB 原生防护
+2. **快捷按钮 SQL 报错** — "报告"和"合规检查"按钮通过 `sendQuick()` 发自然语言触发 Skill→fast_path，
+   但 `_build_calc_args()` 自动选的表缺少计算器所需列（如 Nav 表无"产品名称"列），Binder Error。
+   - 修复：同 Bug 1；移除聊天页上方 3 个重复快捷按钮（✅合规检查/📄报告/📊持仓），仅保留📂上传
 
-**测试结果**：858 passed, 5 skipped, 1 pre-existing failure（test_skill_api 隔离问题）
+3. **文档上传后无法读取** — 文档保存到 `pending/` 临时目录+仅当次请求 `document_context` 有效，
+   新建会话后路径丢失。
+   - 修复：`api/data.py` — 文档确认后移到 `data/uploads/documents/` 永久保存，
+     在 `_session["documents"]` 中追踪；新增 `GET /api/documents` 端点
+   - 修复：`agent/loop.py` — 新增 `_build_documents_section()`，Agent 启动时注入文档列表
+   - 修复：`prompts/system_prompt.txt` — 新增 `{documents_section}` 占位符
+
+**✨ UI 优化：**
+
+4. **审计菜单隐藏** — `ui/index.html` — 审计导航项注释隐藏，待功能开发后启用
+5. **应用图标更换** — 使用 `/home/testCC/DataAgent/图标形象.jpg` (587×561 JPEG)，
+   PIL 转换为多尺寸 ICO (16/32/48/64/128/256px) → `ui/img/dataagent.ico` + `ui/img/dataagent.png`；
+   `ui/index.html` — favicon 引用 + Logo 保留 "DA"
+   `scripts/package_windows.py` — PyInstaller spec `icon=` 指向 `dataagent.ico`
+6. **输入提示语更新** — placeholder 改为「描述分析需求，如"查询持仓""检查集中度""生成净值报告"…」
+
+**🔧 构建脚本修复：**
+
+7. **build 脚本日志乱码** — `scripts/package_windows.py`：
+   - 添加 `# -*- coding: utf-8 -*-` 声明
+   - 新增 `_run()` 封装函数，强制 `encoding='utf-8', errors='replace'`
+   - `build_exe.bat` 改为 UTF-8 写入匹配 `chcp 65001`
+8. **PyInstaller 图标路径错误** — spec 中 `PROJECT_ROOT` 从 `os.path.abspath('.')` 改为 `SPECPATH`（PyInstaller 内置变量，指向 spec 所在目录）
+9. **xlrd 依赖补全** — `RUNTIME_DEPS` 新增 `xlrd>=2.0.1`
+
+**📄 文档产出：**
+
+10. 编写 `docs/quick-start-guide.md` — 面向业务用户的 5 分钟快速上手指南
+
+**测试结果**：758 passed, 43 skipped, 1 pre-existing failure
 
 ---
 
 ## 立即可执行的下一步
-1. **Windows UAT 验收**：验收 CSV 编码修复（重点测试：短列名文件、BOM 文件、GBK 文件）
-2. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 全量运行时因全局 `_loaded_tables` 泄漏而失败（pre-existing）
-3. **Wind 实现**（Phase E，P3）：目前仅预留接口，后续按需补充具体逻辑
-4. **继续 Phase 5（Windows 打包测试）**：PyInstaller + WebView2 + 完整功能验收
+1. **Windows UAT 验收**：验收 Agent 卡死修复 + 文档上传持久化 + 图标 + 审计隐藏
+2. **fast_path 性能**：复合报告改为 Agent 循环后交互轮数增加 1-2 轮，需评估用户体验
+3. **data_masker 测试修复**：`test_upload_csv_returns_preview` 需在测试环境配置脱敏开关
+4. **Wind 实现**（Phase E，P3）：目前仅预留接口
+5. **继续 Phase 5（Windows 打包测试）**：PyInstaller + WebView2 + 完整功能验收
 
 ---
 

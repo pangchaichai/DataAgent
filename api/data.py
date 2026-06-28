@@ -17,6 +17,14 @@ def api_tables():
     return jsonify({"tables": get_loaded_tables()})
 
 
+@data_bp.route('/api/documents')
+def api_documents():
+    """返回已上传的文档列表"""
+    with _session_lock:
+        docs = _session.get("documents", [])
+    return jsonify({"documents": docs})
+
+
 @data_bp.route('/api/tables/<table_name>', methods=['DELETE'])
 def api_delete_table(table_name):
     from tools.data_loader import drop_table
@@ -50,9 +58,27 @@ def api_upload():
         doc_result = read_document(file_path, max_chars=2000)
         if not doc_result.ok:
             return jsonify({"ok": False, "error": doc_result.error}), 400
+        # 将文档从 pending/ 移到永久 documents/ 目录
+        doc_dir = BASE_DIR / 'data' / 'uploads' / 'documents'
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        permanent_path = doc_dir / file.filename
+        import shutil
+        shutil.move(file_path, str(permanent_path))
+        # 追踪已上传文档
+        with _session_lock:
+            docs = _session.setdefault("documents", [])
+            docs.append({
+                "filename": file.filename,
+                "file_path": str(permanent_path),
+                "file_type": doc_result.file_type,
+                "word_count": doc_result.word_count,
+                "page_count": doc_result.page_count,
+                "text_preview": doc_result.text[:500],
+                "table_count": len(doc_result.tables),
+            })
         return jsonify({
             "ok": True,
-            "file_path": file_path,
+            "file_path": str(permanent_path),
             "filename": file.filename,
             "file_kind": "document",
             "file_type": doc_result.file_type,

@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>DataAgent</title>
+<link rel="icon" href="/static/img/dataagent.png" type="image/png"/>
 <link rel="stylesheet" href="/static/css/main.css"/>
 <link rel="stylesheet" href="/static/css/nav.css"/>
 <link rel="stylesheet" href="/static/css/pages.css"/>
@@ -43,10 +44,12 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span class="nav-label">会话</span>
       </div>
+      <!-- 审计功能暂未开放，待后续版本启用
       <div class="nav-item" data-route="/audit" data-tooltip="审计" onclick="navClick('/audit')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <svg ...>...</svg>
         <span class="nav-label">审计</span>
       </div>
+      -->
     </div>
     <div class="nav-rail-bottom">
       <div class="nav-item" data-route="/settings" data-tooltip="设置" onclick="navClick('/settings')">
@@ -314,14 +317,11 @@
         <div id="suggestionsBar" style="display:none"></div>
         <div class="quick" id="quickBtns">
           <button class="q-btn" onclick="triggerUpload()" title="上传数据文件或文档">📂 上传</button>
-          <button class="q-btn" onclick="sendQuick('帮我检查主体集中度是否超标')" title="直接执行合规检查">✅ 合规检查</button>
-          <button class="q-btn" onclick="sendQuick('生成产品运作报告')" title="直接生成运作报告">📄 报告</button>
-          <button class="q-btn" onclick="sendQuick('查询持仓情况，按市值降序排列')" title="查询持仓">📊 持仓</button>
         </div>
         <div class="inrow" id="inrow">
           <div class="input-wrap">
             <textarea id="input" rows="2"
-              placeholder="输入分析需求，如「检查集中度」「持仓前10」… Enter 发送，Shift+Enter 换行"
+              placeholder="描述分析需求，如「查询持仓」「检查集中度」「生成净值报告」… Enter 发送，Shift+Enter 换行"
               oninput="autoResize(this);checkMention(this)"
               onkeydown="onKey(event)"></textarea>
             <div class="input-toolbar">

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """DataAgent Windows 内测包构建脚本 (在 Linux 上运行).
 
 生成一个 zip 包，解压后运行 setup.bat 即可离线安装。
@@ -12,6 +13,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+
+def _run(cmd: list, cwd=None) -> subprocess.CompletedProcess:
+    """运行子进程，强制 UTF-8 编码避免乱码。"""
+    return subprocess.run(cmd, capture_output=True, text=True,
+                          encoding='utf-8', errors='replace', cwd=cwd)
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # ── 运行时依赖（排除 pyinstaller / pytest） ──────────────────────────
@@ -21,6 +28,7 @@ RUNTIME_DEPS = [
     "duckdb>=1.0.0",
     "pandas>=2.2.0",
     "openpyxl>=3.1.0",
+    "xlrd>=2.0.1",            # .xls格式读取
     "chardet>=5.0.0",
     "pyyaml>=6.0.1",
     "jinja2>=3.1.4",
@@ -110,7 +118,7 @@ def download_deps(deps_dir: Path) -> None:
         "--dest", str(deps_dir),
         "-r", str(tmp_req),
     ]
-    result1 = subprocess.run(cmd1, capture_output=True, text=True, cwd=PROJECT_ROOT)
+    result1 = _run(cmd1, cwd=PROJECT_ROOT)
     if result1.returncode != 0:
         print("❌ 阶段 1 失败：")
         print(result1.stderr)
@@ -169,7 +177,7 @@ def download_deps(deps_dir: Path) -> None:
             "--dest", str(deps_dir),
             pkg_spec,
         ]
-        result2 = subprocess.run(cmd2, capture_output=True, text=True, cwd=PROJECT_ROOT)
+        result2 = _run(cmd2, cwd=PROJECT_ROOT)
         if result2.returncode != 0:
             # 尝试无 --only-binary
             cmd2b = [
@@ -181,7 +189,7 @@ def download_deps(deps_dir: Path) -> None:
                 "--dest", str(deps_dir),
                 pkg_spec,
             ]
-            result2b = subprocess.run(cmd2b, capture_output=True, text=True, cwd=PROJECT_ROOT)
+            result2b = _run(cmd2b, cwd=PROJECT_ROOT)
             if result2b.returncode != 0:
                 print(f"   ⚠️  {pkg_spec}: Windows wheel 不可用，保留通用版本")
 
@@ -289,7 +297,7 @@ def download_deps(deps_dir: Path) -> None:
             "--dest", str(deps_dir),
             dep_spec,
         ]
-        result3 = subprocess.run(cmd3, capture_output=True, text=True, cwd=PROJECT_ROOT)
+        result3 = _run(cmd3, cwd=PROJECT_ROOT)
         if result3.returncode != 0:
             # 回退：不强制 binary
             cmd3b = [
@@ -301,7 +309,7 @@ def download_deps(deps_dir: Path) -> None:
                 "--dest", str(deps_dir),
                 dep_spec,
             ]
-            result3b = subprocess.run(cmd3b, capture_output=True, text=True, cwd=PROJECT_ROOT)
+            result3b = _run(cmd3b, cwd=PROJECT_ROOT)
             if result3b.returncode != 0:
                 # 通用下载尝试
                 cmd3c = [
@@ -310,7 +318,7 @@ def download_deps(deps_dir: Path) -> None:
                     "--dest", str(deps_dir),
                     dep_spec,
                 ]
-                result3c = subprocess.run(cmd3c, capture_output=True, text=True, cwd=PROJECT_ROOT)
+                result3c = _run(cmd3c, cwd=PROJECT_ROOT)
                 if result3c.returncode != 0:
                     print(f"   ⚠️  {dep_name}: Windows 专属依赖下载失败")
                 else:
@@ -335,7 +343,7 @@ def download_deps(deps_dir: Path) -> None:
                 "--dest", str(deps_dir),
                 dep_spec,
             ]
-            result3d = subprocess.run(cmd3d, capture_output=True, text=True, cwd=PROJECT_ROOT)
+            result3d = _run(cmd3d, cwd=PROJECT_ROOT)
             if result3d.returncode != 0:
                 cmd3e = [
                     sys.executable, "-m", "pip", "download",
@@ -343,7 +351,7 @@ def download_deps(deps_dir: Path) -> None:
                     "--dest", str(deps_dir),
                     dep_spec,
                 ]
-                result3e = subprocess.run(cmd3e, capture_output=True, text=True, cwd=PROJECT_ROOT)
+                result3e = _run(cmd3e, cwd=PROJECT_ROOT)
                 if result3e.returncode != 0:
                     print(f"   ⚠️  {dep_spec}: 下载失败")
                 else:
@@ -627,8 +635,8 @@ import sys
 
 block_cipher = None
 
-# 项目根目录（spec 文件在 DataAgent/ 子目录中）
-PROJECT_ROOT = os.path.abspath('.')
+# 项目根目录 — 使用 SPECPATH（spec 文件所在目录，即 DataAgent/ 子目录）
+PROJECT_ROOT = SPECPATH
 
 a = Analysis(
     ['main.py'],
@@ -722,7 +730,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,               # 可替换为 icon='dataagent.ico'
+    icon=os.path.join(PROJECT_ROOT, 'ui', 'img', 'dataagent.ico'),
 )
 
 coll = COLLECT(
@@ -758,9 +766,9 @@ def write_scripts(bundle_root: Path) -> None:
     req_path = bundle_root / "requirements-bundle.txt"
     req_path.write_text("\n".join(RUNTIME_DEPS))
 
-    # PyInstaller 打包脚本（放在 bundle 根目录）
+    # PyInstaller 打包脚本（使用 UTF-8 编码以匹配 chcp 65001）
     (bundle_root / "build_exe.bat").write_text(
-        BUILD_EXE_BAT.replace("\n", "\r\n"), encoding="gbk"
+        BUILD_EXE_BAT.replace("\n", "\r\n"), encoding="utf-8"
     )
 
     # PyInstaller spec 文件（放在 DataAgent/ 子目录中，与源码同级）

@@ -569,11 +569,33 @@ def _build_system_prompt(schema_ctx: str, skills_desc: str) -> str:
     else:
         table_summary = "（暂无已加载数据表）"
 
+    # 注入已上传文档信息
+    doc_section = _build_documents_section()
+
     return (
         template
         .replace("{loaded_tables_summary}", table_summary)
         .replace("{skills_registry}", skills_desc)
+        .replace("{documents_section}", doc_section)
     )
+
+
+def _build_documents_section() -> str:
+    """构建已上传文档摘要（注入 system prompt）"""
+    from session_store import _session, _session_lock
+    with _session_lock:
+        docs = _session.get("documents", [])
+    if not docs:
+        return ""
+    lines = ["## 已上传文档材料（可通过 read_document 工具读取内容）"]
+    for d in docs:
+        lines.append(
+            f"- {d['filename']}（{d.get('file_type', '?')}"
+            + (f"，{d['page_count']}页" if d.get('page_count') else "")
+            + (f"，约{d['word_count']}字" if d.get('word_count') else "")
+            + f"）\n  文件路径：{d['file_path']}"
+        )
+    return "\n".join(lines)
 
 
 def _build_skills_registry_text(registry) -> str:
