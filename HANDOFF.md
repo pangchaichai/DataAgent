@@ -8,9 +8,51 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-25
+- **日期**：2026-06-29
 - **提交**：（待提交）
 - **分支**：`claude/magical-cray-m7gu8w`
+
+---
+
+## 上次会话完成的工作（2026-06-29，第三十二轮）
+
+### React 模式 `_chat_react` 修复 — 企业内网 LLM（不支持 function-calling）可用
+
+#### 背景
+企业内网 Qwen2.5-72B 不支持 OpenAI function-calling（tools API）。切换 `tool_mode: react` 后能连通但 agent "变傻"——答非所问、上下文丢失。
+
+#### 根因（3 个 Bug）
+1. **上下文丢失**：`_chat_react` 调用 `_call()` 只发送 system + 最后一条消息，丢弃全部对话历史。多轮工具调用后 LLM 看不到用户原始问题。
+2. **System prompt 重复**：直接修改 `session_messages` 中 system 消息的 `content`（in-place），每轮循环追加一次工具描述，导致工具列表翻倍。
+3. **JSON 解析脆弱**：`_parse_react_action` 正则无法处理嵌套 JSON（如 args 中含对象）。
+
+#### 修复
+1. **`_chat_react`** 重写：
+   - `copy.deepcopy(messages)` 避免原始消息被修改
+   - 新增 `_convert_tool_messages_to_text()` 将 tool_call/tool 角色消息转为纯文本
+   - 使用 `_call_with_messages()` 发送完整对话历史，`tools=None`（不含 function-calling 参数）
+   - 支持 fallback（与 `_chat_native` 一致）
+
+2. **`_parse_react_action`** 重写：
+   - 基于括号深度计数 + 字符串跳过，正确处理嵌套 JSON
+   - `json.loads` 最终验证，兼容 code block / 中文参数 / 字符串内花括号
+
+3. **`_convert_tool_messages_to_text`** 新增：
+   - assistant 带 tool_calls → 纯文本 `{"action":"...","args":{...}}`
+   - tool 结果 → user 消息 `[工具 xxx 返回结果]`
+   - 合并连续 user 消息（避免部分 LLM 拒绝）
+
+#### 新增测试
+14 个测试（`TestParseReactAction` 8 个 + `TestConvertToolMessages` 6 个），覆盖嵌套参数、中文、完整对话往返、原始消息不可变性。
+
+**测试结果**：55 passed in test_agent.py，全量 698 passed + 1 pre-existing failure
+
+---
+
+## 立即可执行的下一步
+1. **Windows UAT 验收**：在企业内网 Windows 环境测试 `tool_mode: react` + Qwen2.5-72B，验证多轮工具调用对话质量
+2. **test_skill_api 隔离修复**：`test_L2_02_missing_data_skill_shows_not_ready` 全量运行时因全局 `_loaded_tables` 泄漏而失败（pre-existing）
+3. **继续 Phase 5（Windows 打包测试）**：PyInstaller + WebView2 + 完整功能验收
 
 ---
 
