@@ -387,50 +387,71 @@ class LLMClient:
         self, messages: list[dict], tools: list[dict] | None,
         timeout: int, max_tokens: int,
     ) -> ChatResult:
-        """
-        React 文本协议兜底（本期可后置，仅当 native 解析不稳定时启用）。
+        """React 文本协议：适用于不支持 OpenAI function-calling 的 LLM。
 
-        把工具说明拼进 system prompt，要求模型输出：
-          最终回答 或 {"action":"tool_name","args":{...}}
-        由 _parse_react_action() 解析为 tool_calls。
+        工具说明嵌入 system prompt，tool_call/tool 消息转为文本等价形式，
+        完整对话历史发送给 LLM，API payload 不含 tools/tool_choice。
         """
+        import copy
+        react_msgs = copy.deepcopy(messages)
+
         if tools:
             tool_desc = _format_tools_for_react(tools)
-            # 找到 system 消息并追加工具说明
-            for msg in messages:
+            tool_block = (
+                "\n\n## 可用工具\n" + tool_desc
+                + "\n\n当需要调用工具时，请输出一行 JSON（独占一行）：\n"
+                '{"action":"工具名","args":{参数}}\n'
+                "如果不需要调用工具，直接输出最终回答文本。\n"
+                "每次只调用一个工具，等待工具返回结果后再决定下一步。"
+            )
+            found = False
+            for msg in react_msgs:
                 if msg.get("role") == "system":
-                    msg["content"] = (
-                        msg["content"] + "\n\n## 可用工具\n" + tool_desc
-                        + "\n\n当需要调用工具时，输出一行 JSON："
-                        '{"action":"工具名","args":{...}}'
-                        "\n否则直接输出最终回答。"
-                    )
+                    msg["content"] += tool_block
+                    found = True
                     break
-            else:
-                messages.insert(0, {
+            if not found:
+                react_msgs.insert(0, {
                     "role": "system",
-                    "content": "可用工具：\n" + tool_desc,
+                    "content": "你是一个数据分析助手。" + tool_block,
                 })
 
-        primary = self.sql_gen_cfg.get('primary', 'enterprise_internal')
-        resp = self._call(primary, messages[-1].get("content", ""),
-                          system=messages[0].get("content", "") if messages else "",
-                          timeout=timeout, max_tokens=max_tokens)
-        if not resp.success:
-            return ChatResult(success=False, error=resp.error, elapsed_ms=resp.elapsed_ms)
+        converted = _convert_tool_messages_to_text(react_msgs)
 
-        text = resp.text
+        primary = self.sql_gen_cfg.get('primary', 'enterprise_internal')
+        result = self._call_with_messages(
+            primary, converted, tools=None,
+            timeout=timeout, max_tokens=max_tokens,
+        )
+
+        if not result.success:
+            if not self.sql_gen_cfg.get('external_allowed', False):
+                return ChatResult(
+                    success=False,
+                    error=f"内网 LLM 不可用且不允许外发: {result.error}",
+                    elapsed_ms=result.elapsed_ms,
+                )
+            fallback = self.sql_gen_cfg.get('fallback')
+            if fallback:
+                result = self._call_with_messages(
+                    fallback, converted, tools=None,
+                    timeout=timeout, max_tokens=max_tokens,
+                )
+            if not result.success:
+                return result
+
+        text = result.text or ""
         tool_calls = _parse_react_action(text)
         if tool_calls:
             return ChatResult(
                 success=True, text="", tool_calls=tool_calls,
-                elapsed_ms=resp.elapsed_ms, token_count=resp.token_count,
-                model=resp.model,
+                elapsed_ms=result.elapsed_ms, token_count=result.token_count,
+                model=result.model,
             )
         return ChatResult(
             success=True, text=text, tool_calls=[],
-            elapsed_ms=resp.elapsed_ms, token_count=resp.token_count,
-            model=resp.model,
+            elapsed_ms=result.elapsed_ms, token_count=result.token_count,
+            model=result.model,
         )
 
     # ── 流式接口 ──────────────────────────────────────────────
@@ -911,16 +932,96 @@ def _format_tools_for_react(tools: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _convert_tool_messages_to_text(messages: list[dict]) -> list[dict]:
+    """将 tool_call/tool 角色消息转为纯文本，供不支持 function-calling 的 LLM 理解。"""
+    converted = []
+    for msg in messages:
+        role = msg.get("role", "")
+
+        if role == "assistant" and msg.get("tool_calls"):
+            parts = []
+            if msg.get("content"):
+                parts.append(msg["content"])
+            for tc in msg["tool_calls"]:
+                func = tc.get("function", {})
+                name = func.get("name", tc.get("name", "unknown"))
+                raw_args = func.get("arguments", tc.get("arguments", "{}"))
+                if isinstance(raw_args, dict):
+                    args_str = json.dumps(raw_args, ensure_ascii=False)
+                else:
+                    args_str = str(raw_args)
+                parts.append(f'{{"action":"{name}","args":{args_str}}}')
+            converted.append({"role": "assistant", "content": "\n".join(parts)})
+
+        elif role == "tool":
+            tool_id = msg.get("tool_call_id", "")
+            tool_name = msg.get("name", "")
+            if not tool_name and tool_id.startswith("call_"):
+                tool_name = tool_id[5:]
+            content = msg.get("content", "")
+            converted.append({
+                "role": "user",
+                "content": f"[工具 {tool_name or 'tool'} 返回结果]\n{content}",
+            })
+
+        else:
+            converted.append(msg)
+
+    # Merge consecutive user messages (some LLMs reject them)
+    merged = []
+    for msg in converted:
+        if merged and merged[-1]["role"] == msg["role"] == "user":
+            merged[-1]["content"] += "\n\n" + msg["content"]
+        else:
+            merged.append(msg)
+    return merged
+
+
 def _parse_react_action(text: str) -> list[dict]:
-    """从 LLM 输出中解析 react 协议的 tool_call JSON"""
+    """从 LLM 输出中解析 react 协议的 tool_call JSON。支持嵌套参数。"""
     import re
-    # 匹配 {"action":"...","args":{...}} 格式
-    match = re.search(r'\{[^{}]*"action"\s*:\s*"(\w+)"\s*,\s*"args"\s*:\s*(\{[^}]+\})[^{}]*\}', text)
-    if not match:
-        return []
-    try:
-        name = match.group(1)
-        args = json.loads(match.group(2))
-        return [{"id": f"call_{name}", "name": name, "arguments": args}]
-    except (json.JSONDecodeError, KeyError):
-        return []
+
+    for m in re.finditer(r'\{\s*"action"\s*:', text):
+        start = m.start()
+        depth = 0
+        i = start
+        end = -1
+        while i < len(text):
+            c = text[i]
+            if c == '"':
+                i += 1
+                while i < len(text):
+                    if text[i] == '\\':
+                        i += 2
+                        continue
+                    if text[i] == '"':
+                        break
+                    i += 1
+            elif c == '{':
+                depth += 1
+            elif c == '}':
+                depth -= 1
+                if depth == 0:
+                    end = i + 1
+                    break
+            i += 1
+
+        if end < 0:
+            continue
+        try:
+            obj = json.loads(text[start:end])
+            if isinstance(obj, dict) and "action" in obj:
+                name = str(obj["action"])
+                args = obj.get("args", {})
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except json.JSONDecodeError:
+                        args = {"raw": args}
+                if not isinstance(args, dict):
+                    args = {"value": args}
+                return [{"id": f"call_{name}", "name": name, "arguments": args}]
+        except json.JSONDecodeError:
+            continue
+
+    return []

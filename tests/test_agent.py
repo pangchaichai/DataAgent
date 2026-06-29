@@ -86,6 +86,164 @@ class TestLLMClient:
 
 
 # ═══════════════════════════════════════════════════════════════
+#  React 模式辅助函数测试
+# ═══════════════════════════════════════════════════════════════
+
+class TestParseReactAction:
+    """_parse_react_action JSON 解析测试"""
+
+    def test_simple_action(self):
+        from agent.llm_client import _parse_react_action
+        text = '{"action":"profile_table","args":{"table":"holding_001"}}'
+        result = _parse_react_action(text)
+        assert len(result) == 1
+        assert result[0]["name"] == "profile_table"
+        assert result[0]["arguments"] == {"table": "holding_001"}
+
+    def test_action_with_surrounding_text(self):
+        from agent.llm_client import _parse_react_action
+        text = '我需要先查看表结构。\n{"action":"profile_table","args":{"table":"t1"}}\n好的。'
+        result = _parse_react_action(text)
+        assert len(result) == 1
+        assert result[0]["name"] == "profile_table"
+
+    def test_nested_args(self):
+        from agent.llm_client import _parse_react_action
+        text = '{"action":"run_sql","args":{"sql":"SELECT * FROM t","purpose":"查询","options":{"limit":100}}}'
+        result = _parse_react_action(text)
+        assert len(result) == 1
+        assert result[0]["name"] == "run_sql"
+        assert result[0]["arguments"]["sql"] == "SELECT * FROM t"
+        assert result[0]["arguments"]["options"] == {"limit": 100}
+
+    def test_no_action(self):
+        from agent.llm_client import _parse_react_action
+        assert _parse_react_action("这是一个普通回答。") == []
+
+    def test_malformed_json(self):
+        from agent.llm_client import _parse_react_action
+        assert _parse_react_action('{"action":"test", broken}') == []
+
+    def test_action_in_code_block(self):
+        from agent.llm_client import _parse_react_action
+        text = '```json\n{"action":"run_sql","args":{"sql":"SELECT 1"}}\n```'
+        result = _parse_react_action(text)
+        assert len(result) == 1
+        assert result[0]["name"] == "run_sql"
+
+    def test_args_with_chinese(self):
+        from agent.llm_client import _parse_react_action
+        text = '{"action":"run_sql","args":{"sql":"SELECT * FROM 持仓表","purpose":"查询持仓"}}'
+        result = _parse_react_action(text)
+        assert len(result) == 1
+        assert "持仓表" in result[0]["arguments"]["sql"]
+
+    def test_args_with_string_braces(self):
+        """args 值中包含花括号字符串不应干扰解析"""
+        from agent.llm_client import _parse_react_action
+        text = '{"action":"run_sql","args":{"sql":"SELECT \\"{col}\\" FROM t"}}'
+        result = _parse_react_action(text)
+        assert len(result) == 1
+        assert result[0]["name"] == "run_sql"
+
+
+class TestConvertToolMessages:
+    """_convert_tool_messages_to_text 消息转换测试"""
+
+    def test_passthrough_normal_messages(self):
+        from agent.llm_client import _convert_tool_messages_to_text
+        msgs = [
+            {"role": "system", "content": "你是助手"},
+            {"role": "user", "content": "你好"},
+            {"role": "assistant", "content": "你好！"},
+        ]
+        result = _convert_tool_messages_to_text(msgs)
+        assert len(result) == 3
+        assert result[0]["role"] == "system"
+        assert result[1]["role"] == "user"
+        assert result[2]["role"] == "assistant"
+
+    def test_convert_tool_call_message(self):
+        import json as _json
+        from agent.llm_client import _convert_tool_messages_to_text
+        msgs = [
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "call_1", "type": "function", "function": {
+                    "name": "profile_table",
+                    "arguments": _json.dumps({"table": "t1"}),
+                }},
+            ]},
+        ]
+        result = _convert_tool_messages_to_text(msgs)
+        assert len(result) == 1
+        assert result[0]["role"] == "assistant"
+        assert "profile_table" in result[0]["content"]
+        assert "t1" in result[0]["content"]
+
+    def test_convert_tool_result_to_user(self):
+        from agent.llm_client import _convert_tool_messages_to_text
+        msgs = [
+            {"role": "tool", "tool_call_id": "call_profile_table", "content": "列: A, B, C"},
+        ]
+        result = _convert_tool_messages_to_text(msgs)
+        assert len(result) == 1
+        assert result[0]["role"] == "user"
+        assert "profile_table" in result[0]["content"]
+        assert "列: A, B, C" in result[0]["content"]
+
+    def test_merge_consecutive_user_messages(self):
+        from agent.llm_client import _convert_tool_messages_to_text
+        msgs = [
+            {"role": "tool", "tool_call_id": "call_a", "content": "结果A"},
+            {"role": "tool", "tool_call_id": "call_b", "content": "结果B"},
+        ]
+        result = _convert_tool_messages_to_text(msgs)
+        assert len(result) == 1
+        assert result[0]["role"] == "user"
+        assert "结果A" in result[0]["content"]
+        assert "结果B" in result[0]["content"]
+
+    def test_full_conversation_roundtrip(self):
+        import json as _json
+        from agent.llm_client import _convert_tool_messages_to_text
+        msgs = [
+            {"role": "system", "content": "系统提示"},
+            {"role": "user", "content": "查询AA+以上的债券"},
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "call_profile_table", "type": "function", "function": {
+                    "name": "profile_table",
+                    "arguments": _json.dumps({"table": "holding"}),
+                }},
+            ]},
+            {"role": "tool", "tool_call_id": "call_profile_table", "content": "列: 评级, 名称"},
+            {"role": "assistant", "content": None, "tool_calls": [
+                {"id": "call_run_sql", "type": "function", "function": {
+                    "name": "run_sql",
+                    "arguments": _json.dumps({"sql": "SELECT * FROM holding WHERE 评级='AA+'"}),
+                }},
+            ]},
+            {"role": "tool", "tool_call_id": "call_run_sql", "content": "3 rows returned"},
+        ]
+        result = _convert_tool_messages_to_text(msgs)
+        roles = [m["role"] for m in result]
+        assert roles == ["system", "user", "assistant", "user", "assistant", "user"]
+        assert "查询AA+以上的债券" in result[1]["content"]
+        assert "profile_table" in result[2]["content"]
+        assert "run_sql" in result[4]["content"]
+
+    def test_does_not_mutate_original(self):
+        from agent.llm_client import _convert_tool_messages_to_text
+        original = [
+            {"role": "system", "content": "test"},
+            {"role": "user", "content": "hello"},
+        ]
+        import copy
+        backup = copy.deepcopy(original)
+        _convert_tool_messages_to_text(original)
+        assert original == backup
+
+
+# ═══════════════════════════════════════════════════════════════
 #  skill_loader 测试
 # ═══════════════════════════════════════════════════════════════
 
