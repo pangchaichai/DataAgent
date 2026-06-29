@@ -17,6 +17,14 @@ def api_tables():
     return jsonify({"tables": get_loaded_tables()})
 
 
+@data_bp.route('/api/documents')
+def api_documents():
+    """返回当前会话已上传的文档列表"""
+    with _session_lock:
+        docs = list(_session.get("uploaded_documents", []))
+    return jsonify({"documents": docs})
+
+
 @data_bp.route('/api/tables/<table_name>', methods=['DELETE'])
 def api_delete_table(table_name):
     from tools.data_loader import drop_table
@@ -38,18 +46,35 @@ def api_upload():
     if not file.filename:
         return jsonify({"ok": False, "error": "文件名为空"}), 400
 
-    pending_dir = BASE_DIR / 'data' / 'uploads' / 'pending'
-    pending_dir.mkdir(parents=True, exist_ok=True)
-    file_path = str(pending_dir / file.filename)
-    file.save(file_path)
-
     ext = Path(file.filename).suffix.lower()
 
     if ext in ('.docx', '.pdf', '.txt'):
+        import time as _time
+        import uuid as _uuid
+        docs_dir = BASE_DIR / 'data' / 'uploads' / 'documents'
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        # 加时间戳前缀避免同名文件覆盖
+        unique_name = f"{_time.strftime('%Y%m%d_%H%M%S')}_{_uuid.uuid4().hex[:6]}_{file.filename}"
+        file_path = str(docs_dir / unique_name)
+        file.save(file_path)
+
         from tools.file_reader import read_document
         doc_result = read_document(file_path, max_chars=2000)
         if not doc_result.ok:
             return jsonify({"ok": False, "error": doc_result.error}), 400
+
+        doc_entry = {
+            "filename": file.filename,
+            "file_path": file_path,
+            "file_type": doc_result.file_type,
+            "word_count": doc_result.word_count,
+            "page_count": doc_result.page_count,
+            "uploaded_at": _time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        with _session_lock:
+            docs = _session.setdefault("uploaded_documents", [])
+            docs.append(doc_entry)
+
         return jsonify({
             "ok": True,
             "file_path": file_path,
@@ -61,6 +86,11 @@ def api_upload():
             "page_count": doc_result.page_count,
             "table_count": len(doc_result.tables),
         })
+
+    pending_dir = BASE_DIR / 'data' / 'uploads' / 'pending'
+    pending_dir.mkdir(parents=True, exist_ok=True)
+    file_path = str(pending_dir / file.filename)
+    file.save(file_path)
 
     from tools.data_masker import validate_masking_ready
     mask_ok, mask_msg = validate_masking_ready()

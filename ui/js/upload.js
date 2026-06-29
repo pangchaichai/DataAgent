@@ -105,7 +105,8 @@ function showDocumentResult(d){
     toast('文档已解析：'+d.filename,'success');
   }
   _pendingUpload=null;
-  _documentContext=d;
+  _documentContext=d;           // 最近上传的文档（用于消息上下文注入）
+  _documentContexts.push(d);   // 追加到列表，不覆盖历史
 }
 
 function showUploadConfirm(d){

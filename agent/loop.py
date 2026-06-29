@@ -554,6 +554,8 @@ def _execute_with_retry(args: dict, tool_ctx, tool_id: str) -> dict:
 def _build_system_prompt(schema_ctx: str, skills_desc: str) -> str:
     """构建 system prompt（加载 prompts/system_prompt.txt 模板并填充）"""
     from pathlib import Path
+
+    from session_store import _session, _session_lock
     template_path = Path(__file__).resolve().parent.parent / "prompts" / "system_prompt.txt"
     if template_path.exists():
         template = template_path.read_text(encoding="utf-8")
@@ -569,11 +571,24 @@ def _build_system_prompt(schema_ctx: str, skills_desc: str) -> str:
     else:
         table_summary = "（暂无已加载数据表）"
 
-    return (
+    # 注入已上传文档列表，让 Agent 知道可读取哪些文档
+    with _session_lock:
+        uploaded_docs = list(_session.get("uploaded_documents", []))
+    if uploaded_docs:
+        doc_lines = "\n".join(
+            f"- {d['filename']}（{d.get('file_type','文档')}，{d.get('word_count',0)}字，路径：{d['file_path']}）"
+            for d in uploaded_docs
+        )
+        doc_summary = f"\n\n## 已上传文档（可用 read_document 工具读取）\n{doc_lines}"
+    else:
+        doc_summary = ""
+
+    result = (
         template
         .replace("{loaded_tables_summary}", table_summary)
         .replace("{skills_registry}", skills_desc)
     )
+    return result + doc_summary
 
 
 def _build_skills_registry_text(registry) -> str:

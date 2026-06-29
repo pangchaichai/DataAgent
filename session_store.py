@@ -18,6 +18,7 @@ _session: dict = {
     "loaded_files": [],
     "messages": [],
     "pending": None,
+    "uploaded_documents": [],   # [{filename, file_path, file_type, word_count, page_count, uploaded_at}]
 }
 
 # SSE 流队列：stream_id → (queue.Queue, threading.Thread | None)

@@ -124,13 +124,20 @@ def _build_calc_args(calc_name: str, tables: list[dict], skill_info) -> dict:
 
     default_args: dict = skill_info.metadata.get("default_args", {})
 
-    holding = _latest_of_type(tables, "holding")
+    # 按计算器需求选择最合适的持仓表（有完整市值字段映射的优先）
+    if calc_name == "entity_concentration":
+        holding = _best_table_for_calc(tables, "holding", ["穿透后市值", "限额占用主体", "产品名称"])
+    elif calc_name in ("asset_structure", "credit_distribution", "leverage", "liquidity"):
+        holding = _best_table_for_calc(tables, "holding", ["穿透后市值", "产品名称"])
+    else:
+        holding = _latest_of_type(tables, "holding")
+
     if holding:
         args["holding_table"] = holding["name"]
 
-    # nav_metrics 需要净值表（tools_spec 内部用 holding_table 字段读取 nav）
+    # nav_metrics 需要有完整净值字段映射的表（产品名称、估值日期、单位净值）
     if calc_name == "nav_metrics":
-        nav = _latest_of_type(tables, "nav")
+        nav = _best_table_for_calc(tables, "nav", ["产品名称", "估值日期", "单位净值"])
         if nav:
             args["holding_table"] = nav["name"]
 
@@ -145,6 +152,33 @@ def _latest_of_type(tables: list[dict], table_type: str) -> dict | None:
     if not matches:
         return None
     return max(matches, key=lambda t: t.get("date_tag") or "")
+
+
+def _best_table_for_calc(
+    tables: list[dict],
+    table_type: str,
+    required_semantics: list[str],
+) -> dict | None:
+    """
+    从同类型表中选出最适合该计算器的表。
+    优先选择 field_map 能覆盖 required_semantics 最多的表，
+    相同覆盖度时取 date_tag 最新的。
+    这解决了同一类型有多张表时选错（如选了字段稀疏的实时头寸表
+    而非有完整市值映射的底层持仓表）的问题。
+    """
+    from tools.data_loader import get_field_map_for_table
+
+    matches = [t for t in tables if t.get("type") == table_type]
+    if not matches:
+        return None
+    if len(matches) == 1:
+        return matches[0]
+
+    def coverage(t: dict) -> int:
+        fm = get_field_map_for_table(t["name"]) or {}
+        return sum(1 for sem in required_semantics if sem in fm)
+
+    return max(matches, key=lambda t: (coverage(t), t.get("date_tag") or ""))
 
 
 # ── 结果格式化 ───────────────────────────────────────────────────

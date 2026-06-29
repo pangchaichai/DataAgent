@@ -311,17 +311,10 @@
       <div class="inputbar" id="inputbar" style="position:relative">
         <div class="mention-popup" id="mentionPopup"></div>
         <div class="hintbar" id="hint">请先在上方完成确认或选择后再继续</div>
-        <div id="suggestionsBar" style="display:none"></div>
-        <div class="quick" id="quickBtns">
-          <button class="q-btn" onclick="triggerUpload()" title="上传数据文件或文档">📂 上传</button>
-          <button class="q-btn" onclick="sendQuick('帮我检查主体集中度是否超标')" title="直接执行合规检查">✅ 合规检查</button>
-          <button class="q-btn" onclick="sendQuick('生成产品运作报告')" title="直接生成运作报告">📄 报告</button>
-          <button class="q-btn" onclick="sendQuick('查询持仓情况，按市值降序排列')" title="查询持仓">📊 持仓</button>
-        </div>
         <div class="inrow" id="inrow">
           <div class="input-wrap">
             <textarea id="input" rows="2"
-              placeholder="输入分析需求，如「检查集中度」「持仓前10」… Enter 发送，Shift+Enter 换行"
+              placeholder="输入分析需求… 可检查集中度/查持仓/生成运作报告/分析文档，Enter 发送，Shift+Enter 换行"
               oninput="autoResize(this);checkMention(this)"
               onkeydown="onKey(event)"></textarea>
             <div class="input-toolbar">

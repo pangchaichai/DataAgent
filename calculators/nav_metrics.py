@@ -103,7 +103,7 @@ def calc_nav_metrics(
             "{c_rinception}" AS 成立以来
         FROM {nav_table}
         {date_filter}
-        ORDER BY 产品名称, 日期 DESC
+        ORDER BY "{c_product}", "{c_date}" DESC
     """
 
     df = conn.execute(sql).df()
