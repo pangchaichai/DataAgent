@@ -161,6 +161,17 @@ def main():
             logger.info('auto_load', f"自动加载 {len(auto_loaded)} 个数据文件")
             print(f"[DataAgent] 自动加载 {len(auto_loaded)} 个数据文件")
 
+    # ── 企业网关代理自动启动 ─────────────────────────────────
+    llm_cfg = config.get('llm', {})
+    enterprise_cfg = llm_cfg.get('enterprise_internal', {})
+    gateway_cfg = enterprise_cfg.get('gateway', {})
+    if gateway_cfg.get('enabled', False):
+        from gateway_proxy import start_proxy_background
+        proxy_port = start_proxy_background(gateway_cfg)
+        if proxy_port:
+            print(f"[DataAgent] 网关代理已启动，端口：{proxy_port}")
+            logger.info('lifecycle', f"网关代理启动，端口 {proxy_port}")
+
     if config.get('scheduler', {}).get('enabled', False):
         from scheduler.task_manager import TaskManager
         task_mgr = TaskManager(

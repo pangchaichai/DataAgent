@@ -8,9 +8,49 @@
 ---
 
 ## 最后更新
-- **日期**：2026-06-29
+- **日期**：2026-06-30
 - **提交**：（待提交）
 - **分支**：`claude/magical-cray-m7gu8w`
+
+---
+
+## 上次会话完成的工作（2026-06-30，第三十三轮）
+
+### 企业内网 LLM 适配 — tool_calls 空值兼容 + 网关代理集成
+
+#### 1. tool_calls_raw 空值兼容（`agent/llm_client.py:757`）
+企业 LLM 可能返回 `"tool_calls": null`（而非省略该字段），原代码 `.get('tool_calls', [])` 在 key 存在但值为 null 时返回 None，导致 `for tc in None` 崩溃。改为：
+```python
+tool_calls_raw = message.get('tool_calls')
+if not tool_calls_raw:
+    tool_calls_raw = []
+```
+
+#### 2. 网关代理集成（`gateway_proxy.py` 新增）
+将企业内网 LLM 项目组提供的 `flask_proxy.py`（OpenAI API ↔ 企业网关 txHeader/txBody 格式转换）集成到项目内部：
+- **`gateway_proxy.py`**（项目根目录）：重构为应用工厂模式，支持 config.yaml 配置
+- **`main.py`**：启动时检测 `gateway.enabled`，自动在后台线程启动代理
+- **`config.example.yaml`**：新增 `enterprise_internal.gateway` 配置段
+- **`run.bat`**：简化为一键启动（网关代理由 main.py 自动管理，无需手动启动）
+
+#### 架构变化
+```
+修改前：run.bat 手动启动两个进程
+  start flask_proxy.py  →  :8081（手动）
+  python main.py        →  :随机端口
+
+修改后：main.py 统一管理
+  python main.py
+  ├── 自动启动 gateway_proxy →  :8081（后台线程）
+  └── Flask 主应用           →  :随机端口
+```
+
+---
+
+## 立即可执行的下一步
+1. **Windows UAT 验收**：验证 native 模式 tool_calls=null 兼容 + 网关代理自动启动
+2. **React 模式验收**：企业内网 Qwen2.5-72B + react 模式多轮工具调用测试
+3. **test_skill_api 隔离修复**：pre-existing flaky test
 
 ---
 
