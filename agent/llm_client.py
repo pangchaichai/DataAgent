@@ -753,8 +753,10 @@ class LLMClient:
                 text = message.get('content', '') or ''
                 usage = data.get('usage', {})
 
-                # 解析 tool_calls
-                tool_calls_raw = message.get('tool_calls', [])
+                # 解析 tool_calls（企业 LLM 可能返回 null）
+                tool_calls_raw = message.get('tool_calls')
+                if not tool_calls_raw:
+                    tool_calls_raw = []
                 tool_calls = []
                 for tc in tool_calls_raw:
                     func = tc.get('function', {})
