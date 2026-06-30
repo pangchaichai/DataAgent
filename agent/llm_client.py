@@ -295,12 +295,6 @@ class LLMClient:
                 f"{base_url}/chat/completions",
                 json=chat_payload, headers=headers, timeout=10,
             )
-            if chat_resp.status_code == 402:
-                return {
-                    "ok": False,
-                    "error": "API 账户余额不足，请充值后重试",
-                    "models": models_list,
-                }
             if chat_resp.status_code in (401, 403):
                 return {
                     "ok": False,
@@ -669,16 +663,13 @@ class LLMClient:
                     success=True, text=text, endpoint=provider_name, model=model,
                     token_count=usage.get('total_tokens', 0), elapsed_ms=elapsed_ms,
                 )
-            elif resp.status_code == 402:
-                return LLMResponse(success=False, endpoint=provider_name, model=model,
-                                   text="", error="API 账户余额不足，请充值后重试或切换其他 LLM 提供方")
             elif resp.status_code in (401, 403):
                 detail = resp.text[:100] if resp.text else ''
                 return LLMResponse(success=False, endpoint=provider_name, model=model,
-                                   text="", error=f"API Key 认证失败（{resp.status_code}），请检查设置中的 API Key 配置")
+                                   text="", error=f"api_key ({resp.status_code}: {detail})")
             elif resp.status_code >= 500:
                 return LLMResponse(success=False, endpoint=provider_name, model=model,
-                                   text="", error=f"LLM 服务端错误（HTTP {resp.status_code}），请稍后重试")
+                                   text="", error=f"connection refused (HTTP {resp.status_code})")
             else:
                 logger.warning("[LLM _call] HTTP %d: %s", resp.status_code, resp.text[:500])
                 return LLMResponse(success=False, endpoint=provider_name, model=model,
@@ -784,20 +775,15 @@ class LLMClient:
                     raw=data, elapsed_ms=elapsed_ms,
                     token_count=usage.get('total_tokens', 0), model=model,
                 )
-            elif resp.status_code == 402:
-                return ChatResult(
-                    success=False, elapsed_ms=elapsed_ms, model=model,
-                    error="API 账户余额不足，请充值后重试或切换其他 LLM 提供方",
-                )
             elif resp.status_code in (401, 403):
                 detail = resp.text[:100] if resp.text else ''
                 return ChatResult(success=False,
-                                  error=f"API Key 认证失败（{resp.status_code}），请检查设置中的 API Key 配置",
+                                  error=f"api_key ({resp.status_code}: {detail})",
                                   elapsed_ms=elapsed_ms, model=model)
             elif resp.status_code >= 500:
                 return ChatResult(
                     success=False, elapsed_ms=elapsed_ms, model=model,
-                    error=f"LLM 服务端错误（HTTP {resp.status_code}），请稍后重试",
+                    error=f"connection refused (HTTP {resp.status_code})",
                 )
             else:
                 logger.warning("[LLM chat] HTTP %d: %s", resp.status_code, resp.text[:500])
