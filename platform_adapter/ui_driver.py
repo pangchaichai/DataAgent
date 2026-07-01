@@ -110,10 +110,15 @@ class PyWebViewDriver(UIDriver):
 
     @staticmethod
     def _check_webview2_runtime() -> bool:
-        """检测 WebView2 Runtime 是否已安装（Windows Only）"""
+        """检测 WebView2 Runtime 是否已安装（Windows Only）。
+
+        检查两个来源：
+        1. 注册表 Evergreen Runtime 键
+        2. 文件系统中的 DLL（更可靠）
+        """
+        # 方法1：检查注册表
         try:
             import winreg
-            # WebView2 Runtime 注册表路径（64位和32位）
             paths = [
                 r'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
                 r'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
@@ -125,17 +130,59 @@ class PyWebViewDriver(UIDriver):
                     return True
                 except OSError:
                     pass
-            return False
         except Exception:
-            return False
+            pass
+
+        # 方法2：检查 DLL 文件是否存在
+        import os as _os
+        program_files = _os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)')
+        webview_dir = _os.path.join(program_files, 'Microsoft', 'EdgeWebView', 'Application')
+        if _os.path.isdir(webview_dir):
+            for ver in _os.listdir(webview_dir):
+                dll_path = _os.path.join(webview_dir, ver, 'EBWebView', 'x64', 'EmbeddedBrowserWebView.dll')
+                if _os.path.isfile(dll_path):
+                    return True
+
+        return False
+
+    @staticmethod
+    def _webview2_download_url() -> str:
+        """WebView2 Runtime 下载地址（Evergreen Bootstrapper）"""
+        return 'https://go.microsoft.com/fwlink/p/?LinkId=2124703'
 
     def start(self, flask_app, port: int, title: str, width: int, height: int):
         import os as _os
+        import sys as _sys
         import webview
 
         # 安全默认值
         if not title:
             title = 'DataAgent'
+
+        # Windows: 检测 WebView2 Runtime
+        if _sys.platform == 'win32':
+            has_webview2 = self._check_webview2_runtime()
+            if not has_webview2:
+                dl_url = self._webview2_download_url()
+                msg = (
+                    "DataAgent 需要 Microsoft Edge WebView2 Runtime 才能正常显示界面。\n\n"
+                    "您的系统尚未安装此组件（Windows 10 默认不含此组件）。\n\n"
+                    "请按以下步骤安装：\n"
+                    "1. 打开浏览器，访问：\n"
+                    f"   {dl_url}\n"
+                    "2. 下载并运行 Evergreen Bootstrapper\n"
+                    "3. 安装完成后重新启动 DataAgent\n\n"
+                    "如已安装但仍提示此错误，请联系技术支持。"
+                )
+                print(f"[DataAgent] ERROR: WebView2 Runtime not found")
+                print(msg)
+                # 尝试弹出 Windows 消息框
+                try:
+                    import ctypes
+                    ctypes.windll.user32.MessageBoxW(0, msg, "DataAgent — 缺少 WebView2 Runtime", 0x30)
+                except Exception:
+                    pass
+                _sys.exit(1)
 
         flask_thread = threading.Thread(
             target=lambda: flask_app.run(
@@ -150,7 +197,7 @@ class PyWebViewDriver(UIDriver):
         if not _wait_for_flask(port, timeout=15.0):
             print(f"[DataAgent] WARNING: Flask not ready within 15s (port {port})")
 
-        # PyWebView 4.4.1 + pythonnet 3.x — 稳定组合
+        # 强制指定 edgechromium 引擎（避免回退到 IE 内核）
         webview.create_window(
             title=title,
             url=f'http://127.0.0.1:{port}',
@@ -160,7 +207,7 @@ class PyWebViewDriver(UIDriver):
             min_size=(800, 600),
             text_select=True,
         )
-        webview.start()
+        webview.start(gui='edgechromium' if _sys.platform == 'win32' else None)
 
 
 def get_driver() -> UIDriver:
