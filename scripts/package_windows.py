@@ -471,13 +471,35 @@ for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYVER=%%i
 echo [检测] Python 版本: %PYVER%
 echo.
 
-:: 安装 WebView2 Runtime — 先检测是否已装，避免重复安装
+:: 创建虚拟环境
+if exist .venv (
+    echo [跳过] .venv 已存在
+) else (
+    echo [创建] 虚拟环境 ...
+    python -m venv .venv
+    if %ERRORLEVEL% NEQ 0 (
+        echo [错误] 创建虚拟环境失败
+        pause
+        exit /b 1
+    )
+)
+
+:: 激活虚拟环境并安装依赖
+echo [安装] 依赖包（离线模式）...
+call .venv\Scripts\activate.bat
+pip install --no-index --find-links=deps\ -r requirements-bundle.txt
+if %ERRORLEVEL% NEQ 0 (
+    echo [错误] 依赖安装失败
+    pause
+    exit /b 1
+)
+
+:: 安装 WebView2 Runtime — 放最后，避免影响 Python venv 创建
 set NEED_WEBVIEW2=1
 reg query "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
 if %ERRORLEVEL% EQU 0 set NEED_WEBVIEW2=0
 reg query "HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
 if %ERRORLEVEL% EQU 0 set NEED_WEBVIEW2=0
-:: 也可通过 Edge 浏览器间接检测
 if exist "C:\Program Files (x86)\Microsoft\EdgeWebView\Application" set NEED_WEBVIEW2=0
 if exist "C:\Program Files\Microsoft\EdgeWebView\Application" set NEED_WEBVIEW2=0
 
@@ -505,29 +527,6 @@ if %NEED_WEBVIEW2% EQU 1 (
     echo [跳过] WebView2 Runtime 已安装
 )
 echo.
-
-:: 创建虚拟环境
-if exist .venv (
-    echo [跳过] .venv 已存在
-) else (
-    echo [创建] 虚拟环境 ...
-    python -m venv .venv
-    if %ERRORLEVEL% NEQ 0 (
-        echo [错误] 创建虚拟环境失败
-        pause
-        exit /b 1
-    )
-)
-
-:: 激活虚拟环境并安装依赖
-echo [安装] 依赖包（离线模式）...
-call .venv\Scripts\activate.bat
-pip install --no-index --find-links=deps\ -r requirements-bundle.txt
-if %ERRORLEVEL% NEQ 0 (
-    echo [错误] 依赖安装失败
-    pause
-    exit /b 1
-)
 
 :: 检查配置文件（main.py 从 DataAgent/ 目录读取 config.yaml）
 if not exist DataAgent\config.yaml (
@@ -757,10 +756,6 @@ a = Analysis(
         ('config.example.yaml', '.'),
         # groups.yaml
         ('groups.yaml', '.'),
-        # WebView2 Runtime 离线安装包（内网免联网，约130MB）
-        ('../deps/MicrosoftEdgeWebView2RuntimeInstallerX64.exe', 'deps'),
-        # 兼容：如只有在线 bootstrapper 也包含
-        ('../deps/MicrosoftEdgeWebview2Setup.exe', 'deps'),
     ],
     hiddenimports=[
         # Flask 相关
