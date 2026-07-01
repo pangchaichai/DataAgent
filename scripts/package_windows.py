@@ -359,29 +359,62 @@ def download_deps(deps_dir: Path) -> None:
             else:
                 print(f"   ✅  {dep_spec}")
 
-    # ── 下载 WebView2 Runtime Bootstrapper ──────────────────────
-    _download_webview2_bootstrapper(deps_dir)
+    # ── 下载 WebView2 Runtime（离线安装包） ────────────────────
+    _download_webview2_runtime(deps_dir)
 
     tmp_req.unlink(missing_ok=True)
 
     whl_count = len(list(deps_dir.glob("*.whl"))) + len(list(deps_dir.glob("*.tar.gz")))
-    whl_count += 1 if any(deps_dir.glob("MicrosoftEdgeWebview2Setup.exe")) else 0
+    whl_count += 1 if any(deps_dir.glob("MicrosoftEdgeWebView2RuntimeInstallerX64.exe")) else 0
     print(f"   ✅ 下载完成 ({whl_count} 个文件)")
 
 
-def _download_webview2_bootstrapper(deps_dir: Path) -> None:
-    """下载 WebView2 Evergreen Bootstrapper（约 2MB）"""
+def _download_webview2_runtime(deps_dir: Path) -> None:
+    """下载 WebView2 Runtime 离线安装包（约 130MB，内网无需联网）。
+
+    优先尝试程序化下载；失败时打印清晰的手动下载指引。
+    Microsoft 不提供永久固定 URL，以下为当前有效地址（需定期更新）。
+    """
     import urllib.request
-    bootstrapper = deps_dir / "MicrosoftEdgeWebview2Setup.exe"
-    if bootstrapper.exists():
+    installer = deps_dir / "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+    if installer.exists():
+        print(f"   ✅ WebView2 离线安装包已存在 ({installer.stat().st_size / 1024 / 1024:.0f} MB)")
         return
-    url = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
-    print("   ⬇ 下载 WebView2 Runtime Bootstrapper ...")
-    try:
-        urllib.request.urlretrieve(url, str(bootstrapper))
-        print(f"   ✅ WebView2 Bootstrapper ({bootstrapper.stat().st_size / 1024:.0f} KB)")
-    except Exception as e:
-        print(f"   ⚠️ WebView2 Bootstrapper 下载失败（{e}），Windows 10 用户需手动安装")
+
+    # WebView2 Evergreen Standalone Installer (x64, 离线)
+    # Microsoft 官方固定转发链接，永久有效
+    urls = [
+        "https://go.microsoft.com/fwlink/p/?LinkId=2124700",  # 官方文档: Evergreen Standalone Installer x64
+    ]
+    downloaded = False
+    for url in urls:
+        try:
+            print(f"   ⬇ 下载 WebView2 Runtime 离线安装包（约 130MB，请等待）...")
+            urllib.request.urlretrieve(url, str(installer))
+            downloaded = True
+            break
+        except Exception:
+            continue
+
+    if not downloaded:
+        print("")
+        print("   ╔══════════════════════════════════════════════════════════╗")
+        print("   ║  ⚠️  WebView2 Runtime 离线安装包下载失败                ║")
+        print("   ║                                                          ║")
+        print("   ║  请手动下载并放入 deps/ 目录后重新构建：                 ║")
+        print("   ║                                                          ║")
+        print("   ║  1. 打开 https://developer.microsoft.com/microsoft-edge/webview2/")
+        print("   ║  2. 找到「Evergreen Standalone Installer」→ 下载 X64 版本")
+        print("   ║  3. 重命名为 MicrosoftEdgeWebView2RuntimeInstallerX64.exe")
+        print("   ║  4. 放入当前 deps/ 目录                                   ║")
+        print("   ║                                                          ║")
+        print("   ║  包体积将从 50MB 增长至约 180MB（含离线 Runtime）         ║")
+        print("   ╚══════════════════════════════════════════════════════════╝")
+        print("")
+        return
+
+    size_mb = installer.stat().st_size / 1024 / 1024
+    print(f"   ✅ WebView2 Runtime 离线安装包 ({size_mb:.0f} MB)")
 
 
 def copy_project(bundle_src: Path) -> None:
@@ -438,9 +471,17 @@ for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYVER=%%i
 echo [检测] Python 版本: %PYVER%
 echo.
 
-:: 安装 WebView2 Runtime（Windows 原生窗口所必需）
-if exist deps\MicrosoftEdgeWebview2Setup.exe (
-    echo [安装] Microsoft Edge WebView2 Runtime ...
+:: 安装 WebView2 Runtime（离线包，无需联网）
+if exist deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe (
+    echo [安装] Microsoft Edge WebView2 Runtime（离线包，约需 1 分钟）...
+    deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe /silent /install
+    if %ERRORLEVEL% EQU 0 (
+        echo [完成] WebView2 Runtime 安装成功
+    ) else (
+        echo [提示] WebView2 Runtime 安装失败，将使用浏览器模式运行
+    )
+) else if exist deps\MicrosoftEdgeWebview2Setup.exe (
+    echo [安装] Microsoft Edge WebView2 Runtime（在线包）...
     deps\MicrosoftEdgeWebview2Setup.exe /silent /install
     if %ERRORLEVEL% EQU 0 (
         echo [完成] WebView2 Runtime 安装成功
@@ -644,8 +685,11 @@ if not exist output\DataAgent\config.yaml (
     )
 )
 
-:: 复制 WebView2 Bootstrapper 到输出目录（EXE 首次启动时自动安装）
+:: 复制 WebView2 Runtime 到输出目录（EXE 首次启动时自动安装）
 if not exist output\DataAgent\deps mkdir output\DataAgent\deps
+if exist deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe (
+    copy deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe output\DataAgent\deps\ >nul
+)
 if exist deps\MicrosoftEdgeWebview2Setup.exe (
     copy deps\MicrosoftEdgeWebview2Setup.exe output\DataAgent\deps\ >nul
 )
@@ -700,7 +744,9 @@ a = Analysis(
         ('config.example.yaml', '.'),
         # groups.yaml
         ('groups.yaml', '.'),
-        # WebView2 Bootstrapper（位于 bundle 根 deps/，spec 在 DataAgent/ 中，需 .. 回到根）
+        # WebView2 Runtime 离线安装包（内网免联网，约130MB）
+        ('../deps/MicrosoftEdgeWebView2RuntimeInstallerX64.exe', 'deps'),
+        # 兼容：如只有在线 bootstrapper 也包含
         ('../deps/MicrosoftEdgeWebview2Setup.exe', 'deps'),
     ],
     hiddenimports=[
