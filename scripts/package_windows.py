@@ -606,8 +606,8 @@ README_TXT = """DataAgent %VERSION% — Windows 内测版
 ══════════════════════════════════════════════════
   1. 先完成方式一的步骤 1-3（setup.bat 安装依赖）
   2. 双击 build_exe.bat 等待打包完成（约 3-5 分钟）
-  3. 打包结果在 output\\DataAgent\\ 目录
-  4. 将 output\\DataAgent\\ 整个目录复制到目标机器
+  3. 打包结果在 dist\\DataAgent\\ 目录
+  4. 将 dist\\DataAgent\\ 整个目录复制到目标机器
   5. 目标机器上双击 DataAgent.exe 启动
   注意：
   • 打包产物约 200-300 MB（含 Python 运行时和所有依赖）
@@ -689,31 +689,31 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 :: 复制配置文件到输出目录
-if not exist output\DataAgent\config.yaml (
+if not exist dist\DataAgent\config.yaml (
     if exist DataAgent\config.yaml (
-        copy DataAgent\config.yaml output\DataAgent\config.yaml >nul
+        copy DataAgent\config.yaml dist\DataAgent\config.yaml >nul
     ) else if exist DataAgent\config.example.yaml (
-        copy DataAgent\config.example.yaml output\DataAgent\config.yaml >nul
+        copy DataAgent\config.example.yaml dist\DataAgent\config.yaml >nul
     )
 )
 
-:: 复制 WebView2 Runtime 到输出目录（EXE 首次启动时自动安装）
-if not exist output\DataAgent\deps mkdir output\DataAgent\deps
+:: PyInstaller 默认输出到 dist/ — 把 WebView2 安装包复制过去
+if not exist dist\DataAgent\deps mkdir dist\DataAgent\deps
 if exist deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe (
-    copy deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe output\DataAgent\deps\ >nul
+    copy deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe dist\DataAgent\deps\ >nul
 )
 if exist deps\MicrosoftEdgeWebview2Setup.exe (
-    copy deps\MicrosoftEdgeWebview2Setup.exe output\DataAgent\deps\ >nul
+    copy deps\MicrosoftEdgeWebview2Setup.exe dist\DataAgent\deps\ >nul
 )
 
 echo.
 echo ============================================================
 echo   打包完成！
-echo   输出目录: output\DataAgent\
-echo   启动文件: output\DataAgent\DataAgent.exe
+echo   输出目录: dist\DataAgent\
+echo   启动文件: dist\DataAgent\DataAgent.exe
 echo.
 echo   部署方式:
-echo     将 output\DataAgent\ 整个文件夹复制到目标机器
+echo     将 dist\DataAgent\ 整个文件夹复制到目标机器
 echo     编辑 config.yaml 配置 LLM
 echo     双击 DataAgent.exe 启动（首次启动会自动安装 WebView2）
 echo.
