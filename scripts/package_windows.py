@@ -359,62 +359,10 @@ def download_deps(deps_dir: Path) -> None:
             else:
                 print(f"   ✅  {dep_spec}")
 
-    # ── 下载 WebView2 Runtime（离线安装包） ────────────────────
-    _download_webview2_runtime(deps_dir)
-
     tmp_req.unlink(missing_ok=True)
 
     whl_count = len(list(deps_dir.glob("*.whl"))) + len(list(deps_dir.glob("*.tar.gz")))
-    whl_count += 1 if any(deps_dir.glob("MicrosoftEdgeWebView2RuntimeInstallerX64.exe")) else 0
     print(f"   ✅ 下载完成 ({whl_count} 个文件)")
-
-
-def _download_webview2_runtime(deps_dir: Path) -> None:
-    """下载 WebView2 Runtime 离线安装包（约 130MB，内网无需联网）。
-
-    优先尝试程序化下载；失败时打印清晰的手动下载指引。
-    Microsoft 不提供永久固定 URL，以下为当前有效地址（需定期更新）。
-    """
-    import urllib.request
-    installer = deps_dir / "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
-    if installer.exists():
-        print(f"   ✅ WebView2 离线安装包已存在 ({installer.stat().st_size / 1024 / 1024:.0f} MB)")
-        return
-
-    # WebView2 Evergreen Standalone Installer (x64, 离线)
-    # Microsoft 官方固定转发链接，永久有效
-    urls = [
-        "https://go.microsoft.com/fwlink/p/?LinkId=2124700",  # 官方文档: Evergreen Standalone Installer x64
-    ]
-    downloaded = False
-    for url in urls:
-        try:
-            print(f"   ⬇ 下载 WebView2 Runtime 离线安装包（约 130MB，请等待）...")
-            urllib.request.urlretrieve(url, str(installer))
-            downloaded = True
-            break
-        except Exception:
-            continue
-
-    if not downloaded:
-        print("")
-        print("   ╔══════════════════════════════════════════════════════════╗")
-        print("   ║  ⚠️  WebView2 Runtime 离线安装包下载失败                ║")
-        print("   ║                                                          ║")
-        print("   ║  请手动下载并放入 deps/ 目录后重新构建：                 ║")
-        print("   ║                                                          ║")
-        print("   ║  1. 打开 https://developer.microsoft.com/microsoft-edge/webview2/")
-        print("   ║  2. 找到「Evergreen Standalone Installer」→ 下载 X64 版本")
-        print("   ║  3. 重命名为 MicrosoftEdgeWebView2RuntimeInstallerX64.exe")
-        print("   ║  4. 放入当前 deps/ 目录                                   ║")
-        print("   ║                                                          ║")
-        print("   ║  包体积将从 50MB 增长至约 180MB（含离线 Runtime）         ║")
-        print("   ╚══════════════════════════════════════════════════════════╝")
-        print("")
-        return
-
-    size_mb = installer.stat().st_size / 1024 / 1024
-    print(f"   ✅ WebView2 Runtime 离线安装包 ({size_mb:.0f} MB)")
 
 
 def copy_project(bundle_src: Path) -> None:
@@ -494,40 +442,6 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-:: 安装 WebView2 Runtime — 放最后，避免影响 Python venv 创建
-set NEED_WEBVIEW2=1
-reg query "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
-if %ERRORLEVEL% EQU 0 set NEED_WEBVIEW2=0
-reg query "HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
-if %ERRORLEVEL% EQU 0 set NEED_WEBVIEW2=0
-if exist "C:\Program Files (x86)\Microsoft\EdgeWebView\Application" set NEED_WEBVIEW2=0
-if exist "C:\Program Files\Microsoft\EdgeWebView\Application" set NEED_WEBVIEW2=0
-
-if %NEED_WEBVIEW2% EQU 1 (
-    if exist deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe (
-        echo [安装] Microsoft Edge WebView2 Runtime（离线包，约需 1 分钟）...
-        deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe /silent /install
-        if %ERRORLEVEL% EQU 0 (
-            echo [完成] WebView2 Runtime 安装成功
-        ) else (
-            echo [提示] WebView2 Runtime 安装失败，将使用浏览器模式运行
-        )
-    ) else if exist deps\MicrosoftEdgeWebview2Setup.exe (
-        echo [安装] Microsoft Edge WebView2 Runtime（在线包）...
-        deps\MicrosoftEdgeWebview2Setup.exe /silent /install
-        if %ERRORLEVEL% EQU 0 (
-            echo [完成] WebView2 Runtime 安装成功
-        ) else (
-            echo [提示] WebView2 Runtime 安装失败，将使用浏览器模式运行
-        )
-    ) else (
-        echo [提示] 未找到 WebView2 Runtime 安装包，将使用浏览器模式运行
-    )
-) else (
-    echo [跳过] WebView2 Runtime 已安装
-)
-echo.
-
 :: 检查配置文件（main.py 从 DataAgent/ 目录读取 config.yaml）
 if not exist DataAgent\config.yaml (
     echo [提示] 未找到 config.yaml，从 config.example.yaml 自动创建
@@ -590,7 +504,7 @@ README_TXT = """DataAgent %VERSION% — Windows 内测版
   • Windows 10 / 11（64 位）
   • Python 3.11（必须）
   • 4 GB+ RAM
-  • WebView2 Runtime（Windows 11 自带，Windows 10 可能需要安装）
+  • Windows 10 无 Edge 时自动使用浏览器模式（功能一致）
 
 ══════════════════════════════════════════════════
   方式一：直接运行（推荐内测使用）
@@ -697,15 +611,6 @@ if not exist dist\DataAgent\config.yaml (
     )
 )
 
-:: PyInstaller 默认输出到 dist/ — 把 WebView2 安装包复制过去
-if not exist dist\DataAgent\deps mkdir dist\DataAgent\deps
-if exist deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe (
-    copy deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe dist\DataAgent\deps\ >nul
-)
-if exist deps\MicrosoftEdgeWebview2Setup.exe (
-    copy deps\MicrosoftEdgeWebview2Setup.exe dist\DataAgent\deps\ >nul
-)
-
 echo.
 echo ============================================================
 echo   打包完成！
@@ -715,11 +620,8 @@ echo.
 echo   部署方式:
 echo     将 dist\DataAgent\ 整个文件夹复制到目标机器
 echo     编辑 config.yaml 配置 LLM
-echo     双击 DataAgent.exe 启动（首次启动会自动安装 WebView2）
-echo.
-echo   提示：目标机器如为 Windows 10，首次启动可能需要
-echo         1-2 分钟安装 WebView2 Runtime，请耐心等待。
-echo         如仍无法启动，系统将自动在浏览器中打开。
+echo     双击 DataAgent.exe 启动
+echo     注：Win10 无 Edge 时自动在浏览器中打开，功能一致
 echo ============================================================
 echo.
 pause

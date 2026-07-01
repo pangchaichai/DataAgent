@@ -145,47 +145,24 @@ class PyWebViewDriver(UIDriver):
 
         return False
 
-    @staticmethod
-    def _webview2_download_url() -> str:
-        """WebView2 Runtime 下载地址（Evergreen Bootstrapper）"""
-        return 'https://go.microsoft.com/fwlink/p/?LinkId=2124703'
-
     def start(self, flask_app, port: int, title: str, width: int, height: int):
-        import os as _os
-        import subprocess as _sp
         import sys as _sys
         import webbrowser as _wb
 
-        # 安全默认值
         if not title:
             title = 'DataAgent'
 
-        # Windows: 检测 WebView2 Runtime，缺失时尝试自动修复
+        # Windows: 检测 WebView2，缺失则自动降级浏览器模式
         use_native = False
         if _sys.platform == 'win32':
-            has_webview2 = self._check_webview2_runtime()
-            if not has_webview2:
-                # 尝试自动运行本地 bootstrapper
-                bootstrapper = self._find_bootstrapper()
-                if bootstrapper:
-                    print("[DataAgent] 正在自动安装 WebView2 Runtime（约需1-2分钟）...")
-                    try:
-                        _sp.run([bootstrapper, '/silent', '/install'], timeout=180)
-                        if self._check_webview2_runtime():
-                            has_webview2 = True
-                            print("[DataAgent] WebView2 Runtime 安装成功")
-                    except Exception as e:
-                        print(f"[DataAgent] WebView2 自动安装失败：{e}")
-
-            if not has_webview2:
-                print("[DataAgent] 提示：WebView2 Runtime 未安装，将使用浏览器模式运行")
-                print("[DataAgent] 如需原生窗口体验，请运行 setup.bat 或安装 Edge WebView2")
-                print("[DataAgent] 下载地址：" + self._webview2_download_url())
-            else:
+            if self._check_webview2_runtime():
                 use_native = True
+            else:
+                print("[DataAgent] WebView2 Runtime 未安装，自动切换浏览器模式")
+                print("[DataAgent] 安装 Microsoft Edge 后可获得原生窗口体验")
 
         if use_native:
-            # ── 原生窗口模式（需要 WebView2） ──────────────────
+            # ── 原生窗口模式 ──────────────────────────────
             import webview
 
             flask_thread = threading.Thread(
@@ -211,40 +188,14 @@ class PyWebViewDriver(UIDriver):
             )
             webview.start(gui='edgechromium')
         else:
-            # ── 浏览器模式（无需任何额外组件） ─────────────────
-            print(f"[DataAgent] 启动浏览器模式 — http://127.0.0.1:{port}")
+            # ── 浏览器模式 ────────────────────────────────
+            print(f"[DataAgent] 浏览器模式 — http://127.0.0.1:{port}")
             print("[DataAgent] 按 Ctrl+C 退出")
             _wb.open(f'http://127.0.0.1:{port}')
             flask_app.run(
                 host='127.0.0.1', port=port,
                 threaded=True, use_reloader=False, debug=False
             )
-
-    @staticmethod
-    def _find_bootstrapper() -> str | None:
-        """查找 WebView2 安装包（优先离线包，其次在线 bootstrapper）"""
-        import os as _os
-        import sys as _sys
-        # 优先离线独立安装包，其次在线 bootstrapper
-        names = [
-            'MicrosoftEdgeWebView2RuntimeInstallerX64.exe',
-            'MicrosoftEdgeWebview2Setup.exe',
-        ]
-        bases = []
-        if getattr(_sys, 'frozen', False):
-            bases.append(_sys._MEIPASS)  # PyInstaller 临时目录
-        bases.append(_os.path.dirname(_os.path.abspath(__file__)))  # ui_driver.py 所在目录
-        bases.append(_os.path.dirname(_sys.executable))  # EXE 同级目录
-
-        for base in bases:
-            for name in names:
-                p = _os.path.normpath(_os.path.join(base, 'deps', name))
-                if _os.path.isfile(p):
-                    return p
-                p = _os.path.normpath(_os.path.join(base, '..', 'deps', name))
-                if _os.path.isfile(p):
-                    return p
-        return None
 
 
 def get_driver() -> UIDriver:
