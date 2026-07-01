@@ -644,6 +644,12 @@ if not exist output\DataAgent\config.yaml (
     )
 )
 
+:: 复制 WebView2 Bootstrapper 到输出目录（EXE 首次启动时自动安装）
+if not exist output\DataAgent\deps mkdir output\DataAgent\deps
+if exist deps\MicrosoftEdgeWebview2Setup.exe (
+    copy deps\MicrosoftEdgeWebview2Setup.exe output\DataAgent\deps\ >nul
+)
+
 echo.
 echo ============================================================
 echo   打包完成！
@@ -653,7 +659,11 @@ echo.
 echo   部署方式:
 echo     将 output\DataAgent\ 整个文件夹复制到目标机器
 echo     编辑 config.yaml 配置 LLM
-echo     双击 DataAgent.exe 启动
+echo     双击 DataAgent.exe 启动（首次启动会自动安装 WebView2）
+echo.
+echo   提示：目标机器如为 Windows 10，首次启动可能需要
+echo         1-2 分钟安装 WebView2 Runtime，请耐心等待。
+echo         如仍无法启动，系统将自动在浏览器中打开。
 echo ============================================================
 echo.
 pause
@@ -690,6 +700,8 @@ a = Analysis(
         ('config.example.yaml', '.'),
         # groups.yaml
         ('groups.yaml', '.'),
+        # WebView2 Bootstrapper（位于 bundle 根 deps/，spec 在 DataAgent/ 中，需 .. 回到根）
+        ('../deps/MicrosoftEdgeWebview2Setup.exe', 'deps'),
     ],
     hiddenimports=[
         # Flask 相关

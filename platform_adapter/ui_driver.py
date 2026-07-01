@@ -222,12 +222,17 @@ class PyWebViewDriver(UIDriver):
 
     @staticmethod
     def _find_bootstrapper() -> str | None:
-        """查找打包在内测包中的 WebView2 Bootstrapper"""
+        """查找 WebView2 Bootstrapper（覆盖解压包和 PyInstaller EXE 两种场景）"""
         import os as _os
-        candidates = [
-            _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', 'deps', 'MicrosoftEdgeWebview2Setup.exe'),
-            _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'MicrosoftEdgeWebview2Setup.exe'),
-        ]
+        import sys as _sys
+        candidates = []
+        # PyInstaller 打包后的临时目录
+        if getattr(_sys, 'frozen', False):
+            candidates.append(_os.path.join(_sys._MEIPASS, 'deps', 'MicrosoftEdgeWebview2Setup.exe'))
+        # 解压包：deps/ 在项目根目录
+        candidates.append(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', 'deps', 'MicrosoftEdgeWebview2Setup.exe'))
+        # EXE 同级目录
+        candidates.append(_os.path.join(_os.path.dirname(_sys.executable), 'deps', 'MicrosoftEdgeWebview2Setup.exe'))
         for p in candidates:
             if _os.path.isfile(_os.path.normpath(p)):
                 return _os.path.normpath(p)
