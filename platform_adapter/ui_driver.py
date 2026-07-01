@@ -152,62 +152,86 @@ class PyWebViewDriver(UIDriver):
 
     def start(self, flask_app, port: int, title: str, width: int, height: int):
         import os as _os
+        import subprocess as _sp
         import sys as _sys
-        import webview
+        import webbrowser as _wb
 
         # 安全默认值
         if not title:
             title = 'DataAgent'
 
-        # Windows: 检测 WebView2 Runtime
+        # Windows: 检测 WebView2 Runtime，缺失时尝试自动修复
+        use_native = False
         if _sys.platform == 'win32':
             has_webview2 = self._check_webview2_runtime()
             if not has_webview2:
-                dl_url = self._webview2_download_url()
-                msg = (
-                    "DataAgent 需要 Microsoft Edge WebView2 Runtime 才能正常显示界面。\n\n"
-                    "您的系统尚未安装此组件（Windows 10 默认不含此组件）。\n\n"
-                    "请按以下步骤安装：\n"
-                    "1. 打开浏览器，访问：\n"
-                    f"   {dl_url}\n"
-                    "2. 下载并运行 Evergreen Bootstrapper\n"
-                    "3. 安装完成后重新启动 DataAgent\n\n"
-                    "如已安装但仍提示此错误，请联系技术支持。"
-                )
-                print(f"[DataAgent] ERROR: WebView2 Runtime not found")
-                print(msg)
-                # 尝试弹出 Windows 消息框
-                try:
-                    import ctypes
-                    ctypes.windll.user32.MessageBoxW(0, msg, "DataAgent — 缺少 WebView2 Runtime", 0x30)
-                except Exception:
-                    pass
-                _sys.exit(1)
+                # 尝试自动运行本地 bootstrapper
+                bootstrapper = self._find_bootstrapper()
+                if bootstrapper:
+                    print("[DataAgent] 正在自动安装 WebView2 Runtime（约需1-2分钟）...")
+                    try:
+                        _sp.run([bootstrapper, '/silent', '/install'], timeout=180)
+                        if self._check_webview2_runtime():
+                            has_webview2 = True
+                            print("[DataAgent] WebView2 Runtime 安装成功")
+                    except Exception as e:
+                        print(f"[DataAgent] WebView2 自动安装失败：{e}")
 
-        flask_thread = threading.Thread(
-            target=lambda: flask_app.run(
+            if not has_webview2:
+                print("[DataAgent] 提示：WebView2 Runtime 未安装，将使用浏览器模式运行")
+                print("[DataAgent] 如需原生窗口体验，请运行 setup.bat 或安装 Edge WebView2")
+                print("[DataAgent] 下载地址：" + self._webview2_download_url())
+            else:
+                use_native = True
+
+        if use_native:
+            # ── 原生窗口模式（需要 WebView2） ──────────────────
+            import webview
+
+            flask_thread = threading.Thread(
+                target=lambda: flask_app.run(
+                    host='127.0.0.1', port=port,
+                    threaded=True, use_reloader=False, debug=False
+                ),
+                daemon=True
+            )
+            flask_thread.start()
+
+            if not _wait_for_flask(port, timeout=15.0):
+                print(f"[DataAgent] WARNING: Flask not ready within 15s (port {port})")
+
+            webview.create_window(
+                title=title,
+                url=f'http://127.0.0.1:{port}',
+                width=width,
+                height=height,
+                resizable=True,
+                min_size=(800, 600),
+                text_select=True,
+            )
+            webview.start(gui='edgechromium')
+        else:
+            # ── 浏览器模式（无需任何额外组件） ─────────────────
+            print(f"[DataAgent] 启动浏览器模式 — http://127.0.0.1:{port}")
+            print("[DataAgent] 按 Ctrl+C 退出")
+            _wb.open(f'http://127.0.0.1:{port}')
+            flask_app.run(
                 host='127.0.0.1', port=port,
                 threaded=True, use_reloader=False, debug=False
-            ),
-            daemon=True
-        )
-        flask_thread.start()
+            )
 
-        # 健康检查：等 Flask 就绪后再创建窗口
-        if not _wait_for_flask(port, timeout=15.0):
-            print(f"[DataAgent] WARNING: Flask not ready within 15s (port {port})")
-
-        # 强制指定 edgechromium 引擎（避免回退到 IE 内核）
-        webview.create_window(
-            title=title,
-            url=f'http://127.0.0.1:{port}',
-            width=width,
-            height=height,
-            resizable=True,
-            min_size=(800, 600),
-            text_select=True,
-        )
-        webview.start(gui='edgechromium' if _sys.platform == 'win32' else None)
+    @staticmethod
+    def _find_bootstrapper() -> str | None:
+        """查找打包在内测包中的 WebView2 Bootstrapper"""
+        import os as _os
+        candidates = [
+            _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', 'deps', 'MicrosoftEdgeWebview2Setup.exe'),
+            _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'MicrosoftEdgeWebview2Setup.exe'),
+        ]
+        for p in candidates:
+            if _os.path.isfile(_os.path.normpath(p)):
+                return _os.path.normpath(p)
+        return None
 
 
 def get_driver() -> UIDriver:

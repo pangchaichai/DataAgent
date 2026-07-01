@@ -359,10 +359,29 @@ def download_deps(deps_dir: Path) -> None:
             else:
                 print(f"   ✅  {dep_spec}")
 
+    # ── 下载 WebView2 Runtime Bootstrapper ──────────────────────
+    _download_webview2_bootstrapper(deps_dir)
+
     tmp_req.unlink(missing_ok=True)
 
     whl_count = len(list(deps_dir.glob("*.whl"))) + len(list(deps_dir.glob("*.tar.gz")))
+    whl_count += 1 if any(deps_dir.glob("MicrosoftEdgeWebview2Setup.exe")) else 0
     print(f"   ✅ 下载完成 ({whl_count} 个文件)")
+
+
+def _download_webview2_bootstrapper(deps_dir: Path) -> None:
+    """下载 WebView2 Evergreen Bootstrapper（约 2MB）"""
+    import urllib.request
+    bootstrapper = deps_dir / "MicrosoftEdgeWebview2Setup.exe"
+    if bootstrapper.exists():
+        return
+    url = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+    print("   ⬇ 下载 WebView2 Runtime Bootstrapper ...")
+    try:
+        urllib.request.urlretrieve(url, str(bootstrapper))
+        print(f"   ✅ WebView2 Bootstrapper ({bootstrapper.stat().st_size / 1024:.0f} KB)")
+    except Exception as e:
+        print(f"   ⚠️ WebView2 Bootstrapper 下载失败（{e}），Windows 10 用户需手动安装")
 
 
 def copy_project(bundle_src: Path) -> None:
@@ -417,6 +436,20 @@ if %ERRORLEVEL% NEQ 0 (
 
 for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYVER=%%i
 echo [检测] Python 版本: %PYVER%
+echo.
+
+:: 安装 WebView2 Runtime（Windows 原生窗口所必需）
+if exist deps\MicrosoftEdgeWebview2Setup.exe (
+    echo [安装] Microsoft Edge WebView2 Runtime ...
+    deps\MicrosoftEdgeWebview2Setup.exe /silent /install
+    if %ERRORLEVEL% EQU 0 (
+        echo [完成] WebView2 Runtime 安装成功
+    ) else (
+        echo [提示] WebView2 Runtime 安装失败，将使用浏览器模式运行
+    )
+) else (
+    echo [提示] 未找到 WebView2 Runtime 安装包，将使用浏览器模式运行
+)
 echo.
 
 :: 创建虚拟环境
