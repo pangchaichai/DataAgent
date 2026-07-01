@@ -471,25 +471,38 @@ for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYVER=%%i
 echo [检测] Python 版本: %PYVER%
 echo.
 
-:: 安装 WebView2 Runtime（离线包，无需联网）
-if exist deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe (
-    echo [安装] Microsoft Edge WebView2 Runtime（离线包，约需 1 分钟）...
-    deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe /silent /install
-    if %ERRORLEVEL% EQU 0 (
-        echo [完成] WebView2 Runtime 安装成功
+:: 安装 WebView2 Runtime — 先检测是否已装，避免重复安装
+set NEED_WEBVIEW2=1
+reg query "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
+if %ERRORLEVEL% EQU 0 set NEED_WEBVIEW2=0
+reg query "HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
+if %ERRORLEVEL% EQU 0 set NEED_WEBVIEW2=0
+:: 也可通过 Edge 浏览器间接检测
+if exist "C:\Program Files (x86)\Microsoft\EdgeWebView\Application" set NEED_WEBVIEW2=0
+if exist "C:\Program Files\Microsoft\EdgeWebView\Application" set NEED_WEBVIEW2=0
+
+if %NEED_WEBVIEW2% EQU 1 (
+    if exist deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe (
+        echo [安装] Microsoft Edge WebView2 Runtime（离线包，约需 1 分钟）...
+        deps\MicrosoftEdgeWebView2RuntimeInstallerX64.exe /silent /install
+        if %ERRORLEVEL% EQU 0 (
+            echo [完成] WebView2 Runtime 安装成功
+        ) else (
+            echo [提示] WebView2 Runtime 安装失败，将使用浏览器模式运行
+        )
+    ) else if exist deps\MicrosoftEdgeWebview2Setup.exe (
+        echo [安装] Microsoft Edge WebView2 Runtime（在线包）...
+        deps\MicrosoftEdgeWebview2Setup.exe /silent /install
+        if %ERRORLEVEL% EQU 0 (
+            echo [完成] WebView2 Runtime 安装成功
+        ) else (
+            echo [提示] WebView2 Runtime 安装失败，将使用浏览器模式运行
+        )
     ) else (
-        echo [提示] WebView2 Runtime 安装失败，将使用浏览器模式运行
-    )
-) else if exist deps\MicrosoftEdgeWebview2Setup.exe (
-    echo [安装] Microsoft Edge WebView2 Runtime（在线包）...
-    deps\MicrosoftEdgeWebview2Setup.exe /silent /install
-    if %ERRORLEVEL% EQU 0 (
-        echo [完成] WebView2 Runtime 安装成功
-    ) else (
-        echo [提示] WebView2 Runtime 安装失败，将使用浏览器模式运行
+        echo [提示] 未找到 WebView2 Runtime 安装包，将使用浏览器模式运行
     )
 ) else (
-    echo [提示] 未找到 WebView2 Runtime 安装包，将使用浏览器模式运行
+    echo [跳过] WebView2 Runtime 已安装
 )
 echo.
 
