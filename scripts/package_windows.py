@@ -496,6 +496,30 @@ python main.py
 pause
 """
 
+RUN_BROWSER_BAT = r"""@echo off
+title DataAgent (浏览器模式)
+
+:: 检查 .venv 是否存在
+if not exist .venv (
+    echo [错误] 未找到 .venv，请先运行 setup.bat 安装
+    pause
+    exit /b 1
+)
+
+:: 检查配置文件
+if not exist DataAgent\config.yaml (
+    echo [提示] 请先编辑 DataAgent\config.yaml 填写 LLM API Key
+    pause
+    exit /b 1
+)
+
+:: 激活虚拟环境，浏览器模式启动
+call .venv\Scripts\activate.bat
+cd DataAgent
+python main.py --browser
+pause
+"""
+
 README_TXT = """DataAgent %VERSION% — Windows 内测版
 
 ══════════════════════════════════════════════════
@@ -610,6 +634,11 @@ if not exist dist\DataAgent\config.yaml (
         copy DataAgent\config.example.yaml dist\DataAgent\config.yaml >nul
     )
 )
+
+:: 生成浏览器模式启动器（Win10 无 Edge 时使用）
+echo @echo off > dist\DataAgent\"DataAgent Browser.bat"
+echo :: DataAgent 浏览器模式启动器 — Win10 用户双击此文件 >> dist\DataAgent\"DataAgent Browser.bat"
+echo start "" "%%~dp0DataAgent.exe" --browser >> dist\DataAgent\"DataAgent Browser.bat"
 
 echo.
 echo ============================================================
@@ -758,6 +787,9 @@ def write_scripts(bundle_root: Path) -> None:
     )
     (bundle_root / "run.bat").write_text(
         RUN_BAT.replace("\n", "\r\n"), encoding="gbk"
+    )
+    (bundle_root / "run_browser.bat").write_text(
+        RUN_BROWSER_BAT.replace("\n", "\r\n"), encoding="gbk"
     )
     (bundle_root / "README.txt").write_text(
         README_TXT.replace("%VERSION%", version), encoding="utf-8"

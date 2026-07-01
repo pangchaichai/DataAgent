@@ -199,5 +199,19 @@ def main():
     )
 
 
+def _parse_args():
+    """解析命令行参数（兼容 PyInstaller EXE）"""
+    import sys
+    args = {'browser': False}
+    for a in sys.argv[1:]:
+        if a in ('--browser', '-b'):
+            args['browser'] = True
+    return args
+
+
 if __name__ == '__main__':
+    _cli_args = _parse_args()
+    if _cli_args['browser']:
+        import os
+        os.environ['DATAAGENT_ENV'] = 'dev'
     main()
