@@ -137,6 +137,7 @@ def create_proxy_app(
     gateway_url: str = None,
     endpoints: dict = None,
     tx_header_template: dict = None,
+    runtime_logger=None,
 ) -> Flask:
     """创建网关代理 Flask 应用。"""
     gw_url = (gateway_url or DEFAULT_GATEWAY_URL).rstrip("/")
@@ -151,12 +152,20 @@ def create_proxy_app(
     def _stream_forward(url: str, payload: dict, headers: dict):
         try:
             with http_session.post(url, json=payload, headers=headers, stream=True) as resp:
+                if runtime_logger:
+                    runtime_logger.debug('gateway_proxy', '流式请求已发送', {
+                        'url': url[:100], 'status': resp.status_code,
+                    })
                 for line in resp.iter_lines(decode_unicode=True):
                     if line:
                         sse_data = _parse_stream_line(line)
                         if sse_data:
                             yield sse_data.encode("utf-8")
         except Exception as e:
+            if runtime_logger:
+                runtime_logger.error('gateway_proxy', '流式转发异常', {
+                    'url': url[:100], 'error': str(e)[:300],
+                })
             yield (
                 f'data: {{"error":{{"message":"{e}","type":"gateway_error"}}}}\n\n'
             ).encode("utf-8")
@@ -180,7 +189,18 @@ def create_proxy_app(
 
         model = body.get("model", "unknown")
         is_stream = body.get("stream", False)
-        logger.info("请求 | 端点: %s | 模型: %s | 流式: %s", endpoint_key, model, is_stream)
+        msg_count = len(body.get("messages", []))
+        logger.info("请求 | 端点: %s | 模型: %s | 流式: %s | 消息数: %d",
+                     endpoint_key, model, is_stream, msg_count)
+
+        if runtime_logger:
+            runtime_logger.info('gateway_proxy', '代理转发请求', {
+                'endpoint': endpoint_key,
+                'model': model,
+                'stream': is_stream,
+                'message_count': msg_count,
+                'gateway_url': gw_url,
+            })
 
         if is_stream:
             return Response(
@@ -191,6 +211,19 @@ def create_proxy_app(
 
         resp = http_session.post(url, json=gateway_payload, headers=headers, timeout=300)
         logger.info("网关响应 | 状态码: %s", resp.status_code)
+
+        if runtime_logger:
+            if resp.status_code >= 400:
+                runtime_logger.error('gateway_proxy', '网关返回错误', {
+                    'status_code': resp.status_code,
+                    'url': url[:100],
+                    'response_preview': resp.text[:300],
+                })
+            else:
+                runtime_logger.debug('gateway_proxy', '网关返回成功', {
+                    'status_code': resp.status_code,
+                    'response_size': len(resp.content),
+                })
 
         if resp.status_code >= 400:
             logger.error("网关错误 | %s | %s", resp.status_code, resp.text[:500])
@@ -235,12 +268,14 @@ def create_proxy_app(
 _proxy_thread = None
 
 
-def start_proxy_background(gateway_cfg: dict, port: int = None) -> int | None:
+def start_proxy_background(gateway_cfg: dict, port: int = None,
+                           runtime_logger=None) -> int | None:
     """在后台线程启动网关代理，返回监听端口。
 
     Args:
         gateway_cfg: config.yaml 中 llm.enterprise_internal.gateway 段
         port: 代理端口（默认从 gateway_cfg 读取或 8081）
+        runtime_logger: DataAgent 运行时日志记录器（可选，写入 data/logs/）
 
     Returns:
         实际监听端口，启动失败返回 None
@@ -261,18 +296,37 @@ def start_proxy_background(gateway_cfg: dict, port: int = None) -> int | None:
     if gateway_cfg.get("tx_header"):
         tx_header.update(gateway_cfg["tx_header"])
 
+    # 记录启动信息到控制台 + 运行时日志
+    print(f"[DataAgent] 启动企业网关代理 — 端口 {proxy_port} → {gateway_url}")
+    logger.info("启动网关代理 | 端口: %d | 网关: %s", proxy_port, gateway_url)
+
+    if runtime_logger:
+        runtime_logger.info('gateway_proxy', '网关代理启动', {
+            'port': proxy_port,
+            'gateway_url': gateway_url,
+        })
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(1)
             if s.connect_ex(("127.0.0.1", proxy_port)) == 0:
-                logger.info("端口 %d 已被占用，跳过代理启动（可能已在运行）", proxy_port)
+                msg = f"端口 {proxy_port} 已被占用，跳过代理启动（可能已在运行）"
+                logger.info(msg)
+                if runtime_logger:
+                    runtime_logger.warning('gateway_proxy', '端口占用跳过启动', {
+                        'port': proxy_port, 'reason': 'port already in use',
+                    })
                 return proxy_port
-    except Exception:
-        pass
+    except Exception as e:
+        if runtime_logger:
+            runtime_logger.warning('gateway_proxy', '端口检测异常', {
+                'port': proxy_port, 'error': str(e)[:200],
+            })
 
     app = create_proxy_app(
         gateway_url=gateway_url,
         tx_header_template=tx_header,
+        runtime_logger=runtime_logger,
     )
 
     def _run():

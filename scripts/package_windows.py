@@ -418,6 +418,17 @@ if %ERRORLEVEL% NEQ 0 (
 
 for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYVER=%%i
 echo [检测] Python 版本: %PYVER%
+python -c "import struct; exit(0 if struct.calcsize('P')==8 else 1)"
+if %ERRORLEVEL% EQU 0 (
+    echo [检测] Python 架构: 64-bit [OK]
+) else (
+    echo [错误] 检测到 32-bit Python，DataAgent 需要 64-bit Python 3.11
+    echo.
+    echo 请卸载当前 Python，从 python.org 下载 "Windows installer (64-bit)"
+    echo 安装时务必勾选 "Add Python to PATH"
+    pause
+    exit /b 1
+)
 echo.
 
 :: 创建虚拟环境
