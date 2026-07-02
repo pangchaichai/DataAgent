@@ -65,6 +65,7 @@ INCLUDE_DIRS = [
 INCLUDE_FILES = [
     "main.py",
     "session_store.py",
+    "gateway_proxy.py",
     "config.example.yaml",
     ".env.example",
     "groups.yaml",
@@ -724,6 +725,7 @@ a = Analysis(
         'platform_adapter', 'platform_adapter.ui_driver',
         'platform_adapter.notify_driver',
         'session_store',
+        'gateway_proxy',
         'api', 'api.chat', 'api.data', 'api.config_api',
         'api.skill_api', 'api.report_api', 'api.system_api',
         'scheduler', 'scheduler.task_manager',
