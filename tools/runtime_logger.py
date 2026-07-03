@@ -51,7 +51,7 @@ CAT_ERROR = 'error'               # 异常
 CAT_PERFORMANCE = 'performance'   # 内存/耗时
 
 # basic 模式记录的类别（不论级别）
-BASIC_CATEGORIES = {CAT_LIFECYCLE, CAT_ERROR, CAT_LLM}
+BASIC_CATEGORIES = {CAT_LIFECYCLE, CAT_ERROR, CAT_LLM, 'gateway_proxy'}
 
 DEFAULT_MAX_DAYS = 30
 DEFAULT_MAX_FILE_MB = 50
