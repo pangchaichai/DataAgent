@@ -169,11 +169,27 @@ def main():
         from gateway_proxy import start_proxy_background
         proxy_port = start_proxy_background(gateway_cfg, runtime_logger=logger)
         if proxy_port:
+            proxy_addr = f"http://127.0.0.1:{proxy_port}"
             print(f"[DataAgent] 网关代理已启动，端口：{proxy_port}")
             logger.info('gateway_proxy', '网关代理启动完成', {
-                'port': proxy_port,
+                'proxy_address': proxy_addr,
+                'listen_ip': '127.0.0.1',
+                'listen_port': proxy_port,
+                'gateway_url': gateway_cfg.get('gateway_url', ''),
+                'llm_config_url': enterprise_cfg.get('url', ''),
+                'status': 'running',
+            })
+        else:
+            logger.error('gateway_proxy', '网关代理启动失败', {
+                'gateway_enabled': gateway_cfg.get('enabled'),
+                'configured_port': gateway_cfg.get('proxy_port', '8081'),
                 'gateway_url': gateway_cfg.get('gateway_url', ''),
             })
+    else:
+        logger.info('gateway_proxy', '网关代理未启用', {
+            'gateway_enabled': False,
+            'llm_url': enterprise_cfg.get('url', ''),
+        })
 
     if config.get('scheduler', {}).get('enabled', False):
         from scheduler.task_manager import TaskManager

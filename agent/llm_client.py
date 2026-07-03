@@ -294,10 +294,24 @@ class LLMClient:
             return {"ok": False, "error": f"未配置 provider: {provider}"}
         base_url = cfg["url"].rstrip("/")
         headers = self._build_request_headers(provider, cfg)
+        model = cfg.get("model", "")
 
+        self._runtime_log('info', 'LLM 测试连接开始', {
+            'provider': provider, 'url': base_url[:80], 'model': model,
+            'has_auth': 'Authorization' in headers,
+        })
+
+        # ── 步骤 1: GET /v1/models ──────────────────────────
+        models_url = f"{base_url}/models"
         models_list = []
+        t0 = time.time()
         try:
-            resp = _req.get(f"{base_url}/models", headers=headers, timeout=5)
+            resp = _req.get(models_url, headers=headers, timeout=5)
+            self._runtime_log('info', 'LLM 测试 /models 响应', {
+                'provider': provider, 'status_code': resp.status_code,
+                'elapsed_ms': int((time.time() - t0) * 1000),
+                'model_count': len(resp.json().get("data", [])) if resp.status_code == 200 else 0,
+            })
             if resp.status_code == 200:
                 models_list = [m["id"] for m in resp.json().get("data", [])]
             elif resp.status_code in (401, 403):
@@ -309,19 +323,29 @@ class LLMClient:
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
 
-        # 实际测试 chat/completions 端点（用最小请求）
+        # ── 步骤 2: POST /v1/chat/completions ──────────────
         model = cfg.get("model", "")
         chat_payload = {
             "model": model,
             "messages": [{"role": "user", "content": "test"}],
             "max_tokens": 5,
         }
+        chat_url = f"{base_url}/chat/completions"
+        t1 = time.time()
         try:
             chat_resp = _req.post(
-                f"{base_url}/chat/completions",
+                chat_url,
                 json=chat_payload, headers=headers, timeout=10,
             )
+            elapsed = int((time.time() - t1) * 1000)
+            self._runtime_log('info', 'LLM 测试 /chat 响应', {
+                'provider': provider, 'status_code': chat_resp.status_code,
+                'elapsed_ms': elapsed, 'url': chat_url[:80],
+            })
             if chat_resp.status_code in (401, 403):
+                self._runtime_log('error', 'LLM 测试连接认证失败', {
+                    'provider': provider, 'status_code': chat_resp.status_code,
+                })
                 return {
                     "ok": False,
                     "error": "模型列表可访问，但对话接口认证失败（HTTP "
@@ -329,6 +353,10 @@ class LLMClient:
                     "models": models_list,
                 }
             if chat_resp.status_code >= 500:
+                self._runtime_log('error', 'LLM 测试连接服务端错误', {
+                    'provider': provider, 'status_code': chat_resp.status_code,
+                    'response_preview': chat_resp.text[:300],
+                })
                 return {
                     "ok": False,
                     "error": f"对话接口服务端错误（HTTP {chat_resp.status_code}），请检查 LLM 服务状态",
@@ -340,6 +368,10 @@ class LLMClient:
                     data = self._extract_openai_response(raw)
                     if not data.get('choices'):
                         gw_err = self._parse_gateway_error(data)
+                        self._runtime_log('error', 'LLM 测试连接响应异常', {
+                            'provider': provider, 'raw_keys': list(raw.keys())[:10],
+                            'data_keys': list(data.keys())[:10],
+                        })
                         return {
                             "ok": False,
                             "error": gw_err or (
@@ -352,9 +384,19 @@ class LLMClient:
                         }
                 except (ValueError, AttributeError):
                     pass
+            self._runtime_log('info', 'LLM 测试连接完成', {
+                'provider': provider, 'ok': chat_resp.status_code == 200,
+                'models_endpoint': len(models_list) > 0,
+            })
         except _req.Timeout:
+            self._runtime_log('error', 'LLM 测试连接超时', {
+                'provider': provider, 'url': chat_url[:80],
+            })
             return {"ok": False, "error": "对话接口响应超时，但模型列表可访问", "models": models_list}
         except _req.ConnectionError:
+            self._runtime_log('error', 'LLM 测试连接被拒绝', {
+                'provider': provider, 'url': chat_url[:80],
+            })
             return {"ok": False, "error": f"无法连接 {cfg['url']}，请确认服务已启动"}
         except Exception:
             pass
