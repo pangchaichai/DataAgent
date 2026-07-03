@@ -252,10 +252,36 @@ class LLMClient:
         if max_tokens is None:
             max_tokens = self.sql_gen_cfg.get('max_tokens', 2000)
 
+        primary = self.sql_gen_cfg.get('primary', 'unknown')
+        provider = self.providers.get(primary, {})
+        self._runtime_log('info', 'LLM chat 调用开始', {
+            'provider': primary,
+            'tool_mode': tool_mode,
+            'model': provider.get('model', '?'),
+            'url': (provider.get('url', '') or '')[:80],
+            'message_count': len(messages),
+            'tool_count': len(tools) if tools else 0,
+            'stream': False,
+            'timeout': timeout,
+            'max_tokens': max_tokens,
+        })
+
         if tool_mode == 'native':
-            return self._chat_native(messages, tools, timeout, max_tokens)
+            result = self._chat_native(messages, tools, timeout, max_tokens)
         else:
-            return self._chat_react(messages, tools, timeout, max_tokens)
+            result = self._chat_react(messages, tools, timeout, max_tokens)
+
+        self._runtime_log('info' if result.success else 'error', 'LLM chat 调用结束', {
+            'provider': primary,
+            'tool_mode': tool_mode,
+            'success': result.success,
+            'elapsed_ms': result.elapsed_ms,
+            'token_count': result.token_count,
+            'error': result.error[:300] if result.error else '',
+            'has_content': bool(result.text),
+            'tool_calls_count': len(result.tool_calls),
+        })
+        return result
 
     # ── Provider 管理接口 ──────────────────────────────────────
 
@@ -718,13 +744,34 @@ class LLMClient:
             payload['tools'] = tools
             payload['tool_choice'] = 'auto'
 
+        full_url = f"{url.rstrip('/')}/chat/completions"
+        payload_size = len(json.dumps(payload, ensure_ascii=False, default=str))
+        self._runtime_log('info', 'LLM HTTP 请求发送', {
+            'provider': provider_name,
+            'url': full_url[:120],
+            'model': model,
+            'message_count': len(messages),
+            'tool_count': len(tools) if tools else 0,
+            'payload_bytes': payload_size,
+            'timeout': timeout,
+            'max_tokens': max_tokens,
+            'has_auth': 'Authorization' in headers,
+        })
+
         start = time.time()
         try:
             resp = requests.post(
-                f"{url.rstrip('/')}/chat/completions",
+                full_url,
                 json=payload, headers=headers, timeout=timeout,
             )
             elapsed_ms = int((time.time() - start) * 1000)
+
+            self._runtime_log('info', 'LLM HTTP 响应收到', {
+                'provider': provider_name,
+                'status_code': resp.status_code,
+                'elapsed_ms': elapsed_ms,
+                'response_bytes': len(resp.content),
+            })
 
             if resp.status_code == 200:
                 raw = resp.json()
@@ -777,28 +824,54 @@ class LLMClient:
                 )
             elif resp.status_code in (401, 403):
                 detail = resp.text[:100] if resp.text else ''
+                self._runtime_log('error', 'LLM HTTP 认证失败', {
+                    'provider': provider_name, 'status_code': resp.status_code,
+                    'detail': detail, 'url': full_url[:120],
+                })
                 return ChatResult(success=False,
                                   error=f"api_key ({resp.status_code}: {detail})",
                                   elapsed_ms=elapsed_ms, model=model)
             elif resp.status_code >= 500:
+                self._runtime_log('error', 'LLM HTTP 服务端错误', {
+                    'provider': provider_name, 'status_code': resp.status_code,
+                    'response_preview': resp.text[:500],
+                    'url': full_url[:120],
+                })
                 return ChatResult(
                     success=False, elapsed_ms=elapsed_ms, model=model,
                     error=f"connection refused (HTTP {resp.status_code})",
                 )
             else:
                 logger.warning("[LLM chat] HTTP %d: %s", resp.status_code, resp.text[:500])
+                self._runtime_log('error', 'LLM HTTP 异常状态码', {
+                    'provider': provider_name, 'status_code': resp.status_code,
+                    'response_preview': resp.text[:500],
+                    'url': full_url[:120],
+                })
                 return ChatResult(
                     success=False, elapsed_ms=elapsed_ms, model=model,
                     error=f"HTTP {resp.status_code}: {resp.text[:200]}",
                 )
         except requests.Timeout:
+            self._runtime_log('error', 'LLM HTTP 请求超时', {
+                'provider': provider_name, 'timeout_sec': timeout,
+                'elapsed_ms': int((time.time() - start) * 1000),
+            })
             return ChatResult(success=False, error="timeout",
                             elapsed_ms=int((time.time() - start) * 1000))
         except requests.ConnectionError:
+            self._runtime_log('error', 'LLM HTTP 连接被拒绝', {
+                'provider': provider_name, 'url': full_url[:120],
+            })
             return ChatResult(success=False, error="connection refused",
                             elapsed_ms=int((time.time() - start) * 1000))
         except Exception as e:
             logger.exception("[LLM chat] 未预期异常: %s", e)
+            self._runtime_log('error', 'LLM HTTP 未预期异常', {
+                'provider': provider_name,
+                'error': str(e)[:300],
+                'url': full_url[:120],
+            })
             return ChatResult(success=False, error=str(e)[:200],
                             elapsed_ms=int((time.time() - start) * 1000))
 
