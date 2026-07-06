@@ -653,6 +653,8 @@ class LLMClient:
 
         本方法自动适配两种格式，返回内层 OpenAI 格式的 dict。
         """
+        if data is None:
+            return {}
         if "choices" in data:
             return data
         tx_body = data.get("txBody")

@@ -112,7 +112,13 @@ def _to_gateway_format(openai_body: dict, tx_type: str, header_template: dict = 
 
 def _from_gateway_format(gateway_response: dict) -> dict:
     tx_body = gateway_response.get("txBody", {})
-    return tx_body.get("txEntity", gateway_response)
+    if not isinstance(tx_body, dict):
+        return gateway_response
+    entity = tx_body.get("txEntity")
+    if entity is None:
+        # 企业 LLM 可能返回 null txEntity（如不支持 tools 参数时）
+        return {}
+    return entity if isinstance(entity, dict) else gateway_response
 
 
 def _parse_stream_line(line: str) -> str | None:
@@ -232,6 +238,16 @@ def create_proxy_app(
             ), resp.status_code
 
         result = _from_gateway_format(resp.json())
+        if not result:
+            logger.warning("网关返回空 txEntity | 状态码: %s | 模型可能不支持 function-calling 或 tools 参数",
+                           resp.status_code)
+            if runtime_logger:
+                runtime_logger.warning('gateway_proxy', '网关返回空 txEntity', {
+                    'status_code': resp.status_code,
+                    'model': model,
+                    'has_tools': 'tools' in json.dumps(gateway_payload.get('txBody', {}).get('txEntity', {})),
+                    'response_preview': resp.text[:300],
+                })
         return jsonify(result)
 
     @app.route("/health", methods=["GET"])
